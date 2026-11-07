@@ -2,8 +2,12 @@ class AgreementTemplateModel {
   final String id;
   final String title;
   final String content;
-  final String paperSize; // 'A4' یا 'Legal'
-  final double topMargin; // ای-اسٹامپ کے ہیڈر کے لیے خالی جگہ (ڈیفالٹ: 0)
+  final String paperSize;
+  final bool isEStamp;
+  final double topMargin; // صفحہ نمبر 1 کا ٹاپ مارجن (مونوگرام)
+  final double subsequentTopMargin; // صفحہ 2 اور آگے کے صفحات کا ٹاپ مارجن
+  final double bottomMargin;
+  final double sideMargin;
   final List<String> fields;
   final bool isSynced;
   final String updatedAt;
@@ -15,7 +19,11 @@ class AgreementTemplateModel {
     required this.title,
     required this.content,
     this.paperSize = 'A4',
-    this.topMargin = 0.0,
+    this.isEStamp = false,
+    this.topMargin = 220.0,
+    this.subsequentTopMargin = 45.0,
+    this.bottomMargin = 75.0,
+    this.sideMargin = 35.0,
     required this.fields,
     this.isSynced = false,
     required this.updatedAt,
@@ -29,7 +37,11 @@ class AgreementTemplateModel {
       'title': title,
       'content': content,
       'paperSize': paperSize,
+      'isEStamp': isEStamp,
       'topMargin': topMargin,
+      'subsequentTopMargin': subsequentTopMargin,
+      'bottomMargin': bottomMargin,
+      'sideMargin': sideMargin,
       'fields': fields,
       'isSynced': isSynced,
       'updatedAt': updatedAt,
@@ -44,7 +56,11 @@ class AgreementTemplateModel {
       title: map['title']?.toString() ?? '',
       content: map['content']?.toString() ?? '',
       paperSize: map['paperSize']?.toString() ?? 'A4',
-      topMargin: (map['topMargin'] as num?)?.toDouble() ?? 0.0,
+      isEStamp: map['isEStamp'] as bool? ?? false,
+      topMargin: (map['topMargin'] as num?)?.toDouble() ?? 220.0,
+      subsequentTopMargin: (map['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0,
+      bottomMargin: (map['bottomMargin'] as num?)?.toDouble() ?? 75.0,
+      sideMargin: (map['sideMargin'] as num?)?.toDouble() ?? 35.0,
       fields: List<String>.from(map['fields'] ?? []),
       isSynced: map['isSynced'] as bool? ?? false,
       updatedAt: map['updatedAt']?.toString() ?? '',

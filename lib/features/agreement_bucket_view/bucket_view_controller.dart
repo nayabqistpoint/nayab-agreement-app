@@ -9,8 +9,11 @@ class BucketViewController extends ChangeNotifier {
   String templateId = '';
   String templateText = '';
   String paperSize = 'A4';
+  bool isEStamp = false;
   double topMargin = 0.0;
-
+  double subsequentTopMargin = 45.0;
+  double bottomMargin = 0.0;
+  double sideMargin = 20.0;
   final Map<String, TextEditingController> controllers = {};
   List<String> fields = [];
   Map<String, dynamic> qrSourceData = {};
@@ -22,10 +25,13 @@ class BucketViewController extends ChangeNotifier {
       templateId = draft['templateId']?.toString() ?? '';
       templateText = draft['templateText']?.toString() ?? '';
       paperSize = draft['paperSize']?.toString() ?? 'A4';
+      isEStamp = draft['isEStamp'] as bool? ?? false;
       topMargin = (draft['topMargin'] as num?)?.toDouble() ?? 0.0;
+      subsequentTopMargin = (draft['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0;
+      bottomMargin = (draft['bottomMargin'] as num?)?.toDouble() ?? 0.0;
+      sideMargin = (draft['sideMargin'] as num?)?.toDouble() ?? 20.0;
       qrSourceData = Map<String, dynamic>.from(draft['qrSourceData'] ?? {});
       final savedFieldValues = Map<String, dynamic>.from(draft['fieldValues'] ?? {});
-
       fields = TemplateService.extractFields(templateText);
       _setupControllers(savedFieldValues);
     }
@@ -51,7 +57,11 @@ class BucketViewController extends ChangeNotifier {
       templateId: templateId,
       templateText: templateText,
       paperSize: paperSize,
+      isEStamp: isEStamp,
       topMargin: topMargin,
+      subsequentTopMargin: subsequentTopMargin,
+      bottomMargin: bottomMargin,
+      sideMargin: sideMargin,
       fieldValues: values,
       qrSourceData: qrSourceData,
     );
@@ -69,7 +79,6 @@ class BucketViewController extends ChangeNotifier {
       );
       return;
     }
-
     final buffer = StringBuffer();
     buffer.writeln('محترم گاہک! نایاب قسط پوائنٹ پر آپ کا معاہدہ تیار کیا جا رہا ہے۔');
     buffer.writeln('براہِ کرم درج ذیل خالی کوائف لکھ کر بھیجیں:\n');
@@ -77,10 +86,8 @@ class BucketViewController extends ChangeNotifier {
       buffer.writeln('${i + 1}. ${missing[i]}: ');
     }
     final message = buffer.toString();
-
     String phone = phoneController.text.trim().replaceAll(' ', '').replaceAll('-', '');
     if (phone.startsWith('03')) phone = '92${phone.substring(1)}';
-
     if (phone.isNotEmpty) {
       final url = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
       if (await canLaunchUrl(url)) {
@@ -107,7 +114,6 @@ class BucketViewController extends ChangeNotifier {
       }
       return;
     }
-
     int matchCount = 0;
     final lines = text.split('\n');
     for (var line in lines) {

@@ -1,4 +1,7 @@
+import 'dart:js_interop';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
@@ -36,30 +39,65 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     super.dispose();
   }
 
-  /// تمام فالتو کوڈز اور ڈبل اسٹارز (** ) کو مکمل صاف کر کے اصل قانونی نظارہ بنانا
+  void _pickCustomerStampPdf() {
+    if (kIsWeb) {
+      final uploadInput = web.document.createElement('input') as web.HTMLInputElement;
+      uploadInput.type = 'file';
+      uploadInput.accept = '.pdf,application/pdf';
+      uploadInput.click();
+
+      uploadInput.onchange = (web.Event e) {
+        final files = uploadInput.files;
+        if (files == null || files.length == 0) return;
+        final file = files.item(0);
+        if (file == null) return;
+
+        final reader = web.FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onloadend = (web.ProgressEvent pe) {
+          final result = reader.result;
+          if (result != null && mounted) {
+            final arrayBuffer = result as JSArrayBuffer;
+            final bytes = arrayBuffer.toDart.asUint8List();
+
+            setState(() {
+              _controller.selectedStampPdfBytes = bytes;
+              _controller.selectedStampFileName = file.name;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ اصل ای-اسٹامپ پی ڈی ایف منسلک ہو گیا: ${file.name}'),
+                backgroundColor: AppColors.successGreen,
+              ),
+            );
+          }
+        }.toJS;
+      }.toJS;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ای-اسٹامپ اوورلے فعال ہے۔')),
+      );
+    }
+  }
+
   String _buildCleanPreviewText() {
     String raw = _controller.templateContent;
     if (raw.isEmpty) return 'کوئی معاہدہ منتخب نہیں ہے۔';
 
-    // 1. تمام ڈبل اور سنگل اسٹارز کا مکمل خاتمہ
     raw = raw.replaceAll('**', '').replaceAll('*', '');
-
-    // 2. پرانے مارک ڈاؤن اور فارمیٹنگ کوڈز کی صفائی
     raw = raw.replaceAll('[center]', '').replaceAll('[/center]', '');
     raw = raw.replaceAll(RegExp(r'^#+\s*', multiLine: true), '');
     raw = raw.replaceAll(RegExp(r'\[space:\s*\d+\]'), '\n');
     raw = raw.replaceAll(RegExp(r'\[signatures:.*?\]'), '');
 
-    // 3. ٹیگز کی تبدیلی: بھری ہوئی ویلیو یا صاف ستھری لکیر
     for (var f in _controller.requiredFields) {
       final val = _controller.currentFieldValues[f]?.trim();
       final display = (val != null && val.isNotEmpty) ? val : '__________';
       raw = raw.replaceAll('{{$f}}', display);
     }
 
-    // اگر کوئی اضافی خالی ٹیگ رہ گیا ہو تو اس کی جگہ بھی لکیر
     raw = raw.replaceAll(RegExp(r'\{\{.*?\}\}'), '__________');
-
     return raw.trim();
   }
 
@@ -104,21 +142,19 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
         body: ValueListenableBuilder(
           valueListenable: HiveBoxManager.listenToBox(BoxNames.agreementDraftBox),
           builder: (context, box, child) {
-            final isA4 = _controller.paperSize == 'A4';
+            final isEStampMode = _controller.isEStamp || _controller.paperSize == 'Legal';
 
             return Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 1. پروڈکٹ QR اور شناختی کارڈ اسکین بار
                   CounterScannerBarUi(
                     onScanProduct: () => _controller.scanProduct(context),
                     onScanCnic: () => _controller.scanCnic(context),
                   ),
                   const SizedBox(height: 10),
 
-                  // 2. معاہدہ منتخب کرنے کا ڈراپ ڈاؤن مع ایڈیٹ بٹن
                   CounterTemplateSelectorUi(
                     selectedTitle: _controller.selectedTemplateTitle,
                     availableTemplates: _controller.availableTemplates,
@@ -132,7 +168,11 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                               templateTitle: _controller.selectedTemplateTitle,
                               templateContent: _controller.templateContent,
                               paperSize: _controller.paperSize,
+                              isEStamp: _controller.isEStamp,
                               topMargin: _controller.topMargin,
+                              subsequentTopMargin: _controller.subsequentTopMargin,
+                              bottomMargin: _controller.bottomMargin,
+                              sideMargin: _controller.sideMargin,
                             ),
                           ),
                         ),
@@ -142,49 +182,67 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 3. پیپر سائز کا انتخاب (A4 بنام لیگل اسٹامپ)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.cardSurface,
+                      color: isEStampMode ? const Color(0xFFFFF8E1) : AppColors.cardSurface,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.borderLight),
+                      border: Border.all(
+                        color: isEStampMode ? Colors.amber.shade600 : AppColors.borderLight,
+                        width: 1.2,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('کاغذ کا سائز:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                         Row(
                           children: [
-                            ChoiceChip(
-                              label: const Text('A4 کاغذ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                              selected: isA4,
-                              onSelected: (val) {
-                                if (val) {
-                                  _controller.paperSize = 'A4';
-                                  setState(() {});
-                                }
-                              },
+                            Icon(
+                              isEStampMode ? Icons.verified_user : Icons.description_outlined,
+                              color: isEStampMode ? Colors.brown.shade800 : AppColors.primaryEmerald,
+                              size: 22,
                             ),
                             const SizedBox(width: 8),
-                            ChoiceChip(
-                              label: const Text('لیگل اسٹامپ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                              selected: !isA4,
-                              onSelected: (val) {
-                                if (val) {
-                                  _controller.paperSize = 'Legal';
-                                  setState(() {});
-                                }
-                              },
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEStampMode ? 'طرزِ دستاویز: پنجاب ای-اسٹامپ (لیگل اوورلے)' : 'طرزِ دستاویز: سادہ دفتری معاہدہ (A4 پیپر)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
+                                  ),
+                                ),
+                                if (isEStampMode && _controller.selectedStampFileName != null)
+                                  Text(
+                                    'فائل: ${_controller.selectedStampFileName}',
+                                    style: TextStyle(fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
+                        if (isEStampMode)
+                          ElevatedButton.icon(
+                            onPressed: _pickCustomerStampPdf,
+                            icon: const Icon(Icons.picture_as_pdf, size: 16),
+                            label: Text(
+                              _controller.selectedStampPdfBytes != null ? 'اسٹامپ تبدیل کریں' : 'ای-اسٹامپ PDF چنیں',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.brown.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 10),
 
-                  // 4. ڈیٹا بکٹ بیج
                   CounterBucketBadgeUi(
                     totalFields: _controller.totalFieldsCount,
                     filledFields: _controller.filledFieldsCount,
@@ -198,7 +256,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 5. بالکل صاف ستھرا پیشگی قانونی نظارہ (بغیر اسٹارز اور بغیر ٹیگز کے)
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.all(14),
@@ -220,13 +277,17 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
+                                  color: isEStampMode ? Colors.amber.shade100 : Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border: Border.all(color: isEStampMode ? Colors.amber.shade400 : Colors.grey.shade300),
                                 ),
                                 child: Text(
-                                  isA4 ? 'A4 کاغذ' : 'لیگل اسٹامپ',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  isEStampMode ? 'لیگل ای-اسٹامپ' : 'A4 دفتری کاغذ',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
+                                  ),
                                 ),
                               ),
                             ],
@@ -251,7 +312,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 6. پرنٹ اور کاپی ایکشن بار
                   CounterPrintActionUi(
                     onPrint: () => _controller.printAgreement(context),
                     onCopyText: () => _controller.copyAgreementText(context),

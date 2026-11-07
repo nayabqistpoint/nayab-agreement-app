@@ -1,13 +1,14 @@
-from fastapi import FastAPI, File, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from google import genai
-from google.genai import types
 import fitz  # PyMuPDF
-import json
-import time
+from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.responses import HTMLResponse, Response
+from fastapi.middleware.cors import CORSMiddleware
+import io
+import os
+import textwrap
+import arabic_reshaper
+from bidi.algorithm import get_display
 
-app = FastAPI(title="Nayab Automated Agreement Engine")
+app = FastAPI(title="Nayab Agreement PDF Overlay Engine")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,237 +18,193 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = "AQ.Ab8RN6I5BuUyUvljLuQxtsKCusKuWInRuz7NgOscUtvx7MyKlA"
-client = genai.Client(api_key=GEMINI_API_KEY)
+def fix_urdu_line(text: str) -> str:
+    """Urdu text ko reshape aur RTL theek karne ka function"""
+    if not text.strip():
+        return ""
+    reshaper = arabic_reshaper.ArabicReshaper({
+        'delete_harakat': False,
+        'support_ligatures': True
+    })
+    reshaped = reshaper.reshape(text)
+    return get_display(reshaped)
 
-def get_live_working_models():
-    """گوگل کے سرور سے براہ راست فعال ماڈلز کی تصدیق شدہ لسٹ لینا"""
-    valid_models = []
-    try:
-        for model in client.models.list():
-            name = model.name
-            if name.startswith("models/"):
-                name = name.replace("models/", "")
-            
-            # صرف وہی ماڈل چنیں جو ٹیکسٹ اور وژن کے ساتھ مواد بنا سکتے ہوں
-            actions = getattr(model, "supported_actions", []) or getattr(model, "supported_generation_methods", [])
-            if any("generateContent" in str(act) for act in actions):
-                valid_models.append(name)
-    except Exception as e:
-        print(f"ماڈل لسٹ حاصل کرنے میں انتباہ: {e}")
-    
-    # ترجیحی ترتیب (نیا فلیش ماڈل سب سے اوپر)
-    sorted_models = []
-    for m in valid_models:
-        if "3.8" in m:
-            sorted_models.insert(0, m)
-        elif "flash" in m.lower():
-            sorted_models.append(m)
-        else:
-            sorted_models.append(m)
-            
-    # اگر لسٹ نہ ملے تو ڈیفالٹ 3.8 رکھیں
-    return sorted_models if sorted_models else ["gemini-3.8-flash"]
+SAMPLE_TWO_PAGE_TEXT = """اقرار نامہ و معاہدہ بیع بالاقساط (نایاب قسط پوائنٹ حاصل پور)
 
-AVAILABLE_MODELS = get_live_working_models()
-print(f"آپ کی کی پر فعال ماڈلز کی تصدیق شدہ لسٹ: {AVAILABLE_MODELS}")
+منکہ ابوبکر روشن ولد محمد ایوب قوم کھاوڑ شناختی کارڈ نمبر 31203-1188884-3 ساکن قائم پور تحصیل حاصل پور ضلع بہاولپور کا مستقل رہائشی ہوں۔
 
-def auto_process_document(file_bytes, filename):
-    image_parts = []
-    
-    if filename.endswith(".pdf"):
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        for page in doc:
-            pix = page.get_pixmap(dpi=130)
-            img_bytes = pix.tobytes("jpeg")
-            image_parts.append(
-                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
-            )
-    else:
-        image_parts.append(
-            types.Part.from_bytes(data=file_bytes, mime_type="image/jpeg")
-        )
+1. یہ کہ میں نے نایاب قسط پوائنٹ حاصل پور سے ایک عدد اسمارٹ فون برانڈ ویوو ماڈل V2029 بمعہ اصلی چارجر، ڈبہ اور جملہ لوازمات کل طے شدہ رقم مبلغ 45,000 روپے میں باقاعدہ قسطوں پر خریدا ہے۔
+2. یہ کہ میں نے پیشگی رقم (ایڈوانس) مبلغ 10,000 روپے موقع پر نقد ادا کر دی ہے جبکہ بقایا رقم مبلغ 35,000 روپے میں ہر ماہ کی 5 تاریخ کو ماہانہ قسط مبلغ 5,000 روپے نایاب قسط پوائنٹ کے کاؤنٹر پر جمع کروانے کا پابند رہوں گا۔
+3. یہ کہ اقساط کی کل مدت 7 ماہ مقرر پائی ہے۔ اگر میں کسی بھی ماہ کی قسط مقررہ تاریخ تک ادا کرنے میں ناکام رہا تو دکاندار یا ادارہ کو مکمل قانونی حق حاصل ہوگا کہ وہ بقیہ تمام واجب الادا رقم یکمشت وصول کرے یا موبائل واپس تحویل میں لے۔
+4. یہ کہ موبائل سیٹ میں دوران استعمال اگر کوئی تکنیکی خرابی پیش آئے تو اس کی ذمہ داری وارنٹی کارڈ کے مطابق متعلقہ کمپنی پر ہوگی اور دکان یا قسط کے معاملات پر اس کا کوئی اثر نہیں پڑے گا۔
 
-    prompt = (
-        "آپ ایک مکمل طور پر خودکار قانونی دستاویز کے تجزیہ کار اور ٹرانسکرائبر ہیں۔\n"
-        "اس دستاویز کی تصاویر کو دیکھ کر درج ذیل دو چیزیں JSON فارمیٹ میں فراہم کریں:\n"
-        "1. original_text: اصل دستاویز کا 100 فیصد ہو بہو، مکمل متن، لائن بائی لائن ترتیب کے ساتھ۔\n"
-        "2. template_with_tags: وہی متن لیکن تمام متغیرات (جیسے نام، والد کا نام، قوم، پتہ، شناختی کارڈ، فون، رقم، تاریخ وغیرہ) کی جگہ واضح ڈائنامک ٹیگز (مثلاً {{applicant_name}}, {{applicant_cnic}} وغیرہ) لگا کر تیار کی گئی حتمی ٹیمپلیٹ۔\n\n"
-        "جواب صرف اور صرف درست JSON فارمیٹ میں دیں:\n"
-        "{\n"
-        '  "original_text": "...",\n'
-        '  "template_with_tags": "..."\n'
-        "}"
-    )
+شرائط و ضوابط برائے ضامن و قانونی چارہ جوئی:
+5. یہ کہ ضامن مسمی محمد ایوب ولد غلام قادر شناختی کارڈ نمبر 31203-0000000-0 خریدار کے ہر قسم کے مالی معاملات اور بروقت اقساط کی ادائیگی کا مکمل ضامن و ذمہ دار ہے۔
+6. خریدار یا ضامن کسی بھی قانونی تنازع کی صورت میں عدالت دیوانی یا فوجداری مجاز حاصل پور کے دائرہ اختیار کو تسلیم کریں گے۔
+7. یہ تحریر بقائمی ہوش و حواس خمسہ، بلاتکلف و جبر اور روبرو گواہان درج کر کے دستخط و نشان انگوٹھا ثبت کر دیے ہیں تاکہ سند رہے اور بوقت ضرورت کام آئے۔
 
-    last_error = None
-    
-    # صرف انہی ماڈلز کو کال جائے گی جو گوگل کے مطابق 100% فعال ہیں
-    for model_name in AVAILABLE_MODELS:
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=[prompt, *image_parts],
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json"
-                    )
-                )
-                if response.text:
-                    return json.loads(response.text)
-            except Exception as e:
-                last_error = e
-                time.sleep(2)
-                continue
-
-    raise Exception(f"پروسیسنگ فیل ہوئی: {last_error}")
-
-HTML_PAGE = """<!DOCTYPE html>
-<html lang="ur" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>نایاب ایگریمنٹ - خودکار انجن</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/earlyaccess/notonastaliqurdukasheeda.css">
-    <style>
-        @font-face {
-            font-family: 'Jameel Noori Nastaleeq';
-            src: local('Jameel Noori Nastaleeq');
-        }
-        body {
-            background-color: #0f172a;
-            margin: 0;
-            padding: 25px;
-            font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu Kasheeda', serif;
-            color: #f8fafc;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: #1e293b;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-        h1 { text-align: center; color: #38bdf8; font-size: 32px; margin-bottom: 20px; }
-        .upload-box {
-            border: 2px dashed #0284c7;
-            background: #0f172a;
-            padding: 25px;
-            text-align: center;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        input[type="file"] { font-size: 16px; color: #cbd5e1; margin-bottom: 15px; }
-        button {
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            padding: 10px 30px;
-            font-size: 20px;
-            font-family: inherit;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        button:hover { background-color: #0369a1; }
-        #loading { display: none; text-align: center; font-size: 20px; color: #f59e0b; margin: 15px 0; }
-        .result-container { display: none; margin-top: 25px; }
-        .box-title { font-size: 22px; color: #38bdf8; margin-bottom: 10px; }
-        textarea {
-            width: 100%;
-            min-height: 350px;
-            background: #ffffff;
-            color: #000000;
-            padding: 20px;
-            border-radius: 8px;
-            font-size: 20px;
-            line-height: 2.2;
-            box-sizing: border-box;
-            direction: rtl;
-            font-family: 'Jameel Noori Nastaleeq', serif;
-            margin-bottom: 25px;
-            white-space: pre-wrap;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>نایاب ایگریمنٹ - 100% خودکار ٹیمپلیٹ سسٹم</h1>
-        <div class="upload-box">
-            <input type="file" id="fileInput" accept="application/pdf,image/*"><br>
-            <button onclick="autoProcess()">دستاویز خودکار طریقے سے تیار کریں</button>
-        </div>
-        <div id="loading">⚡ دستاویز پروسیس ہو رہی ہے، براہ کرم چند سیکنڈ انتظار کریں...</div>
-
-        <div class="result-container" id="resultContainer">
-            <div class="box-title">1. اصل مکمل متن (100% لائن بائی لائن):</div>
-            <textarea id="originalText"></textarea>
-
-            <div class="box-title">2. تیار شدہ ٹیمپلیٹ بمعہ ٹیگز (فلٹر ایپ کے لیے):</div>
-            <textarea id="templateText"></textarea>
-        </div>
-    </div>
-
-    <script>
-        async function autoProcess() {
-            const fileInput = document.getElementById('fileInput');
-            const loading = document.getElementById('loading');
-            const resultContainer = document.getElementById('resultContainer');
-            const originalText = document.getElementById('originalText');
-            const templateText = document.getElementById('templateText');
-
-            if (!fileInput.files[0]) {
-                alert("پہلے فائل منتخب کریں!");
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-
-            loading.style.display = 'block';
-            resultContainer.style.display = 'none';
-
-            try {
-                const res = await fetch('/auto-process-doc', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
-                loading.style.display = 'none';
-
-                if (data.status === 'success') {
-                    resultContainer.style.display = 'block';
-                    originalText.value = data.original_text;
-                    templateText.value = data.template_with_tags;
-                } else {
-                    alert("خرابی: " + data.message);
-                }
-            } catch(e) {
-                loading.style.display = 'none';
-                alert("سرور سے رابطہ نہ ہو سکا: " + e);
-            }
-        }
-    </script>
-</body>
-</html>"""
+دستخط خریدار: ___________________        دستخط دکاندار: ___________________
+نشان انگوٹھا خریدار: ___________________    دستخط ضامن: ___________________
+گواہ نمبر 1: ___________________        گواہ نمبر 2: ___________________"""
 
 @app.get("/", response_class=HTMLResponse)
-def home():
-    return HTML_PAGE
+async def upload_ui():
+    return f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ur">
+    <head>
+        <meta charset="UTF-8">
+        <title>نایاب ای-اسٹامپ پی ڈی ایف اوورلے</title>
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: #f0f2f5; padding: 25px; display: flex; justify-content: center; }}
+            .card {{ background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 650px; }}
+            h2 {{ color: #00796b; margin-top: 0; text-align: center; }}
+            .field {{ margin-bottom: 18px; }}
+            label {{ display: block; font-weight: bold; margin-bottom: 6px; color: #333; }}
+            input[type="file"], textarea {{ width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }}
+            textarea {{ height: 220px; font-size: 14px; line-height: 1.8; text-align: right; }}
+            button {{ background: #00796b; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; }}
+            button:hover {{ background: #004d40; }}
+            .note {{ font-size: 13px; color: #333; background: #e0f2f1; padding: 10px; border-radius: 6px; margin-top: 15px; line-height: 1.6; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>ای-اسٹامپ اوورلے لائیو ٹیسٹر</h2>
+            <form action="/merge-stamp" method="post" enctype="multipart/form-data" target="_blank">
+                <div class="field">
+                    <label>1. ای-اسٹامپ پی ڈی ایف فائل منتخب کریں:</label>
+                    <input type="file" name="pdf_file" accept=".pdf" required />
+                </div>
+                <div class="field">
+                    <label>2. معاہدے کی تحریر:</label>
+                    <textarea name="agreement_text">{SAMPLE_TWO_PAGE_TEXT}</textarea>
+                </div>
+                <button type="submit">پی ڈی ایف اوورلے بنائیں 🚀</button>
+            </form>
+            <div class="note">
+                • اوپر کالی لکیر سے فاصلہ بالکل درست ہے۔<br>
+                • نیچے QR کوڈ تک صفحہ 1 مکمل طور پر بھرے گا۔
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
-@app.post("/auto-process-doc")
-async def auto_process_doc(file: UploadFile = File(...)):
+def get_all_wrapped_lines(text: str, chars_per_line: int = 86):
+    """Lines ko page width ke mutabiq wrap karne ka function"""
+    all_lines = []
+    paragraphs = text.strip().split("\n")
+    for p in paragraphs:
+        p_clean = p.strip()
+        if not p_clean:
+            all_lines.append("")
+            continue
+        wrapped = textwrap.wrap(p_clean, width=chars_per_line)
+        for line in wrapped:
+            all_lines.append(line)
+        all_lines.append("")
+    return all_lines
+
+@app.post("/merge-stamp")
+async def merge_stamp_overlay(
+    pdf_file: UploadFile = File(...),
+    agreement_text: str = Form(...)
+):
     try:
-        contents = await file.read()
-        result = auto_process_document(contents, file.filename.lower())
+        pdf_bytes = await pdf_file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
-        return {
-            "status": "success",
-            "filename": file.filename,
-            "original_text": result.get("original_text", ""),
-            "template_with_tags": result.get("template_with_tags", "")
-        }
+        font_path = "C:/Windows/Fonts/arial.ttf"
+        if not os.path.exists(font_path):
+            font_path = "C:/Windows/Fonts/segoeui.ttf"
+        font_name = "UrduFont"
+        font_obj = fitz.Font(fontfile=font_path)
+
+        page1 = doc[0]
+        p1_w = page1.rect.width
+        p1_h = page1.rect.height
+
+        right_margin = p1_w - 45.0
+
+        # Exact Boundaries:
+        # start_y_p1 = 360.0 (Kaali line se bilkul saaf neeche)
+        # max_y_p1 = 705.0 (QR code ke theek upar tak poora space use karega)
+        start_y_p1 = 360.0
+        max_y_p1 = 705.0
+        line_height = 16.5
+        font_size = 10.5
+
+        all_lines = get_all_wrapped_lines(agreement_text, chars_per_line=86)
+
+        current_y = start_y_p1
+        line_index = 0
+
+        # Page 1 par likhai
+        while line_index < len(all_lines) and current_y + line_height <= max_y_p1:
+            line_str = all_lines[line_index]
+            if line_str.strip():
+                shaped = fix_urdu_line(line_str)
+                text_width = font_obj.text_length(shaped, fontsize=font_size)
+                start_x = right_margin - text_width
+                page1.insert_text(
+                    fitz.Point(start_x, current_y),
+                    shaped,
+                    fontname=font_name,
+                    fontfile=font_path,
+                    fontsize=font_size,
+                    color=(0, 0, 0)
+                )
+                current_y += line_height
+            else:
+                current_y += 5.0
+            line_index += 1
+
+        # Page 2 par bachi hui lines likhna
+        if line_index < len(all_lines):
+            if len(doc) > 1:
+                page2 = doc[1]
+            else:
+                page2 = doc.new_page(width=p1_w, height=p1_h)
+
+            start_y_p2 = 65.0
+            max_y_p2 = 910.0
+            current_y_p2 = start_y_p2
+
+            while line_index < len(all_lines) and current_y_p2 + line_height <= max_y_p2:
+                line_str = all_lines[line_index]
+                if line_str.strip():
+                    shaped = fix_urdu_line(line_str)
+                    text_width = font_obj.text_length(shaped, fontsize=font_size)
+                    start_x = right_margin - text_width
+                    page2.insert_text(
+                        fitz.Point(start_x, current_y_p2),
+                        shaped,
+                        fontname=font_name,
+                        fontfile=font_path,
+                        fontsize=font_size,
+                        color=(0, 0, 0)
+                    )
+                    current_y_p2 += line_height
+                else:
+                    current_y_p2 += 5.0
+                line_index += 1
+
+        out_buffer = io.BytesIO()
+        doc.save(out_buffer)
+        doc.close()
+        out_buffer.seek(0)
+
+        return Response(
+            content=out_buffer.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "inline; filename=stamp_agreement.pdf"}
+        )
+
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "message": str(e)}
+        return HTMLResponse(
+            content=f"<div dir='rtl' style='color:red; font-size:18px; padding:20px; font-family:sans-serif;'>"
+                    f"<h3>پی ڈی ایف بنانے میں خرابی:</h3>"
+                    f"<p>{str(e)}</p></div>",
+            status_code=500
         )

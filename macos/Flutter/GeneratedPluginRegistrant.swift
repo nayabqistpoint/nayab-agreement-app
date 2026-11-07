@@ -6,7 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import connectivity_plus
-import file_picker_darwin
+import file_picker
 import mobile_scanner
 import printing
 import share_plus
