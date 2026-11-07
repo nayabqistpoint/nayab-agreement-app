@@ -1,7 +1,5 @@
-import 'dart:js_interop';
-import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
 import '../../core/constants/app_colors.dart';
 import '../../shared_models/agreement_template_model.dart';
 import '../../shared_services/agreement_storage_handler_service.dart';
@@ -25,10 +23,13 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
 
   String _paperSize = 'A4';
   bool _isEStamp = false;
-  double _topMargin = 220.0;              // صفحہ 1 کا ٹاپ مارجن (مونوگرام کے لیے)
-  double _subsequentTopMargin = 45.0;      // صفحہ 2 اور آگے کے صفحات کے لیے ٹاپ مارجن
-  double _bottomMargin = 75.0;           // نیچے کا مارجن (کیو آر کوڈ کے لیے)
-  double _sideMargin = 35.0;             // دائیں اور بائیں کا حاشیہ
+
+  // مکمل رینج والے مارجنز
+  double _topMargin = 220.0;
+  double _subsequentTopMargin = 45.0;
+  double _bottomMargin = 75.0;
+  double _sideMargin = 35.0;
+
   double _currentFontSize = 16.0;
   bool _isBold = false;
   bool _isUnderline = false;
@@ -52,7 +53,6 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.args?.templateTitle ?? '');
-    
     String cleanContent = (widget.args?.templateContent ?? '')
         .replaceAll('**', '')
         .replaceAll('[center]', '')
@@ -80,47 +80,32 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
     super.dispose();
   }
 
-  void _pickEStampPdf() {
-    if (kIsWeb) {
-      final uploadInput = web.document.createElement('input') as web.HTMLInputElement;
-      uploadInput.type = 'file';
-      uploadInput.accept = '.pdf,application/pdf';
-      uploadInput.click();
+  Future<void> _pickEStampPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
 
-      uploadInput.onchange = (web.Event e) {
-        final files = uploadInput.files;
-        if (files == null || files.length == 0) return;
-        final file = files.item(0);
-        if (file == null) return;
-
-        if (mounted) {
-          setState(() {
-            _isEStamp = true;
-            _paperSize = 'Legal';
-            _loadedPdfFileName = file.name;
-            if (_topMargin < 150) _topMargin = 220.0;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ ای-اسٹامپ پی ڈی ایف منسلک ہو گیا: ${file.name}'),
-              backgroundColor: AppColors.successGreen,
-            ),
-          );
-        }
-      }.toJS;
-    } else {
+    if (result != null && result.files.single.bytes != null) {
       setState(() {
         _isEStamp = true;
         _paperSize = 'Legal';
+        _loadedPdfFileName = result.files.single.name;
         if (_topMargin < 150) _topMargin = 220.0;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ای-اسٹامپ اوورلے موڈ فعال ہو گیا۔')),
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ ای-اسٹامپ پی ڈی ایف منسلک ہو گیا: ${result.files.single.name}'),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
     }
   }
 
-  /// مارجنز ایڈجسٹ کرنے کا پینل
   void _openMarginSettingsSheet() {
     showModalBottomSheet(
       context: context,
@@ -141,18 +126,21 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'ای-اسٹامپ حاشیے (Margins) سیٹ کریں',
+                      'ای-اسٹامپ حاشیے (Margins) سیٹ کریں - مکمل رینج',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     const SizedBox(height: 14),
 
-                    // 1. پہلے صفحے کا مارجن
-                    Text('صفحہ 1: مونوگرام کا فاصلہ: ${_topMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    // صفحہ 1: مونوگرام کا فاصلہ (0 سے 850 پوائنٹس تک کھلا)
+                    Text(
+                      'صفحہ 1: مونوگرام کا محفوظ فاصلہ: ${_topMargin.toInt()} pt',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Slider(
                       value: _topMargin,
-                      min: 40.0,
-                      max: 400.0,
-                      divisions: 72,
+                      min: 0.0,
+                      max: 850.0,
+                      divisions: 170,
                       activeColor: AppColors.primaryEmerald,
                       onChanged: (val) {
                         setSheetState(() => _topMargin = val);
@@ -160,13 +148,16 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                       },
                     ),
 
-                    // 2. صفحہ 2 اور آگے کے صفحات کا ٹاپ مارجن
-                    Text('صفحہ 2 اور بعد کے صفحات: ٹاپ مارجن: ${_subsequentTopMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    // صفحہ 2 اور بعد کے صفحات: ٹاپ مارجن (0 سے 450 پوائنٹس تک)
+                    Text(
+                      'صفحہ 2 اور بعد کے صفحات: ٹاپ مارجن: ${_subsequentTopMargin.toInt()} pt',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Slider(
                       value: _subsequentTopMargin,
-                      min: 20.0,
-                      max: 150.0,
-                      divisions: 26,
+                      min: 0.0,
+                      max: 450.0,
+                      divisions: 90,
                       activeColor: Colors.teal,
                       onChanged: (val) {
                         setSheetState(() => _subsequentTopMargin = val);
@@ -174,13 +165,16 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                       },
                     ),
 
-                    // 3. نیچے کا مارجن
-                    Text('نیچے کا مارجن (کیو آر کوڈ سے فاصلہ): ${_bottomMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    // نیچے کا مارجن: کیو آر کوڈ سے فاصلہ (0 سے 550 پوائنٹس تک)
+                    Text(
+                      'نیچے کا مارجن (کیو آر کوڈ سے فاصلہ): ${_bottomMargin.toInt()} pt',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Slider(
                       value: _bottomMargin,
-                      min: 20.0,
-                      max: 200.0,
-                      divisions: 36,
+                      min: 0.0,
+                      max: 550.0,
+                      divisions: 110,
                       activeColor: Colors.deepOrange,
                       onChanged: (val) {
                         setSheetState(() => _bottomMargin = val);
@@ -188,13 +182,16 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                       },
                     ),
 
-                    // 4. دائیں اور بائیں کا حاشیہ
-                    Text('دائیں اور بائیں کا حاشیہ: ${_sideMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    // دائیں اور بائیں کا حاشیہ (10 سے 200 پوائنٹس تک)
+                    Text(
+                      'دائیں اور بائیں کا حاشیہ: ${_sideMargin.toInt()} pt',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Slider(
                       value: _sideMargin,
-                      min: 15.0,
-                      max: 100.0,
-                      divisions: 17,
+                      min: 10.0,
+                      max: 200.0,
+                      divisions: 38,
                       activeColor: Colors.blueGrey,
                       onChanged: (val) {
                         setSheetState(() => _sideMargin = val);
@@ -205,7 +202,10 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                     const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(ctx),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryEmerald, padding: const EdgeInsets.symmetric(vertical: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryEmerald,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                       child: const Text('مارجن لاگو کریں', style: TextStyle(color: Colors.white, fontSize: 16)),
                     ),
                   ],
@@ -218,11 +218,9 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
     );
   }
 
-  /// ٹیمپلیٹ ڈیلیٹ کرنے کا طریقہ
   Future<void> _deleteTemplate() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
-
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => Directionality(
@@ -241,7 +239,6 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
         ),
       ),
     );
-
     if (confirm == true) {
       await AgreementStorageHandlerService.deleteTemplatePermanently(title);
       if (mounted) {
@@ -287,14 +284,12 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
   Future<void> _saveTemplate() async {
     final title = _titleController.text.trim();
     String content = _bodyController.text.trim();
-
     if (title.isEmpty || content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('عنوان اور تحریر درج کرنا لازمی ہے!')),
       );
       return;
     }
-
     final template = AgreementTemplateModel(
       id: title,
       title: title,
@@ -309,10 +304,8 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
       createdAt: '',
       updatedAt: '',
     );
-
     final payload = AgreementPayloadBuilder.buildTemplatePayload(template);
     await AgreementStorageHandlerService.saveTemplate(payload);
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

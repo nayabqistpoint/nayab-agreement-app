@@ -4,35 +4,15 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 class PdfRenderService {
-  /// غیر معیاری اور مسنگ گلفس کو صاف کر کے عام اردو میں بدلنے کا فنکشن
-  static String _cleanAndNormalizeUrduText(String input) {
-    // 1. پریزنٹیشن فارمز اور مسنگ گلفس کو معیاری اردو حروف سے بدلنا
-    var text = input
-        .replaceAll('\uFB88', 'ز') // U+FB88 (ز کی پریزنٹیشن فارم)
-        .replaceAll('\uFB8A', 'ژ')
-        .replaceAll('\uFB8E', 'ک')
-        .replaceAll('\uFB90', 'گ')
-        .replaceAll('\uFBAE', 'ے')
-        .replaceAll('\uFBAF', 'ے')
-        .replaceAll('\uFB56', 'پ')
-        .replaceAll('\uFB66', 'ٹ')
-        .replaceAll('\uFB7A', 'چ')
-        .replaceAll('\uFB9E', 'گ')
-        .replaceAll('\uFB84', 'ڈ')
-        .replaceAll('\uFB8C', 'ڑ')
-        .replaceAll('\uFBA6', 'ہ')
-        .replaceAll('\uFBA7', 'ہ')
-        .replaceAll('\uFBA8', 'ہ')
-        .replaceAll('\uFBA9', 'ہ')
-        .replaceAll('\uFBAA', 'ہ')
-        .replaceAll('\uFBAB', 'ہ')
-        .replaceAll('\uFBAC', 'ہ')
-        .replaceAll('\uFBAD', 'ہ');
+  static const double legalWidth = 612.0;
+  static const double legalHeight = 1008.0;
 
-    // 2. دیگر غیر ضروری پوشیدہ کنٹرول کوڈز کی صفائی (Zero-Width اور غیراصولی اسپیسز)
-    text = text.replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
-
-    return text;
+  static String _cleanText(String input) {
+    return input
+        .replaceAll('\u200B', '')
+        .replaceAll('\u200C', '')
+        .replaceAll('\u200D', '')
+        .replaceAll('\uFEFF', '');
   }
 
   static Future<void> generateAndPrintAgreement({
@@ -46,155 +26,164 @@ class PdfRenderService {
     required double sideMargin,
     Uint8List? originalStampPdfBytes,
   }) async {
-    // 1. فیلڈز اور ٹیگز کو ڈیٹا بکٹ کی ویلیوز سے تبدیل کرنا
     String processed = rawContent;
     fieldValues.forEach((key, val) {
       final safeVal = val.trim().isEmpty ? '________________' : val.trim();
       processed = processed.replaceAll('{{$key}}', safeVal);
     });
-
-    // 2. فونٹ کے مسنگ گلفس کی خرابی سے بچنے کے لیے ٹیکسٹ صاف کرنا
-    processed = _cleanAndNormalizeUrduText(processed);
+    processed = _cleanText(processed);
 
     final fontData = await rootBundle.load('assets/fonts/jameel.ttf');
     final ttf = pw.Font.ttf(fontData);
 
-    final pageFormat = (isEStamp || paperSize == 'Legal')
-        ? PdfPageFormat.legal
-        : PdfPageFormat.a4;
-
     final pdf = pw.Document();
 
-    // گاہک کے اصل ای-اسٹامپ کے پہلے صفحے کا راسٹر امیج بنانا
-    pw.MemoryImage? backgroundUnderlay;
+    pw.MemoryImage? bgP1;
+    pw.MemoryImage? bgP2;
+
     if (isEStamp && originalStampPdfBytes != null && originalStampPdfBytes.isNotEmpty) {
       try {
-        await for (final page in Printing.raster(originalStampPdfBytes, pages: [0], dpi: 200)) {
+        int idx = 0;
+        await for (final page in Printing.raster(originalStampPdfBytes, pages: [0, 1], dpi: 150)) {
           final pngBytes = await page.toPng();
-          backgroundUnderlay = pw.MemoryImage(pngBytes);
-          break;
+          if (idx == 0) bgP1 = pw.MemoryImage(pngBytes);
+          if (idx == 1) bgP2 = pw.MemoryImage(pngBytes);
+          idx++;
         }
       } catch (_) {}
     }
 
-    // تمام پیراگراف اور بلاکس کی فہرست
-    final contentWidgets = _buildPdfElements(processed, ttf);
+    const double fontSize = 11.0;
+    const double lineSpacing = 18.0;
 
-    // ملٹی پیج رینڈرنگ
+    final double p1Height = (legalHeight - topMargin - bottomMargin).clamp(100.0, legalHeight);
+    final double p2Height = (legalHeight - subsequentTopMargin - bottomMargin).clamp(100.0, legalHeight);
+
+    final int p1MaxLines = (p1Height / lineSpacing).floor();
+    final int p2MaxLines = (p2Height / lineSpacing).floor();
+
+    final rawLines = processed.split('\n');
+    final List<String> allLines = [];
+
+    for (var l in rawLines) {
+      final t = l.trim();
+      if (t.isEmpty) {
+        allLines.add("");
+        continue;
+      }
+      final words = t.split(' ');
+      String currentLine = "";
+      for (var w in words) {
+        if ((currentLine + w).length > 48) {
+          allLines.add(currentLine.trim());
+          currentLine = "$w ";
+        } else {
+          currentLine += "$w ";
+        }
+      }
+      if (currentLine.isNotEmpty) {
+        allLines.add(currentLine.trim());
+      }
+    }
+
+    final List<String> page1Lines = [];
+    final List<String> page2Lines = [];
+
+    for (int i = 0; i < allLines.length; i++) {
+      if (i < p1MaxLines) {
+        page1Lines.add(allLines[i]);
+      } else if (i < (p1MaxLines + p2MaxLines)) {
+        page2Lines.add(allLines[i]);
+      }
+    }
+
+    // صفحہ 1
     pdf.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          pageFormat: pageFormat,
-          theme: pw.ThemeData.withFont(base: ttf),
-          margin: pw.EdgeInsets.only(
-            left: sideMargin,
-            right: sideMargin,
-            bottom: bottomMargin,
-          ),
-          buildBackground: (pw.Context context) {
-            if (context.pageNumber == 1 && backgroundUnderlay != null) {
-              return pw.FullPage(
-                ignoreMargins: true,
-                child: pw.Image(
-                  backgroundUnderlay,
-                  fit: pw.BoxFit.fill,
-                ),
-              );
-            }
-            return pw.Container();
-          },
-        ),
-        header: (pw.Context context) {
-          final double h = (context.pageNumber == 1) ? topMargin : subsequentTopMargin;
-          return pw.SizedBox(height: h);
-        },
+      pw.Page(
+        pageFormat: const PdfPageFormat(legalWidth, legalHeight),
+        margin: pw.EdgeInsets.zero,
+        theme: pw.ThemeData.withFont(base: ttf),
         build: (pw.Context context) {
-          return [
-            pw.Directionality(
-              textDirection: pw.TextDirection.rtl,
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: contentWidgets,
+          return pw.Stack(
+            children: [
+              if (bgP1 != null)
+                pw.Positioned.fill(
+                  child: pw.Image(bgP1, fit: pw.BoxFit.fill),
+                ),
+              pw.Positioned(
+                top: topMargin,
+                bottom: bottomMargin,
+                left: sideMargin,
+                right: sideMargin,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: page1Lines.map((line) {
+                    if (line.isEmpty) return pw.SizedBox(height: 6);
+                    return pw.Text(
+                      line,
+                      textDirection: pw.TextDirection.rtl,
+                      textAlign: pw.TextAlign.right,
+                      style: pw.TextStyle(
+                        font: ttf,
+                        fontSize: fontSize,
+                        lineSpacing: 1.5,
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          ];
+            ],
+          );
         },
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Agreement_${DateTime.now().millisecondsSinceEpoch}.pdf',
-    );
-  }
-
-  static List<pw.Widget> _buildPdfElements(String content, pw.Font ttf) {
-    final List<pw.Widget> widgets = [];
-    final lines = content.split('\n');
-
-    for (var line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) {
-        widgets.add(pw.SizedBox(height: 5));
-        continue;
-      }
-
-      if (trimmed.startsWith('[space:') && trimmed.endsWith(']')) {
-        final heightStr = trimmed.replaceAll('[space:', '').replaceAll(']', '').trim();
-        final h = double.tryParse(heightStr) ?? 15.0;
-        widgets.add(pw.SizedBox(height: h));
-        continue;
-      }
-
-      if (trimmed.startsWith('[signatures:') && trimmed.endsWith(']')) {
-        final rawSigns = trimmed.replaceAll('[signatures:', '').replaceAll(']', '').trim();
-        final signs = rawSigns.split('|').map((s) => s.trim()).toList();
-        widgets.add(
-          pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(vertical: 10),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: signs.map((sign) {
-                return pw.Expanded(
-                  child: pw.Column(
-                    children: [
-                      pw.Container(
-                        height: 1,
-                        margin: const pw.EdgeInsets.symmetric(horizontal: 8),
-                        color: PdfColors.grey800,
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        sign,
-                        textAlign: pw.TextAlign.center,
-                        style: pw.TextStyle(font: ttf, fontSize: 12),
-                      ),
-                    ],
+    // صفحہ 2
+    if (page2Lines.isNotEmpty) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: const PdfPageFormat(legalWidth, legalHeight),
+          margin: pw.EdgeInsets.zero,
+          theme: pw.ThemeData.withFont(base: ttf),
+          build: (pw.Context context) {
+            return pw.Stack(
+              children: [
+                if (bgP2 != null)
+                  pw.Positioned.fill(
+                    child: pw.Image(bgP2, fit: pw.BoxFit.fill),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-        );
-        continue;
-      }
-
-      widgets.add(
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
-          child: pw.Text(
-            trimmed,
-            textAlign: pw.TextAlign.right,
-            style: pw.TextStyle(
-              font: ttf,
-              fontSize: 13.0,
-              lineSpacing: 1.8,
-              color: PdfColors.black,
-            ),
-          ),
+                pw.Positioned(
+                  top: subsequentTopMargin,
+                  bottom: bottomMargin,
+                  left: sideMargin,
+                  right: sideMargin,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: page2Lines.map((line) {
+                      if (line.isEmpty) return pw.SizedBox(height: 6);
+                      return pw.Text(
+                        line,
+                        textDirection: pw.TextDirection.rtl,
+                        textAlign: pw.TextAlign.right,
+                        style: pw.TextStyle(
+                          font: ttf,
+                          fontSize: fontSize,
+                          lineSpacing: 1.5,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       );
     }
-    return widgets;
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Nayab_Agreement_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
   }
 }

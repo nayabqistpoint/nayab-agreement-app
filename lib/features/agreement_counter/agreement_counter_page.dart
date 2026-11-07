@@ -1,7 +1,5 @@
-import 'dart:js_interop';
-import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
@@ -39,66 +37,92 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     super.dispose();
   }
 
-  void _pickCustomerStampPdf() {
-    if (kIsWeb) {
-      final uploadInput = web.document.createElement('input') as web.HTMLInputElement;
-      uploadInput.type = 'file';
-      uploadInput.accept = '.pdf,application/pdf';
-      uploadInput.click();
+  Future<void> _pickCustomerStampPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
 
-      uploadInput.onchange = (web.Event e) {
-        final files = uploadInput.files;
-        if (files == null || files.length == 0) return;
-        final file = files.item(0);
-        if (file == null) return;
+    if (result != null && result.files.single.bytes != null) {
+      setState(() {
+        _controller.selectedStampPdfBytes = result.files.single.bytes;
+        _controller.selectedStampFileName = result.files.single.name;
+      });
 
-        final reader = web.FileReader();
-        reader.readAsArrayBuffer(file);
-        reader.onloadend = (web.ProgressEvent pe) {
-          final result = reader.result;
-          if (result != null && mounted) {
-            final arrayBuffer = result as JSArrayBuffer;
-            final bytes = arrayBuffer.toDart.asUint8List();
-
-            setState(() {
-              _controller.selectedStampPdfBytes = bytes;
-              _controller.selectedStampFileName = file.name;
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ اصل ای-اسٹامپ پی ڈی ایف منسلک ہو گیا: ${file.name}'),
-                backgroundColor: AppColors.successGreen,
-              ),
-            );
-          }
-        }.toJS;
-      }.toJS;
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ای-اسٹامپ اوورلے فعال ہے۔')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ اصل ای-اسٹامپ منسلک ہو گیا: ${result.files.single.name}'),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
     }
   }
 
-  String _buildCleanPreviewText() {
+  String _buildProcessedText() {
     String raw = _controller.templateContent;
-    if (raw.isEmpty) return 'کوئی معاہدہ منتخب نہیں ہے۔';
-
+    if (raw.isEmpty) return '';
     raw = raw.replaceAll('**', '').replaceAll('*', '');
     raw = raw.replaceAll('[center]', '').replaceAll('[/center]', '');
     raw = raw.replaceAll(RegExp(r'^#+\s*', multiLine: true), '');
     raw = raw.replaceAll(RegExp(r'\[space:\s*\d+\]'), '\n');
     raw = raw.replaceAll(RegExp(r'\[signatures:.*?\]'), '');
-
     for (var f in _controller.requiredFields) {
       final val = _controller.currentFieldValues[f]?.trim();
       final display = (val != null && val.isNotEmpty) ? val : '__________';
       raw = raw.replaceAll('{{$f}}', display);
     }
-
     raw = raw.replaceAll(RegExp(r'\{\{.*?\}\}'), '__________');
     return raw.trim();
+  }
+
+  Map<String, List<String>> _splitForLivePreview(String fullText) {
+    if (fullText.isEmpty) return {"page1": [], "page2": []};
+
+    const double totalHeight = 1008.0;
+    final double p1Height = (totalHeight - _controller.topMargin - _controller.bottomMargin).clamp(100.0, totalHeight);
+    final double p2Height = (totalHeight - _controller.subsequentTopMargin - _controller.bottomMargin).clamp(100.0, totalHeight);
+
+    const double lineH = 18.0;
+    final int p1LinesLimit = (p1Height / lineH).floor();
+    final int p2LinesLimit = (p2Height / lineH).floor();
+
+    final rawLines = fullText.split('\n');
+    final List<String> allLines = [];
+
+    for (var l in rawLines) {
+      final t = l.trim();
+      if (t.isEmpty) {
+        allLines.add("");
+        continue;
+      }
+      final words = t.split(' ');
+      String cur = "";
+      for (var w in words) {
+        if ((cur + w).length > 48) {
+          allLines.add(cur.trim());
+          cur = "$w ";
+        } else {
+          cur += "$w ";
+        }
+      }
+      if (cur.isNotEmpty) allLines.add(cur.trim());
+    }
+
+    final List<String> p1 = [];
+    final List<String> p2 = [];
+
+    for (int i = 0; i < allLines.length; i++) {
+      if (i < p1LinesLimit) {
+        p1.add(allLines[i]);
+      } else if (i < (p1LinesLimit + p2LinesLimit)) {
+        p2.add(allLines[i]);
+      }
+    }
+
+    return {"page1": p1, "page2": p2};
   }
 
   @override
@@ -143,9 +167,13 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
           valueListenable: HiveBoxManager.listenToBox(BoxNames.agreementDraftBox),
           builder: (context, box, child) {
             final isEStampMode = _controller.isEStamp || _controller.paperSize == 'Legal';
+            final processedText = _buildProcessedText();
+            final previewSplit = _splitForLivePreview(processedText);
+            final p1Lines = previewSplit["page1"]!;
+            final p2Lines = previewSplit["page2"]!;
 
             return Padding(
-              padding: const EdgeInsets.all(14.0),
+              padding: const EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -153,8 +181,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     onScanProduct: () => _controller.scanProduct(context),
                     onScanCnic: () => _controller.scanCnic(context),
                   ),
-                  const SizedBox(height: 10),
-
+                  const SizedBox(height: 8),
                   CounterTemplateSelectorUi(
                     selectedTitle: _controller.selectedTemplateTitle,
                     availableTemplates: _controller.availableTemplates,
@@ -180,8 +207,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       if (res == true) _controller.loadDraftFromHive();
                     },
                   ),
-                  const SizedBox(height: 10),
-
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
@@ -200,24 +226,24 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                             Icon(
                               isEStampMode ? Icons.verified_user : Icons.description_outlined,
                               color: isEStampMode ? Colors.brown.shade800 : AppColors.primaryEmerald,
-                              size: 22,
+                              size: 20,
                             ),
                             const SizedBox(width: 8),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  isEStampMode ? 'طرزِ دستاویز: پنجاب ای-اسٹامپ (لیگل اوورلے)' : 'طرزِ دستاویز: سادہ دفتری معاہدہ (A4 پیپر)',
+                                  isEStampMode ? 'طرزِ دستاویز: پنجاب ای-اسٹامپ (لیگل اوورلے)' : 'طرزِ دستاویز: سادہ دفتری کاغذ (A4)',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
                                   ),
                                 ),
                                 if (isEStampMode && _controller.selectedStampFileName != null)
                                   Text(
                                     'فائل: ${_controller.selectedStampFileName}',
-                                    style: TextStyle(fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+                                    style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold),
                                   ),
                               ],
                             ),
@@ -226,23 +252,22 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                         if (isEStampMode)
                           ElevatedButton.icon(
                             onPressed: _pickCustomerStampPdf,
-                            icon: const Icon(Icons.picture_as_pdf, size: 16),
+                            icon: const Icon(Icons.picture_as_pdf, size: 15),
                             label: Text(
                               _controller.selectedStampPdfBytes != null ? 'اسٹامپ تبدیل کریں' : 'ای-اسٹامپ PDF چنیں',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.brown.shade700,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-
+                  const SizedBox(height: 8),
                   CounterBucketBadgeUi(
                     totalFields: _controller.totalFieldsCount,
                     filledFields: _controller.filledFieldsCount,
@@ -254,64 +279,51 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       _controller.loadDraftFromHive();
                     },
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade400, width: 1.2),
+                        border: Border.all(color: Colors.grey.shade400),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'پیشگی قانونی نظارہ: ${_controller.selectedTemplateTitle}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryEmerald),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isEStampMode ? Colors.amber.shade100 : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: isEStampMode ? Colors.amber.shade400 : Colors.grey.shade300),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                const Text("— صفحہ نمبر 1 (اصل لے آؤٹ) —", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                                const SizedBox(height: 6),
+                                _buildPaperSheet(
+                                  topM: _controller.topMargin,
+                                  botM: _controller.bottomMargin,
+                                  sideM: _controller.sideMargin,
+                                  lines: p1Lines,
+                                  isFirstPage: true,
                                 ),
-                                child: Text(
-                                  isEStampMode ? 'لیگل ای-اسٹامپ' : 'A4 دفتری کاغذ',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
+                                if (p2Lines.isNotEmpty) ...[
+                                  const SizedBox(height: 20),
+                                  const Text("— صفحہ نمبر 2 (بقیہ تحریر) —", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                                  const SizedBox(height: 6),
+                                  _buildPaperSheet(
+                                    topM: _controller.subsequentTopMargin,
+                                    botM: _controller.bottomMargin,
+                                    sideM: _controller.sideMargin,
+                                    lines: p2Lines,
+                                    isFirstPage: false,
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 16, thickness: 1),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Text(
-                                _buildCleanPreviewText(),
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  height: 2.1,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1A1A1A),
-                                ),
-                              ),
+                                ],
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-
+                  const SizedBox(height: 8),
                   CounterPrintActionUi(
                     onPrint: () => _controller.printAgreement(context),
                     onCopyText: () => _controller.copyAgreementText(context),
@@ -321,6 +333,94 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaperSheet({
+    required double topM,
+    required double botM,
+    required double sideM,
+    required List<String> lines,
+    required bool isFirstPage,
+  }) {
+    const double sheetWidth = 330.0;
+    const double sheetHeight = 540.0;
+    const double scale = sheetHeight / 1008.0;
+
+    final scaledTop = topM * scale;
+    final scaledBot = botM * scale;
+    final scaledSide = (sideM * scale).clamp(10.0, 35.0);
+
+    return Container(
+      width: sheetWidth,
+      height: sheetHeight,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 8, spreadRadius: 1, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Stack(
+        children: [
+          if (isFirstPage && _controller.isEStamp)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: scaledTop,
+              child: Container(
+                color: Colors.amber.shade100.withAlpha(190),
+                alignment: Alignment.center,
+                child: Text(
+                  'سرکاری ہیڈر اور مونوگرام کی محفوظ جگہ\n(${topM.toInt()} pt)',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+
+          if (_controller.isEStamp)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: scaledBot,
+              child: Container(
+                color: Colors.red.shade100.withAlpha(190),
+                alignment: Alignment.center,
+                child: Text(
+                  'کیو آر کوڈ و بارکوڈ کی محفوظ جگہ (${botM.toInt()} pt)',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+
+          Positioned(
+            top: scaledTop,
+            bottom: scaledBot,
+            left: scaledSide,
+            right: scaledSide,
+            child: ListView(
+              physics: const NeverScrollableScrollPhysics(),
+              children: lines.map((l) {
+                if (l.isEmpty) return const SizedBox(height: 4);
+                return Text(
+                  l,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontFamily: 'JameelNoori',
+                    fontSize: 11.5,
+                    height: 1.45,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
