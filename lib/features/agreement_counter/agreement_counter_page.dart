@@ -6,16 +6,19 @@ import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
+import '../../core/models/document_template_model.dart';
 import '../../shared_services/agreement_storage_handler_service.dart';
-import 'agreement_counter_controller.dart';
-import 'components/counter_scanner_bar_ui.dart';
-import 'components/counter_template_selector_ui.dart';
-import 'components/counter_bucket_badge_ui.dart';
-import 'components/counter_print_action_ui.dart';
 import '../agreement_bucket_view/bucket_view_page.dart';
+import '../customer_directory/customer_directory_page.dart';
 import '../template_studio/args/template_studio_args.dart';
 import '../template_studio/template_studio_page.dart';
-import '../customer_directory/customer_directory_page.dart';
+import 'agreement_counter_controller.dart';
+import 'components/counter_bucket_summary.dart';
+import 'components/counter_paper_preview.dart';
+import 'components/counter_print_action_ui.dart';
+import 'components/counter_quick_toolbar.dart';
+import 'components/counter_scanner_bar_ui.dart';
+import 'components/counter_template_selector_ui.dart';
 
 class AgreementCounterPage extends StatefulWidget {
   const AgreementCounterPage({super.key});
@@ -29,6 +32,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   List<Uint8List?> _cachedStampPages = [];
   bool _isRenderingStamp = false;
   String? _lastLoadedTemplate;
+  DocumentMode _currentDocMode = DocumentMode.stampOverlay;
 
   @override
   void initState() {
@@ -41,40 +45,52 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   void _onControllerUpdate() {
     if (_controller.selectedTemplateTitle != _lastLoadedTemplate) {
       _lastLoadedTemplate = _controller.selectedTemplateTitle;
-      _loadTemplateStampFromHive();
+      _handleTemplateSwitched();
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
-  Future<void> _loadTemplateStampFromHive() async {
+  // زیرو اسٹیٹ: جب نیا ٹیمپلیٹ منتخب ہو تو پچھلی تفصیلات صاف کر کے تازہ لوڈ کرنا
+  Future<void> _handleTemplateSwitched() async {
     final title = _controller.selectedTemplateTitle;
-    if (title.isEmpty) return;
+    if (title.isEmpty) {
+      setState(() {
+        _cachedStampPages.clear();
+        _currentDocMode = DocumentMode.stampOverlay;
+      });
+      return;
+    }
+
     final all = AgreementStorageHandlerService.getAllTemplates();
     if (all.containsKey(title)) {
-      final t = all[title]!;
-      final b64 = t['base64Pdf']?.toString();
-      if (b64 != null && b64.isNotEmpty) {
+      final doc = DocumentTemplateModel.fromMap(all[title]!);
+      _currentDocMode = doc.mode;
+
+      // اگر موڈ سادہ دستاویزی کاغذ ہے تو پرانا اسٹامپ فوراً ختم
+      if (doc.mode == DocumentMode.plainDocument) {
+        setState(() {
+          _controller.selectedStampPdfBytes = null;
+          _controller.selectedStampFileName = null;
+          _cachedStampPages.clear();
+        });
+        return;
+      }
+
+      // اگر ای-اسٹامپ یا فارم فلر ہے تو محفوظ شدہ PDF بائٹس لائیں
+      if (doc.base64Pdf != null && doc.base64Pdf!.isNotEmpty) {
         try {
-          final bytes = base64Decode(b64);
+          final bytes = base64Decode(doc.base64Pdf!);
           _controller.selectedStampPdfBytes = bytes;
-          _controller.selectedStampFileName = "ٹیمپلیٹ کا محفوظ اسٹامپ";
+          _controller.selectedStampFileName = doc.stampFileName ?? "ٹیمپلیٹ کا محفوظ اسٹامپ";
           await _renderStampPdfToCache(bytes);
           return;
         } catch (_) {}
       }
     }
-    if (_controller.selectedStampPdfBytes == null) {
-      setState(() {
-        _cachedStampPages.clear();
-      });
-    }
-  }
 
-  @override
-  void dispose() {
-    _controller.removeListener(_onControllerUpdate);
-    _controller.dispose();
-    super.dispose();
+    setState(() {
+      _cachedStampPages.clear();
+    });
   }
 
   Future<void> _renderStampPdfToCache(Uint8List pdfBytes) async {
@@ -82,8 +98,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     try {
       List<Uint8List?> pages = [];
       await for (final page in Printing.raster(pdfBytes, dpi: 110)) {
-        final png = await page.toPng();
-        pages.add(png);
+        pages.add(await page.toPng());
       }
       if (mounted) {
         setState(() {
@@ -130,27 +145,30 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     return raw.trim();
   }
 
-  // تحریر کو حقیقت پسندانہ انداز میں بغیر کسی زبردستی کے پیجز میں تقسیم کرنا
   List<String> _paginateText(String fullText) {
     if (fullText.isEmpty) return [""];
 
-    const double totalPoints = 1008.0;
-    final double lineH = _controller.fontSize * 1.95; // لائن کی اونچائی
+    final paragraphs = fullText.split(RegExp(r'\n\s*\n'));
+    List<String> cleanedParas = [];
+    for (var p in paragraphs) {
+      var lines = p.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty);
+      cleanedParas.add(lines.join(' '));
+    }
+    final normalized = cleanedParas.join('\n\n');
 
-    // صفحہ 1 کی دستیاب اونچائی
+    const double totalPoints = 1008.0;
+    final double lineH = _controller.fontSize * 1.95;
+
     final double p1H = (totalPoints - _controller.topMargin - _controller.bottomMargin).clamp(100.0, totalPoints);
     final int p1MaxLines = (p1H / lineH).floor();
 
-    // باقی صفحات کی دستیاب اونچائی
     final double subH = (totalPoints - _controller.subsequentTopMargin - _controller.bottomMargin).clamp(100.0, totalPoints);
     final int subMaxLines = (subH / lineH).floor();
 
-    // ایک لائن میں حروف کی گنجائش (چوڑائی 612pt مائنس حاشیے)
     final double availableWidth = 612.0 - (_controller.sideMargin * 2);
-    // جمیل نوری نستعلیق کے حروف کی اوسط گنجائش
-    final int charsPerLine = (availableWidth / (_controller.fontSize * 0.48)).floor().clamp(60, 95);
+    final int charsPerLine = (availableWidth / (_controller.fontSize * 0.44)).floor().clamp(65, 110);
 
-    final rawLines = fullText.split('\n');
+    final rawLines = normalized.split('\n');
     List<String> visualLines = [];
 
     for (var r in rawLines) {
@@ -174,12 +192,10 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     List<String> pages = [];
     int lineIndex = 0;
 
-    // صفحہ 1
     int linesForP1 = visualLines.length > p1MaxLines ? p1MaxLines : visualLines.length;
     pages.add(visualLines.sublist(0, linesForP1).join('\n'));
     lineIndex = linesForP1;
 
-    // بقیہ صفحات (صفحہ 2، 3 وغیرہ)
     while (lineIndex < visualLines.length) {
       int remaining = visualLines.length - lineIndex;
       int take = remaining > subMaxLines ? subMaxLines : remaining;
@@ -191,19 +207,26 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   }
 
   @override
+  void dispose() {
+    _controller.removeListener(_onControllerUpdate);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
-          title: const Text('نایاب قسط پوائنٹ - کاؤنٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+          title: const Text('نایاب قسط پوائنٹ - کاؤنٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
           centerTitle: true,
           backgroundColor: AppColors.primaryEmerald,
           foregroundColor: Colors.white,
           actions: [
             IconButton(
-              icon: const Icon(Icons.people_outline, size: 26),
+              icon: const Icon(Icons.people_outline, size: 24),
               tooltip: 'کسٹمر ڈائریکٹری',
               onPressed: () => Navigator.push(
                 context,
@@ -211,7 +234,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 26),
+              icon: const Icon(Icons.add_circle_outline, size: 24),
               tooltip: 'نیا معاہدہ بنائیں',
               onPressed: () async {
                 final res = await Navigator.push(
@@ -220,12 +243,12 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                 );
                 if (res == true) {
                   _controller.loadDraftFromHive();
-                  _loadTemplateStampFromHive();
+                  _handleTemplateSwitched();
                 }
               },
             ),
             IconButton(
-              icon: const Icon(Icons.refresh, size: 26),
+              icon: const Icon(Icons.refresh, size: 24),
               tooltip: 'فارم نیا کریں',
               onPressed: () => _controller.resetCounter(context),
             ),
@@ -234,7 +257,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
         body: ValueListenableBuilder(
           valueListenable: HiveBoxManager.listenToBox(BoxNames.agreementDraftBox),
           builder: (context, box, child) {
-            final isEStampMode = _controller.isEStamp || _controller.paperSize == 'Legal' || _controller.selectedTemplateTitle.isNotEmpty;
             final processedText = _buildProcessedAgreementText();
             final dynamicPages = _paginateText(processedText);
 
@@ -272,141 +294,47 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       );
                       if (res == true) {
                         _controller.loadDraftFromHive();
-                        _loadTemplateStampFromHive();
+                        _handleTemplateSwitched();
                       }
                     },
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isEStampMode ? const Color(0xFFFFF8E1) : AppColors.cardSurface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isEStampMode ? Colors.amber.shade600 : AppColors.borderLight,
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              isEStampMode ? Icons.verified_user : Icons.description_outlined,
-                              color: isEStampMode ? Colors.brown.shade800 : AppColors.primaryEmerald,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isEStampMode ? 'طرزِ دستاویز: پنجاب ای-اسٹامپ (لیگل اوورلے)' : 'طرزِ دستاویز: سادہ کاغذ (A4)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
-                                  ),
-                                ),
-                                if (isEStampMode && _controller.selectedStampFileName != null)
-                                  Text(
-                                    'اسٹامپ: ${_controller.selectedStampFileName}',
-                                    style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        if (isEStampMode)
-                          ElevatedButton.icon(
-                            onPressed: _pickCustomerStampPdf,
-                            icon: const Icon(Icons.picture_as_pdf, size: 15),
-                            label: Text(
-                              _controller.selectedStampPdfBytes != null ? 'اسٹامپ تبدیل کریں' : 'اصل ای-اسٹامپ PDF چنیں',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.brown.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  CounterBucketBadgeUi(
+
+                  // بکٹ کا لائیو خلاصہ
+                  CounterBucketSummary(
                     totalFields: _controller.totalFieldsCount,
                     filledFields: _controller.filledFieldsCount,
-                    onViewBucketDetails: () async {
+                    onViewDetails: () async {
                       await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const BucketViewPage()),
                       );
                       _controller.loadDraftFromHive();
                     },
+                    onResetBucket: () => _controller.resetCounter(context),
                   ),
                   const SizedBox(height: 8),
 
-                  // ٹول بار: لائیو فونٹ سائز ایڈجسٹر
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                      border: Border.all(color: Colors.grey.shade400),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'پیشگی حقیقی نظارہ (کل صفحات: ${dynamicPages.length}):',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryEmerald),
-                        ),
-                        Row(
-                          children: [
-                            const Text('سائز: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, size: 20, color: Colors.teal),
-                              tooltip: 'فونٹ چھوٹا کریں',
-                              onPressed: () => _controller.setFontSize(_controller.fontSize - 0.5),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.teal.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '${_controller.fontSize} pt',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_outline, size: 20, color: Colors.teal),
-                              tooltip: 'فونٹ بڑا کریں',
-                              onPressed: () => _controller.setFontSize(_controller.fontSize + 0.5),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  // ٹول بار مع فونٹ سائز و گاہک کا اسٹامپ
+                  CounterQuickToolbar(
+                    currentMode: _currentDocMode,
+                    stampFileName: _controller.selectedStampFileName,
+                    fontSize: _controller.fontSize,
+                    totalPages: dynamicPages.length,
+                    onPickCustomerStamp: _pickCustomerStampPdf,
+                    onFontSizeChanged: (s) => _controller.setFontSize(s),
                   ),
+                  const SizedBox(height: 8),
 
-                  // لائیو رینڈرنگ کینوس
+                  // کینوس: لائیو ملٹی پیج رینڈرنگ
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.grey.shade400,
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                        borderRadius: BorderRadius.circular(8),
                         child: _isRenderingStamp
                             ? const Center(child: CircularProgressIndicator())
                             : SingleChildScrollView(
@@ -425,14 +353,16 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
                                           ),
                                           const SizedBox(height: 6),
-                                          _buildInteractiveCounterSheet(
-                                            topM: topM,
-                                            botM: _controller.bottomMargin,
-                                            sideM: _controller.sideMargin,
+                                          CounterPaperPreview(
+                                            topMargin: topM,
+                                            bottomMargin: _controller.bottomMargin,
+                                            sideMargin: _controller.sideMargin,
                                             textContent: dynamicPages[index],
                                             bgImage: bgImg,
                                             isFirstPage: isP1,
                                             fontSize: _controller.fontSize,
+                                            mode: _currentDocMode,
+                                            bucketValues: _controller.currentFieldValues,
                                             onTopDrag: (delta) {
                                               if (isP1) {
                                                 _controller.setTopMargin(_controller.topMargin + (delta * (1008.0 / 593.0)));
@@ -440,7 +370,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                                                 _controller.setSubsequentTopMargin(_controller.subsequentTopMargin + (delta * (1008.0 / 593.0)));
                                               }
                                             },
-                                            onBotDrag: (delta) => _controller.setBottomMargin(_controller.bottomMargin - (delta * (1008.0 / 593.0))),
+                                            onBottomDrag: (delta) => _controller.setBottomMargin(_controller.bottomMargin - (delta * (1008.0 / 593.0))),
                                             onSideDrag: (delta) => _controller.setSideMargin(_controller.sideMargin - (delta * (1008.0 / 593.0))),
                                           ),
                                           const SizedBox(height: 24),
@@ -454,6 +384,8 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
+
+                  // پرنٹ اور کاپی ایکشن بار
                   CounterPrintActionUi(
                     onPrint: () => _controller.printAgreement(context),
                     onCopyText: () => _controller.copyAgreementText(context),
@@ -463,126 +395,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
             );
           },
         ),
-      ),
-    );
-  }
-
-  Widget _buildInteractiveCounterSheet({
-    required double topM,
-    required double botM,
-    required double sideM,
-    required String textContent,
-    required Uint8List? bgImage,
-    required bool isFirstPage,
-    required double fontSize,
-    required Function(double) onTopDrag,
-    required Function(double) onBotDrag,
-    required Function(double) onSideDrag,
-  }) {
-    const double sheetWidth = 360.0;
-    const double sheetHeight = 593.0;
-    const double scale = sheetHeight / 1008.0;
-
-    final scaledTop = topM * scale;
-    final scaledBot = botM * scale;
-    final scaledSide = (sideM * scale).clamp(8.0, 40.0);
-    final boxW = (sheetWidth - (scaledSide * 2)).clamp(100.0, sheetWidth);
-    final boxH = (sheetHeight - scaledTop - scaledBot).clamp(50.0, sheetHeight);
-
-    return Container(
-      width: sheetWidth,
-      height: sheetHeight,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: const [
-          BoxShadow(color: Colors.black38, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Stack(
-        children: [
-          if (bgImage != null)
-            Positioned.fill(
-              child: Image.memory(bgImage, fit: BoxFit.fill),
-            )
-          else
-            Center(
-              child: Opacity(
-                opacity: 0.12,
-                child: Text(
-                  isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "اضافی سادہ ورق",
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-
-          // ریڈ باکس بغیر کسی اندرونی سکرول کے
-          Positioned(
-            top: scaledTop,
-            left: scaledSide,
-            width: boxW,
-            height: boxH,
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.red.shade700, width: 1.5),
-                color: Colors.white.withAlpha(140),
-              ),
-              child: Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
-                    child: Text(
-                      textContent,
-                      textAlign: TextAlign.justify,
-                      textDirection: TextDirection.rtl,
-                      style: TextStyle(
-                        fontFamily: 'JameelNoori',
-                        fontSize: fontSize * 0.88,
-                        height: 1.85,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF111111),
-                      ),
-                    ),
-                  ),
-
-                  // اوپر کا ڈریگ ہینڈل
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 12,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onVerticalDragUpdate: (d) => onTopDrag(d.delta.dy),
-                      child: Container(
-                        color: Colors.red.withAlpha(80),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.drag_handle, size: 10, color: Colors.white),
-                      ),
-                    ),
-                  ),
-
-                  // نیچے کا ڈریگ ہینڈل
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 12,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onVerticalDragUpdate: (d) => onBotDrag(d.delta.dy),
-                      child: Container(
-                        color: Colors.red.withAlpha(80),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.drag_handle, size: 10, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

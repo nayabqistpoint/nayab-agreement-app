@@ -1,14 +1,9 @@
-import 'dart:convert';
-import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
-import '../../shared_models/agreement_template_model.dart';
-import '../../shared_services/agreement_storage_handler_service.dart';
-import '../../shared_services/payload_builders/agreement_payload_builder.dart';
-import '../../shared_services/template_service.dart';
+import '../../core/models/document_template_model.dart';
 import 'args/template_studio_args.dart';
+import 'components/studio_canvas_sheet.dart';
+import 'template_studio_controller.dart';
 
 class TemplateStudioPage extends StatefulWidget {
   final TemplateStudioArgs? args;
@@ -19,158 +14,27 @@ class TemplateStudioPage extends StatefulWidget {
 }
 
 class _TemplateStudioPageState extends State<TemplateStudioPage> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _bodyController;
+  late final TemplateStudioController _controller;
   final TransformationController _zoomController = TransformationController();
-
-  String _paperSize = 'Legal';
-  bool _isEStamp = true;
-
-  double _topMargin = 320.0;
-  double _subsequentTopMargin = 65.0;
-  double _bottomMargin = 270.0;
-  double _sideMargin = 40.0;
-  double _fontSize = 13.5;
-
-  Uint8List? _stampPdfBytes;
-  List<Uint8List?> _cachedStampPages = [];
-  String? _loadedPdfFileName;
-  bool _isLoadingPdf = false;
+  final TextEditingController _customTagController = TextEditingController();
   bool _isZoomFit = false;
-
-  final List<String> _pinnedTags = [
-    'کسٹمر کا نام',
-    'ولدیت',
-    'شناختی کارڈ',
-    'موبائل ماڈل',
-    'IMEI نمبر',
-    'ایڈوانس رقم',
-    'ماہانہ قسط',
-    'ٹوٹل رقم',
-    'مدت',
-  ];
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.args?.templateTitle ?? '');
-    String cleanContent = (widget.args?.templateContent ?? '')
-        .replaceAll('**', '')
-        .replaceAll('[center]', '')
-        .replaceAll('[/center]', '')
-        .replaceAll(RegExp(r'^#+\s*', multiLine: true), '')
-        .replaceAll(RegExp(r'\[signatures:.*?\]'), '')
-        .replaceAll(RegExp(r'\[space:\s*\d+\]'), '\n');
-    _bodyController = TextEditingController(text: cleanContent.trim());
-
-    _paperSize = widget.args?.paperSize ?? 'Legal';
-    _isEStamp = widget.args?.isEStamp ?? true;
-    _topMargin = widget.args?.topMargin ?? 320.0;
-    _subsequentTopMargin = widget.args?.subsequentTopMargin ?? 65.0;
-    _bottomMargin = widget.args?.bottomMargin ?? 270.0;
-    _sideMargin = widget.args?.sideMargin ?? 40.0;
-
-    _loadExistingStampFromHive();
-  }
-
-  Future<void> _loadExistingStampFromHive() async {
-    final title = widget.args?.templateTitle;
-    if (title == null || title.isEmpty) return;
-
-    final all = AgreementStorageHandlerService.getAllTemplates();
-    if (all.containsKey(title)) {
-      final t = all[title]!;
-      final b64 = t['base64Pdf']?.toString();
-      if (b64 != null && b64.isNotEmpty) {
-        try {
-          final bytes = base64Decode(b64);
-          _stampPdfBytes = bytes;
-          _loadedPdfFileName = "محفوظ شدہ اسٹامپ پیپر";
-          await _renderStampBytesToImages(bytes);
-        } catch (_) {}
-      }
-    }
-  }
-
-  Future<void> _renderStampBytesToImages(Uint8List bytes) async {
-    setState(() => _isLoadingPdf = true);
-    List<Uint8List?> pages = [];
-    try {
-      await for (final page in Printing.raster(bytes, dpi: 110)) {
-        final png = await page.toPng();
-        pages.add(png);
-      }
-    } catch (_) {}
-    if (mounted) {
-      setState(() {
-        _cachedStampPages = pages;
-        _isLoadingPdf = false;
-      });
-    }
+    _controller = TemplateStudioController();
+    _controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _controller.initFromTemplate(widget.args?.templateTitle);
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _bodyController.dispose();
     _zoomController.dispose();
+    _customTagController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickStampPdf() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      withData: true,
-    );
-
-    if (result != null && result.files.single.bytes != null) {
-      final bytes = result.files.single.bytes!;
-      _stampPdfBytes = bytes;
-      _loadedPdfFileName = result.files.single.name;
-      await _renderStampBytesToImages(bytes);
-    }
-  }
-
-  void _insertNamedTag(String tagName) {
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    final tagToInsert = '{{$tagName}}';
-    if (selection.start >= 0) {
-      final newText = text.replaceRange(selection.start, selection.end, tagToInsert);
-      _bodyController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: selection.start + tagToInsert.length),
-      );
-    } else {
-      _bodyController.text += tagToInsert;
-    }
-    setState(() {});
-  }
-
-  void _cleanAndNormalizeParagraphs() {
-    final raw = _bodyController.text;
-    if (raw.trim().isEmpty) return;
-
-    final paras = raw.split(RegExp(r'\n\s*\n'));
-    List<String> cleanedParas = [];
-    for (var p in paras) {
-      var lines = p.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty);
-      cleanedParas.add(lines.join(' '));
-    }
-    final normalized = cleanedParas.join('\n\n');
-
-    setState(() {
-      _bodyController.text = normalized;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ فالتو بریکس صاف ہو گئیں! تحریر بائیں کنارے تک ہموار ہو گئی ہے۔'),
-        backgroundColor: AppColors.successGreen,
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   void _toggleZoom() {
@@ -188,178 +52,78 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
     });
   }
 
-  Future<void> _saveTemplate() async {
-    final title = _titleController.text.trim();
-    String content = _bodyController.text.trim();
-    if (title.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('عنوان اور تحریر درج کرنا لازمی ہے!')),
-      );
-      return;
-    }
-
-    String? b64;
-    if (_stampPdfBytes != null) {
-      b64 = base64Encode(_stampPdfBytes!);
-    }
-
-    final template = AgreementTemplateModel(
-      id: title,
-      title: title,
-      content: content,
-      paperSize: _paperSize,
-      isEStamp: _isEStamp,
-      topMargin: _topMargin,
-      subsequentTopMargin: _subsequentTopMargin,
-      bottomMargin: _bottomMargin,
-      sideMargin: _sideMargin,
-      base64Pdf: b64,
-      fields: TemplateService.extractFields(content),
-      createdAt: '',
-      updatedAt: '',
-    );
-
-    final payload = AgreementPayloadBuilder.buildTemplatePayload(template);
-    await AgreementStorageHandlerService.saveTemplate(payload);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ معاہدہ بمعہ اصل اسٹامپ اور ریڈ باکس حدود محفوظ ہو گیا!'),
-          backgroundColor: AppColors.successGreen,
-        ),
-      );
-      Navigator.pop(context, true);
+  void _insertFormatting(String tag) {
+    final text = _controller.bodyController.text;
+    final selection = _controller.bodyController.selection;
+    if (selection.start >= 0 && selection.end > selection.start) {
+      final selected = text.substring(selection.start, selection.end);
+      final replaced = tag == 'B' ? '**$selected**' : '<u>$selected</u>';
+      _controller.bodyController.text = text.replaceRange(selection.start, selection.end, replaced);
+    } else {
+      _controller.insertTag(tag == 'B' ? 'بولڈ' : 'انڈر_لائن');
     }
   }
 
-  List<String> _paginateText(String fullText) {
-    if (fullText.trim().isEmpty) return [""];
-
-    const double totalPoints = 1008.0;
-    final double lineH = _fontSize * 1.95;
-
-    final double p1H = (totalPoints - _topMargin - _bottomMargin).clamp(100.0, totalPoints);
-    final int p1MaxLines = (p1H / lineH).floor();
-
-    final double subH = (totalPoints - _subsequentTopMargin - _bottomMargin).clamp(100.0, totalPoints);
-    final int subMaxLines = (subH / lineH).floor();
-
-    final double availableWidth = 612.0 - (_sideMargin * 2);
-    final int charsPerLine = (availableWidth / (_fontSize * 0.44)).floor().clamp(65, 110);
-
-    final rawLines = fullText.split('\n');
-    List<String> visualLines = [];
-
-    for (var r in rawLines) {
-      if (r.trim().isEmpty) {
-        visualLines.add("");
-        continue;
-      }
-      final words = r.split(' ');
-      String current = "";
-      for (var w in words) {
-        if ((current + w).length > charsPerLine) {
-          visualLines.add(current.trim());
-          current = "$w ";
-        } else {
-          current += "$w ";
-        }
-      }
-      if (current.isNotEmpty) visualLines.add(current.trim());
+  void _insertFixedSpacer(int points) {
+    final tag = '\n[space:$points]\n';
+    final text = _controller.bodyController.text;
+    final selection = _controller.bodyController.selection;
+    if (selection.start >= 0) {
+      _controller.bodyController.text = text.replaceRange(selection.start, selection.end, tag);
+    } else {
+      _controller.bodyController.text += tag;
     }
-
-    List<String> pages = [];
-    int lineIndex = 0;
-
-    int linesForP1 = visualLines.length > p1MaxLines ? p1MaxLines : visualLines.length;
-    pages.add(visualLines.sublist(0, linesForP1).join('\n'));
-    lineIndex = linesForP1;
-
-    while (lineIndex < visualLines.length) {
-      int remaining = visualLines.length - lineIndex;
-      int take = remaining > subMaxLines ? subMaxLines : remaining;
-      pages.add(visualLines.sublist(lineIndex, lineIndex + take).join('\n'));
-      lineIndex += take;
-    }
-
-    return pages;
   }
 
-  void _openTextEditorDialog() {
+  void _showAddCustomTagDialog() {
+    _customTagController.clear();
     showDialog(
       context: context,
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
-        child: Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('معاہدے کی مکمل تحریر درج / تبدیل کریں', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            _cleanAndNormalizeParagraphs();
-                            Navigator.pop(ctx);
-                            _openTextEditorDialog();
-                          },
-                          icon: const Icon(Icons.format_align_justify, size: 16),
-                          label: const Text('سطریں ہموار کریں'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal.shade700,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                      ],
-                    ),
-                  ],
-                ),
-                const Divider(),
-                Expanded(
-                  child: TextField(
-                    controller: _bodyController,
-                    maxLines: null,
-                    expands: true,
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
-                    style: TextStyle(
-                      fontFamily: 'JameelNoori',
-                      fontSize: _fontSize,
-                      height: 1.8,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'یہاں معاہدے کی تحریر پیسٹ کریں...',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {});
-                    Navigator.pop(ctx);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryEmerald,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(42),
-                  ),
-                  child: const Text('تبدیلی مکمل کریں اور صفحات پر دیکھیں', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
+        child: AlertDialog(
+          title: const Text('نیا کسٹم ٹیگ بنائیں', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: TextField(
+            controller: _customTagController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'مثلاً: گواہ کا نام، بقایا اقساط وغیرہ',
+              border: OutlineInputBorder(),
+              isDense: true,
             ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('منسوخ')),
+            ElevatedButton(
+              onPressed: () {
+                final val = _customTagController.text.trim();
+                if (val.isNotEmpty) {
+                  _controller.insertTag(val);
+                }
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryEmerald),
+              child: const Text('ٹیگ لگائیں', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _handleSaveTemplate() async {
+    final bool isSaved = await _controller.saveTemplate();
+    if (!mounted) return;
+
+    if (isSaved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ ٹیمپلیٹ ہائیو میں کامیابی سے محفوظ ہو گیا!'),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+      Navigator.of(context).pop(true);
+    }
   }
 
   @override
@@ -368,14 +132,14 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
     const double sheetH = 642.0;
     const double scale = sheetH / 1008.0;
 
-    final pages = _paginateText(_bodyController.text);
+    final pages = _controller.paginateText();
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFD4D4D4),
         appBar: AppBar(
-          title: const Text('معاہدہ اسٹوڈیو - ریڈ باکس ایڈیٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          title: const Text('معاہدہ اسٹوڈیو - مکمل ٹیکسٹ و ڈیزائن ایڈیٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           backgroundColor: AppColors.primaryEmerald,
           foregroundColor: Colors.white,
           actions: [
@@ -385,7 +149,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
               onPressed: _toggleZoom,
             ),
             ElevatedButton.icon(
-              onPressed: _saveTemplate,
+              onPressed: _handleSaveTemplate,
               icon: const Icon(Icons.check, color: Colors.white, size: 18),
               label: const Text('محفوظ کریں', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.successGreen),
@@ -395,6 +159,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
         ),
         body: Column(
           children: [
+            // ٹاپ ٹول بار 1: بنیادی سیٹنگز
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               color: Colors.white,
@@ -403,11 +168,11 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 160,
+                      width: 150,
                       child: TextField(
-                        controller: _titleController,
+                        controller: _controller.titleController,
                         textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                         decoration: const InputDecoration(
                           labelText: 'معاہدے کا عنوان',
                           isDense: true,
@@ -416,105 +181,136 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _pickStampPdf,
-                      icon: const Icon(Icons.upload_file, size: 16),
-                      label: Text(_loadedPdfFileName != null ? _loadedPdfFileName! : 'اسٹامپ PDF چنیں'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.brown.shade700,
-                        foregroundColor: Colors.white,
-                      ),
+                    DropdownButton<DocumentMode>(
+                      value: _controller.currentMode,
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(value: DocumentMode.stampOverlay, child: Text('پنجاب ای-اسٹامپ (لیگل)')),
+                        DropdownMenuItem(value: DocumentMode.plainDocument, child: Text('سادہ دستاویزی کاغذ (A4)')),
+                        DropdownMenuItem(value: DocumentMode.formFiller, child: Text('فارم فلر (اسکول فارمز)')),
+                      ],
+                      onChanged: (m) {
+                        if (m != null) _controller.setMode(m);
+                      },
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _openTextEditorDialog,
-                      icon: const Icon(Icons.edit_note, size: 18),
-                      label: const Text('تحریر لکھیں / تبدیل کریں'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryEmerald,
-                        foregroundColor: Colors.white,
+                    if (_controller.currentMode != DocumentMode.plainDocument) ...[
+                      ElevatedButton.icon(
+                        onPressed: () => _controller.pickPdf(),
+                        icon: const Icon(Icons.upload_file, size: 15),
+                        label: Text(_controller.loadedPdfFileName ?? 'PDF فارم چنیں', style: const TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.brown.shade700, foregroundColor: Colors.white),
                       ),
+                      const SizedBox(width: 8),
+                    ],
+                    ElevatedButton.icon(
+                      onPressed: () => _controller.normalizeParagraphs(),
+                      icon: const Icon(Icons.format_align_justify, size: 15),
+                      label: const Text('سطریں ہموار کریں', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.teal.shade700, foregroundColor: Colors.white),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _cleanAndNormalizeParagraphs,
-                      icon: const Icon(Icons.format_align_justify, size: 16),
-                      label: const Text('سطریں ہموار کریں'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal.shade700,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                    // فونٹ سائز
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         border: Border.all(color: Colors.grey.shade400),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
                           InkWell(
-                            onTap: () {
-                              setState(() {
-                                _fontSize = (_fontSize - 0.5).clamp(10.0, 22.0);
-                              });
-                            },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Icon(Icons.remove, size: 16, color: Colors.teal),
-                            ),
+                            onTap: () => _controller.setFontSize(_controller.fontSize - 0.5),
+                            child: const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.remove, size: 15, color: Colors.teal)),
                           ),
-                          Text(
-                            '$_fontSize pt',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
+                          Text('${_controller.fontSize} pt', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           InkWell(
-                            onTap: () {
-                              setState(() {
-                                _fontSize = (_fontSize + 0.5).clamp(10.0, 22.0);
-                              });
-                            },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Icon(Icons.add, size: 16, color: Colors.teal),
-                            ),
+                            onTap: () => _controller.setFontSize(_controller.fontSize + 0.5),
+                            child: const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.add, size: 15, color: Colors.teal)),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    _buildMarginQuickTag('مونوگرام حد: ${_topMargin.toInt()} pt', () => _showMarginModal(context)),
-                    const SizedBox(width: 6),
-                    _buildMarginQuickTag('کیو آر حد: ${_bottomMargin.toInt()} pt', () => _showMarginModal(context)),
-                    const SizedBox(width: 6),
-                    _buildMarginQuickTag('حاشیہ: ${_sideMargin.toInt()} pt', () => _showMarginModal(context)),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => _showMarginModal(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          border: Border.all(color: Colors.grey.shade400),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'مارجنز: T:${_controller.topMargin.toInt()} B:${_controller.bottomMargin.toInt()} S:${_controller.sideMargin.toInt()}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
+
+            // ٹاپ ٹول بار 2: تحریر کے ٹولز، اسپیسرز اور ٹیگز
             Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              color: Colors.grey.shade100,
-              child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              color: Colors.grey.shade200,
+              child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                itemCount: _pinnedTags.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
-                itemBuilder: (context, index) {
-                  final tag = _pinnedTags[index];
-                  return ActionChip(
-                    label: Text(tag, style: const TextStyle(fontSize: 12)),
-                    backgroundColor: Colors.teal.shade50,
-                    onPressed: () => _insertNamedTag(tag),
-                  );
-                },
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.format_bold, size: 18),
+                      tooltip: 'منتخب تحریر بولڈ کریں',
+                      onPressed: () => _insertFormatting('B'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.format_underlined, size: 18),
+                      tooltip: 'منتخب تحریر انڈر لائن کریں',
+                      onPressed: () => _insertFormatting('U'),
+                    ),
+                    const SizedBox(width: 6),
+                    ElevatedButton.icon(
+                      onPressed: () => _insertFixedSpacer(72), // 1 inch = 72 pt
+                      icon: const Icon(Icons.space_bar, size: 14),
+                      label: const Text('1 انچ خالی جگہ', style: TextStyle(fontSize: 11)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87),
+                    ),
+                    const SizedBox(width: 4),
+                    ElevatedButton.icon(
+                      onPressed: () => _insertFixedSpacer(36), // 0.5 inch = 36 pt
+                      icon: const Icon(Icons.space_bar, size: 14),
+                      label: const Text('آدھا انچ جگہ', style: TextStyle(fontSize: 11)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _showAddCustomTagDialog,
+                      icon: const Icon(Icons.add, size: 14),
+                      label: const Text('+ نیا کسٹم ٹیگ', style: TextStyle(fontSize: 11)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade800, foregroundColor: Colors.white),
+                    ),
+                    const SizedBox(width: 8),
+                    ..._controller.pinnedTags.map(
+                      (tag) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                        child: ActionChip(
+                          label: Text(tag, style: const TextStyle(fontSize: 11)),
+                          backgroundColor: Colors.white,
+                          onPressed: () => _controller.insertTag(tag),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+
+            // کینوس ایریا
             Expanded(
-              child: _isLoadingPdf
+              child: _controller.isLoadingPdf
                   ? const Center(child: CircularProgressIndicator())
                   : InteractiveViewer(
                       transformationController: _zoomController,
@@ -526,53 +322,53 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                         child: Padding(
                           padding: const EdgeInsets.all(30.0),
                           child: Column(
-                            children: List.generate(pages.length, (index) {
-                              final isP1 = (index == 0);
-                              final scaledTop = (isP1 ? _topMargin : _subsequentTopMargin) * scale;
-                              final scaledBot = _bottomMargin * scale;
-                              final scaledSide = _sideMargin * scale;
-                              final bgImg = (index < _cachedStampPages.length) ? _cachedStampPages[index] : null;
+                            children: List.generate(
+                              pages.length,
+                              (index) {
+                                final isP1 = (index == 0);
+                                final scaledTop = (isP1 ? _controller.topMargin : _controller.subsequentTopMargin) * scale;
+                                final scaledBot = _controller.bottomMargin * scale;
+                                final scaledSide = _controller.sideMargin * scale;
+                                final bgImg = (index < _controller.cachedStampPages.length)
+                                    ? _controller.cachedStampPages[index]
+                                    : null;
 
-                              return Column(
-                                children: [
-                                  _buildVisualStampSheet(
-                                    sheetWidth: sheetW,
-                                    sheetHeight: sheetH,
-                                    scaledTop: scaledTop,
-                                    scaledBottom: scaledBot,
-                                    scaledSide: scaledSide,
-                                    bgImage: bgImg,
-                                    pageLabel: isP1
-                                        ? "صفحہ نمبر 1 (اصل اسٹامپ مع ریڈ ٹیکسٹ باکس)"
-                                        : (index < _cachedStampPages.length
-                                            ? "صفحہ نمبر ${index + 1} (بقیہ تحریر)"
-                                            : "صفحہ نمبر ${index + 1} (اضافی سادہ ورق)"),
-                                    isFirstPage: isP1,
-                                    textContent: pages[index],
-                                    onTopDrag: (delta) {
-                                      setState(() {
+                                return Column(
+                                  children: [
+                                    StudioCanvasSheet(
+                                      sheetWidth: sheetW,
+                                      sheetHeight: sheetH,
+                                      scaledTop: scaledTop,
+                                      scaledBottom: scaledBot,
+                                      scaledSide: scaledSide,
+                                      bgImage: bgImg,
+                                      pageLabel: isP1
+                                          ? "صفحہ نمبر 1 (اصل لے آؤٹ)"
+                                          : "صفحہ نمبر ${index + 1} (بقیہ تحریر)",
+                                      isFirstPage: isP1,
+                                      textContent: pages.isNotEmpty ? pages[index] : "",
+                                      fontSize: _controller.fontSize,
+                                      mode: _controller.currentMode,
+                                      floatingBoxes: _controller.floatingBoxes,
+                                      bodyController: isP1 ? _controller.bodyController : null,
+                                      onTopDrag: (delta) {
                                         if (isP1) {
-                                          _topMargin = (_topMargin + (delta / scale)).clamp(100.0, 700.0);
+                                          _controller.setTopMargin(_controller.topMargin + (delta / scale));
                                         } else {
-                                          _subsequentTopMargin = (_subsequentTopMargin + (delta / scale)).clamp(30.0, 400.0);
+                                          _controller.setSubsequentTopMargin(_controller.subsequentTopMargin + (delta / scale));
                                         }
-                                      });
-                                    },
-                                    onBottomDrag: (delta) {
-                                      setState(() {
-                                        _bottomMargin = (_bottomMargin - (delta / scale)).clamp(80.0, 500.0);
-                                      });
-                                    },
-                                    onSideDrag: (delta) {
-                                      setState(() {
-                                        _sideMargin = (_sideMargin - (delta / scale)).clamp(15.0, 150.0);
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(height: 35),
-                                ],
-                              );
-                            }),
+                                      },
+                                      onBottomDrag: (delta) => _controller.setBottomMargin(_controller.bottomMargin - (delta / scale)),
+                                      onSideDrag: (delta) => _controller.setSideMargin(_controller.sideMargin - (delta / scale)),
+                                      onCanvasTap: (pt) => _controller.addFloatingField(pt),
+                                      onUpdateBox: (b) => _controller.updateFloatingField(b),
+                                      onDeleteBox: (id) => _controller.deleteFloatingField(id),
+                                    ),
+                                    const SizedBox(height: 35),
+                                  ],
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -581,164 +377,6 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildMarginQuickTag(String label, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          border: Border.all(color: Colors.grey.shade400),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  Widget _buildVisualStampSheet({
-    required double sheetWidth,
-    required double sheetHeight,
-    required double scaledTop,
-    required double scaledBottom,
-    required double scaledSide,
-    required Uint8List? bgImage,
-    required String pageLabel,
-    required bool isFirstPage,
-    required String textContent,
-    required Function(double) onTopDrag,
-    required Function(double) onBottomDrag,
-    required Function(double) onSideDrag,
-  }) {
-    final double boxH = (sheetHeight - scaledTop - scaledBottom).clamp(50.0, sheetHeight);
-    final double boxW = (sheetWidth - (scaledSide * 2)).clamp(100.0, sheetWidth);
-
-    return Column(
-      children: [
-        Text(pageLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
-        const SizedBox(height: 6),
-        Container(
-          width: sheetWidth,
-          height: sheetHeight,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: const [
-              BoxShadow(color: Colors.black38, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
-            ],
-          ),
-          child: Stack(
-            children: [
-              if (bgImage != null)
-                Positioned.fill(
-                  child: Image.memory(bgImage, fit: BoxFit.fill),
-                )
-              else
-                Center(
-                  child: Opacity(
-                    opacity: 0.1,
-                    child: Text(
-                      isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "اضافی سادہ ورق",
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: scaledTop,
-                child: Container(color: Colors.black.withAlpha(10)),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: scaledBottom,
-                child: Container(color: Colors.black.withAlpha(10)),
-              ),
-              Positioned(
-                top: scaledTop,
-                left: scaledSide,
-                width: boxW,
-                height: boxH,
-                child: InkWell(
-                  onDoubleTap: _openTextEditorDialog,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.red.shade700, width: 2.0),
-                      color: Colors.white.withAlpha(166),
-                    ),
-                    child: Stack(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
-                          child: Text(
-                            textContent,
-                            textAlign: TextAlign.justify,
-                            textDirection: TextDirection.rtl,
-                            style: TextStyle(
-                              fontFamily: 'JameelNoori',
-                              fontSize: _fontSize,
-                              height: 1.85,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF111111),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: 14,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onVerticalDragUpdate: (details) => onTopDrag(details.delta.dy),
-                            child: Container(
-                              color: Colors.red.withAlpha(77),
-                              alignment: Alignment.center,
-                              child: const Icon(Icons.drag_handle, size: 12, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          height: 14,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onVerticalDragUpdate: (details) => onBottomDrag(details.delta.dy),
-                            child: Container(
-                              color: Colors.red.withAlpha(77),
-                              alignment: Alignment.center,
-                              child: const Icon(Icons.drag_handle, size: 12, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 14,
-                          bottom: 14,
-                          right: 0,
-                          width: 12,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onHorizontalDragUpdate: (details) => onSideDrag(details.delta.dx),
-                            child: Container(color: Colors.red.withAlpha(51)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -756,34 +394,31 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
               children: [
                 const Text('مارجن پوائنٹس کی ترتیب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 10),
-                Text('مونوگرام محفوظ حد: ${_topMargin.toInt()} pt'),
+                Text('مونوگرام محفوظ حد: ${_controller.topMargin.toInt()} pt'),
                 Slider(
-                  value: _topMargin,
-                  min: 100,
+                  value: _controller.topMargin,
+                  min: 40,
                   max: 700,
                   onChanged: (v) {
-                    setMState(() => _topMargin = v);
-                    setState(() => _topMargin = v);
+                    setMState(() => _controller.setTopMargin(v));
                   },
                 ),
-                Text('کیو آر کوڈ محفوظ حد: ${_bottomMargin.toInt()} pt'),
+                Text('کیو آر کوڈ محفوظ حد: ${_controller.bottomMargin.toInt()} pt'),
                 Slider(
-                  value: _bottomMargin,
-                  min: 50,
+                  value: _controller.bottomMargin,
+                  min: 40,
                   max: 500,
                   onChanged: (v) {
-                    setMState(() => _bottomMargin = v);
-                    setState(() => _bottomMargin = v);
+                    setMState(() => _controller.setBottomMargin(v));
                   },
                 ),
-                Text('دائیں بائیں حاشیہ: ${_sideMargin.toInt()} pt'),
+                Text('دائیں بائیں حاشیہ: ${_controller.sideMargin.toInt()} pt'),
                 Slider(
-                  value: _sideMargin,
+                  value: _controller.sideMargin,
                   min: 15,
                   max: 150,
                   onChanged: (v) {
-                    setMState(() => _sideMargin = v);
-                    setState(() => _sideMargin = v);
+                    setMState(() => _controller.setSideMargin(v));
                   },
                 ),
               ],
