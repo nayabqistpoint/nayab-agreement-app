@@ -112,542 +112,11 @@ lib/
     status/
       sync_status_service.dart
     master_sync_hub.dart
-  dynamic_page_splitter.dart
   main.dart
-  stamp_editor_screen.dart
-  stamp_pdf_service.dart
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path="lib/dynamic_page_splitter.dart">
-import 'package:flutter/material.dart';
-class DynamicPageSplitter {
-  static const double legalWidth = 612.0;
-  static const double legalHeight = 1008.0;
-  static Map<String, List<String>> splitTextForPages({
-    required String fullText,
-    required TextStyle style,
-    required double topMarginP1,
-    required double bottomMarginP1,
-    required double sideMargin,
-    required double topMarginP2,
-    required double bottomMarginP2,
-  }) {
-    final double usableWidth = legalWidth - (sideMargin * 2);
-    final double p1UsableHeight = (legalHeight - topMarginP1 - bottomMarginP1).clamp(50.0, legalHeight);
-    final double p2UsableHeight = (legalHeight - topMarginP2 - bottomMarginP2).clamp(50.0, legalHeight);
-    final double lineHeight = (style.fontSize ?? 12.0) * 1.7;
-    List<String> rawParagraphs = fullText.split('\n');
-    List<String> allLines = [];
-    for (var para in rawParagraphs) {
-      if (para.trim().isEmpty) {
-        allLines.add("");
-        continue;
-      }
-      final textSpan = TextSpan(text: para, style: style);
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.rtl,
-      );
-      textPainter.layout(maxWidth: usableWidth);
-      final metrics = textPainter.computeLineMetrics();
-      if (metrics.isEmpty) {
-        allLines.add(para);
-      } else {
-        int charsPerLine = (para.length / metrics.length).ceil();
-        int start = 0;
-        for (int i = 0; i < metrics.length; i++) {
-          int end = (start + charsPerLine > para.length) ? para.length : start + charsPerLine;
-          allLines.add(para.substring(start, end));
-          start = end;
-        }
-      }
-    }
-    final int maxLinesPage1 = (p1UsableHeight / lineHeight).floor();
-    final int maxLinesPage2 = (p2UsableHeight / lineHeight).floor();
-    List<String> page1Lines = [];
-    List<String> page2Lines = [];
-    for (int i = 0; i < allLines.length; i++) {
-      if (i < maxLinesPage1) {
-        page1Lines.add(allLines[i]);
-      } else if (i < (maxLinesPage1 + maxLinesPage2)) {
-        page2Lines.add(allLines[i]);
-      }
-    }
-    return {
-      "page1": page1Lines,
-      "page2": page2Lines,
-    };
-  }
-}
-</file>
-
-<file path="lib/stamp_editor_screen.dart">
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:printing/printing.dart';
-import 'dynamic_page_splitter.dart';
-import 'stamp_pdf_service.dart';
-class StampEditorScreen extends StatefulWidget {
-  const StampEditorScreen({super.key});
-  @override
-  State<StampEditorScreen> createState() => _StampEditorScreenState();
-}
-class _StampEditorScreenState extends State<StampEditorScreen> {
-  double topMarginP1 = 350.0;
-  double bottomMarginP1 = 290.0;
-  double sideMargin = 45.0;
-  double topMarginP2 = 65.0;
-  double bottomMarginP2 = 90.0;
-  double fontSize = 11.5;
-  String? uploadedFileName;
-  Uint8List? uploadedPdfBytes;
-  final TextEditingController textController = TextEditingController(
-    text: """اقرار نامہ و معاہدہ بیع بالاقساط (نایاب قسط پوائنٹ حاصل پور)
-منکہ ابوبکر روشن ولد محمد ایوب قوم کھاوڑ شناختی کارڈ نمبر 31203-1188884-3 ساکن قائم پور تحصیل حاصل پور ضلع بہاولپور کا مستقل رہائشی ہوں۔
-1. یہ کہ میں نے نایاب قسط پوائنٹ حاصل پور سے ایک عدد اسمارٹ فون برانڈ ویوو ماڈل V2029 بمعہ اصلی چارجر، ڈبہ اور جملہ لوازمات کل طے شدہ رقم مبلغ 45,000 روپے میں باقاعدہ قسطوں پر خریدا ہے۔
-2. یہ کہ میں نے پیشگی رقم (ایڈوانس) مبلغ 10,000 روپے موقع پر نقد ادا کر دی ہے جبکہ بقایا رقم مبلغ 35,000 روپے میں ہر ماہ کی 5 تاریخ کو ماہانہ قسط مبلغ 5,000 روپے نایاب قسط پوائنٹ کے کاؤنٹر پر جمع کروانے کا پابند رہوں گا۔
-3. یہ کہ اقساط کی کل مدت 7 ماہ مقرر پائی ہے۔ اگر میں کسی بھی ماہ کی قسط مقررہ تاریخ تک ادا کرنے میں ناکام رہا تو دکاندار یا ادارہ کو مکمل قانونی حق حاصل ہوگا کہ وہ بقیہ تمام واجب الادا رقم یکمشت وصول کرے یا موبائل واپس تحویل میں لے۔
-4. یہ کہ موبائل سیٹ میں دوران استعمال اگر کوئی تکنیکی خرابی پیش آئے تو اس کی ذمہ داری وارنٹی کارڈ کے مطابق متعلقہ کمپنی پر ہوگی اور دکان یا قسط کے معاملات پر اس کا کوئی اثر نہیں پڑے گا۔
-شرائط و ضوابط برائے ضامن و قانونی چارہ جوئی:
-5. یہ کہ ضامن مسمی محمد ایوب ولد غلام قادر شناختی کارڈ نمبر 31203-0000000-0 خریدار کے ہر قسم کے مالی معاملات اور بروقت اقساط کی ادائیگی کا مکمل ضامن و ذمہ دار ہے۔
-6. خریدار یا ضامن کسی بھی قانونی تنازع کی صورت میں عدالت دیوانی یا فوجداری مجاز حاصل پور کے دائرہ اختیار کو تسلیم کریں گے۔
-7. یہ تحریر بقائمی ہوش و حواس خمسہ، بلاتکلف و جبر اور روبرو گواہان درج کر کے دستخط و نشان انگوٹھا ثبت کر دیے ہیں تاکہ سند رہے اور بوقت ضرورت کام آئے۔
-دستخط خریدار: ___________________        دستخط دکاندار: ___________________
-نشان انگوٹھا خریدار: ___________________    دستخط ضامن: ___________________
-گواہ نمبر 1: ___________________        گواہ نمبر 2: ___________________""",
-  );
-  Future<void> pickStampPdf() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      withData: true,
-    );
-    if (result != null && result.files.single.bytes != null) {
-      setState(() {
-        uploadedFileName = result.files.single.name;
-        uploadedPdfBytes = result.files.single.bytes;
-      });
-    }
-  }
-  Future<void> printOrSavePdf() async {
-    final splitResult = DynamicPageSplitter.splitTextForPages(
-      fullText: textController.text,
-      style: TextStyle(fontFamily: 'JameelNoori', fontSize: fontSize),
-      topMarginP1: topMarginP1,
-      bottomMarginP1: bottomMarginP1,
-      sideMargin: sideMargin,
-      topMarginP2: topMarginP2,
-      bottomMarginP2: bottomMarginP2,
-    );
-    final pdfBytes = await StampPdfService.generateOverlayPdf(
-      page1Lines: splitResult["page1"]!,
-      page2Lines: splitResult["page2"]!,
-      topMarginP1: topMarginP1,
-      bottomMarginP1: bottomMarginP1,
-      sideMargin: sideMargin,
-      topMarginP2: topMarginP2,
-      bottomMarginP2: bottomMarginP2,
-      fontSize: fontSize,
-    );
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdfBytes,
-      name: "Nayab_Agreement.pdf",
-    );
-  }
-  @override
-  Widget build(BuildContext context) {
-    final splitResult = DynamicPageSplitter.splitTextForPages(
-      fullText: textController.text,
-      style: TextStyle(fontFamily: 'JameelNoori', fontSize: fontSize),
-      topMarginP1: topMarginP1,
-      bottomMarginP1: bottomMarginP1,
-      sideMargin: sideMargin,
-      topMarginP2: topMarginP2,
-      bottomMarginP2: bottomMarginP2,
-    );
-    final p1Lines = splitResult["page1"]!;
-    final p2Lines = splitResult["page2"]!;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            "نایاب ایگریمنٹ - ریئل ٹائم اسٹامپ ایڈیٹر",
-            style: TextStyle(fontFamily: 'JameelNoori', fontSize: 20),
-          ),
-          backgroundColor: const Color(0xFF00796B),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.print),
-              tooltip: "پی ڈی ایف پرنٹ کریں",
-              onPressed: printOrSavePdf,
-            ),
-          ],
-        ),
-        body: Row(
-          children: [
-            Expanded(
-              flex: 4,
-              child: Container(
-                color: Colors.grey.shade100,
-                padding: const EdgeInsets.all(16.0),
-                child: ListView(
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00796B),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(
-                        uploadedFileName == null
-                            ? "سرکاری ای-اسٹامپ پی ڈی ایف چنیں"
-                            : "منتخب فائل: $uploadedFileName",
-                        style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 16),
-                      ),
-                      onPressed: pickStampPdf,
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      "معاہدے کا متن:",
-                      style: TextStyle(fontFamily: 'JameelNoori', fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: textController,
-                      maxLines: 8,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 15),
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: "یہاں اقرار نامہ درج کریں...",
-                      ),
-                      onChanged: (val) => setState(() {}),
-                    ),
-                    const SizedBox(height: 14),
-                    const Divider(),
-                    const Text(
-                      "مارجنز کنٹرول (پوائنٹس کے مطابق مکمل رینج):",
-                      style: TextStyle(
-                        fontFamily: 'JameelNoori',
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF00796B),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "صفحہ 1 اوپر کا مارجن (ہیڈر بلاکر): ${topMarginP1.toInt()} pt",
-                      style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 15),
-                    ),
-                    Slider(
-                      value: topMarginP1,
-                      min: 0.0,
-                      max: 900.0,
-                      divisions: 180,
-                      onChanged: (val) => setState(() => topMarginP1 = val),
-                    ),
-                    Text(
-                      "صفحہ 1 نیچے کا مارجن (کیو آر بلاکر): ${bottomMarginP1.toInt()} pt",
-                      style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 15),
-                    ),
-                    Slider(
-                      value: bottomMarginP1,
-                      min: 0.0,
-                      max: 600.0,
-                      divisions: 120,
-                      onChanged: (val) => setState(() => bottomMarginP1 = val),
-                    ),
-                    Text(
-                      "دائیں اور بائیں حاشیہ: ${sideMargin.toInt()} pt",
-                      style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 15),
-                    ),
-                    Slider(
-                      value: sideMargin,
-                      min: 10.0,
-                      max: 200.0,
-                      divisions: 38,
-                      onChanged: (val) => setState(() => sideMargin = val),
-                    ),
-                    Text(
-                      "صفحہ 2 اوپر کا مارجن: ${topMarginP2.toInt()} pt",
-                      style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 15),
-                    ),
-                    Slider(
-                      value: topMarginP2,
-                      min: 0.0,
-                      max: 500.0,
-                      divisions: 100,
-                      onChanged: (val) => setState(() => topMarginP2 = val),
-                    ),
-                    Text(
-                      "صفحہ 2 نیچے کا مارجن: ${bottomMarginP2.toInt()} pt",
-                      style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 15),
-                    ),
-                    Slider(
-                      value: bottomMarginP2,
-                      min: 0.0,
-                      max: 500.0,
-                      divisions: 100,
-                      onChanged: (val) => setState(() => bottomMarginP2 = val),
-                    ),
-                    Text(
-                      "فونٹ سائز: ${fontSize.toStringAsFixed(1)}",
-                      style: const TextStyle(fontFamily: 'JameelNoori', fontSize: 15),
-                    ),
-                    Slider(
-                      value: fontSize,
-                      min: 8.0,
-                      max: 18.0,
-                      divisions: 20,
-                      onChanged: (val) => setState(() => fontSize = val),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 6,
-              child: Container(
-                color: Colors.grey.shade300,
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const Text(
-                          "صفحہ نمبر 1 (لائیو پریویو)",
-                          style: TextStyle(fontFamily: 'JameelNoori', fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildPagePreview(
-                          width: 450,
-                          height: 741,
-                          topMargin: (topMarginP1 / 1008.0) * 741,
-                          bottomMargin: (bottomMarginP1 / 1008.0) * 741,
-                          sideMargin: (sideMargin / 612.0) * 450,
-                          lines: p1Lines,
-                          isPageOne: true,
-                        ),
-                        if (p2Lines.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          const Text(
-                            "صفحہ نمبر 2 (لائیو پریویو)",
-                            style: TextStyle(fontFamily: 'JameelNoori', fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildPagePreview(
-                            width: 450,
-                            height: 741,
-                            topMargin: (topMarginP2 / 1008.0) * 741,
-                            bottomMargin: (bottomMarginP2 / 1008.0) * 741,
-                            sideMargin: (sideMargin / 612.0) * 450,
-                            lines: p2Lines,
-                            isPageOne: false,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  Widget _buildPagePreview({
-    required double width,
-    required double height,
-    required double topMargin,
-    required double bottomMargin,
-    required double sideMargin,
-    required List<String> lines,
-    required bool isPageOne,
-  }) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 8, spreadRadius: 2),
-        ],
-      ),
-      child: Stack(
-        children: [
-          if (isPageOne) ...[
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: topMargin,
-              child: Container(
-                color: Colors.amber.withOpacity(0.12),
-                alignment: Alignment.center,
-                child: Text(
-                  "سرکاری ہیڈر اور مونوگرام کا محفوظ ایریا\n(${topMarginP1.toInt()} pt)",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'JameelNoori',
-                    color: Colors.brown.shade700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: bottomMargin,
-              child: Container(
-                color: Colors.red.withOpacity(0.08),
-                alignment: Alignment.center,
-                child: Text(
-                  "کیو آر کوڈ اور بارکوڈ کا محفوظ ایریا\n(${bottomMarginP1.toInt()} pt)",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'JameelNoori',
-                    color: Colors.red.shade700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          Positioned(
-            top: topMargin,
-            bottom: bottomMargin,
-            left: sideMargin,
-            right: sideMargin,
-            child: ListView(
-              physics: const NeverScrollableScrollPhysics(),
-              children: lines.map((line) {
-                if (line.isEmpty) {
-                  return const SizedBox(height: 6);
-                }
-                return Text(
-                  line,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontFamily: 'JameelNoori',
-                    fontSize: fontSize * (width / 612.0),
-                    height: 1.5,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/stamp_pdf_service.dart">
-import 'dart:typed_data';
-import 'package:flutter/services.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-class StampPdfService {
-  static Future<Uint8List> generateOverlayPdf({
-    required List<String> page1Lines,
-    required List<String> page2Lines,
-    required double topMarginP1,
-    required double bottomMarginP1,
-    required double sideMargin,
-    required double topMarginP2,
-    required double bottomMarginP2,
-    required double fontSize,
-  }) async {
-    final pdf = pw.Document();
-    final fontData = await rootBundle.load("assets/fonts/jameel.ttf");
-    final ttfFont = pw.Font.ttf(fontData);
-    pdf.addPage(
-      pw.Page(
-        pageFormat: const PdfPageFormat(612.0, 1008.0),
-        margin: pw.EdgeInsets.zero,
-        theme: pw.ThemeData.withFont(base: ttfFont),
-        build: (pw.Context context) {
-          return pw.Container(
-            padding: pw.EdgeInsets.only(
-              top: topMarginP1,
-              bottom: bottomMarginP1,
-              left: sideMargin,
-              right: sideMargin,
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: page1Lines.map((line) {
-                if (line.isEmpty) {
-                  return pw.SizedBox(height: 6);
-                }
-                return pw.Text(
-                  line,
-                  textDirection: pw.TextDirection.rtl,
-                  textAlign: pw.TextAlign.right,
-                  style: pw.TextStyle(
-                    font: ttfFont,
-                    fontSize: fontSize,
-                    lineSpacing: 1.6,
-                  ),
-                );
-              }).toList(),
-            ),
-          );
-        },
-      ),
-    );
-    if (page2Lines.isNotEmpty) {
-      pdf.addPage(
-        pw.Page(
-          pageFormat: const PdfPageFormat(612.0, 1008.0),
-          margin: pw.EdgeInsets.zero,
-          theme: pw.ThemeData.withFont(base: ttfFont),
-          build: (pw.Context context) {
-            return pw.Container(
-              padding: pw.EdgeInsets.only(
-                top: topMarginP2,
-                bottom: bottomMarginP2,
-                left: sideMargin,
-                right: sideMargin,
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: page2Lines.map((line) {
-                  if (line.isEmpty) {
-                    return pw.SizedBox(height: 6);
-                  }
-                  return pw.Text(
-                    line,
-                    textDirection: pw.TextDirection.rtl,
-                    textAlign: pw.TextAlign.right,
-                    style: pw.TextStyle(
-                      font: ttfFont,
-                      fontSize: fontSize,
-                      lineSpacing: 1.6,
-                    ),
-                  );
-                }).toList(),
-              ),
-            );
-          },
-        ),
-      );
-    }
-    return await pdf.save();
-  }
-}
-</file>
 
 <file path="lib/core/constants/app_colors.dart">
 import 'package:flutter/material.dart';
@@ -896,151 +365,6 @@ class WhatsappDispatcherCardUi extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/bucket_view_controller.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../shared_services/agreement_storage_handler_service.dart';
-import '../../shared_services/payload_builders/agreement_payload_builder.dart';
-import '../../shared_services/template_service.dart';
-class BucketViewController extends ChangeNotifier {
-  String templateId = '';
-  String templateText = '';
-  String paperSize = 'A4';
-  bool isEStamp = false;
-  double topMargin = 0.0;
-  double subsequentTopMargin = 45.0;
-  double bottomMargin = 0.0;
-  double sideMargin = 20.0;
-  final Map<String, TextEditingController> controllers = {};
-  List<String> fields = [];
-  Map<String, dynamic> qrSourceData = {};
-  final TextEditingController phoneController = TextEditingController();
-  void loadFromDraft() {
-    final draft = AgreementStorageHandlerService.getCurrentDraft();
-    if (draft != null) {
-      templateId = draft['templateId']?.toString() ?? '';
-      templateText = draft['templateText']?.toString() ?? '';
-      paperSize = draft['paperSize']?.toString() ?? 'A4';
-      isEStamp = draft['isEStamp'] as bool? ?? false;
-      topMargin = (draft['topMargin'] as num?)?.toDouble() ?? 0.0;
-      subsequentTopMargin = (draft['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0;
-      bottomMargin = (draft['bottomMargin'] as num?)?.toDouble() ?? 0.0;
-      sideMargin = (draft['sideMargin'] as num?)?.toDouble() ?? 20.0;
-      qrSourceData = Map<String, dynamic>.from(draft['qrSourceData'] ?? {});
-      final savedFieldValues = Map<String, dynamic>.from(draft['fieldValues'] ?? {});
-      fields = TemplateService.extractFields(templateText);
-      _setupControllers(savedFieldValues);
-    }
-    notifyListeners();
-  }
-  void _setupControllers(Map<String, dynamic> savedValues) {
-    for (var c in controllers.values) {
-      c.dispose();
-    }
-    controllers.clear();
-    for (var f in fields) {
-      final initial = savedValues[f]?.toString() ?? qrSourceData[f]?.toString() ?? '';
-      final c = TextEditingController(text: initial);
-      c.addListener(_persistDraft);
-      controllers[f] = c;
-    }
-  }
-  void _persistDraft() {
-    final values = controllers.map((k, v) => MapEntry(k, v.text));
-    final draft = AgreementPayloadBuilder.buildDraftPayload(
-      templateId: templateId,
-      templateText: templateText,
-      paperSize: paperSize,
-      isEStamp: isEStamp,
-      topMargin: topMargin,
-      subsequentTopMargin: subsequentTopMargin,
-      bottomMargin: bottomMargin,
-      sideMargin: sideMargin,
-      fieldValues: values,
-      qrSourceData: qrSourceData,
-    );
-    AgreementStorageHandlerService.saveCurrentDraft(draft);
-  }
-  List<String> get pendingFields =>
-      fields.where((f) => (controllers[f]?.text.trim().isEmpty ?? true)).toList();
-  Future<void> sendQuestionsOnWhatsapp(BuildContext context) async {
-    final missing = pendingFields;
-    if (missing.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تمام فیلڈز پہلے ہی مکمل ہیں!')),
-      );
-      return;
-    }
-    final buffer = StringBuffer();
-    buffer.writeln('محترم گاہک! نایاب قسط پوائنٹ پر آپ کا معاہدہ تیار کیا جا رہا ہے۔');
-    buffer.writeln('براہِ کرم درج ذیل خالی کوائف لکھ کر بھیجیں:\n');
-    for (int i = 0; i < missing.length; i++) {
-      buffer.writeln('${i + 1}. ${missing[i]}: ');
-    }
-    final message = buffer.toString();
-    String phone = phoneController.text.trim().replaceAll(' ', '').replaceAll('-', '');
-    if (phone.startsWith('03')) phone = '92${phone.substring(1)}';
-    if (phone.isNotEmpty) {
-      final url = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-        return;
-      }
-    }
-    Clipboard.setData(ClipboardData(text: message));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سوالنامہ کلپ بورڈ پر کاپی ہو گیا!')),
-      );
-    }
-  }
-  Future<void> pasteAndParseFromClipboard(BuildContext context) async {
-    final data = await Clipboard.getData('text/plain');
-    final text = data?.text ?? '';
-    if (text.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('کلپ بورڈ خالی ہے!')),
-        );
-      }
-      return;
-    }
-    int matchCount = 0;
-    final lines = text.split('\n');
-    for (var line in lines) {
-      if (line.contains(':')) {
-        final parts = line.split(':');
-        String key = parts[0].replaceAll(RegExp(r'^[0-9]+[\.\-\s]+'), '').trim();
-        String val = parts.sublist(1).join(':').trim();
-        if (controllers.containsKey(key) && val.isNotEmpty) {
-          controllers[key]!.text = val;
-          matchCount++;
-        }
-      }
-    }
-    _persistDraft();
-    notifyListeners();
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ $matchCount معلومات خودکار طریقے سے درج ہو گئیں!'),
-          backgroundColor: Colors.teal,
-        ),
-      );
-    }
-  }
-  @override
-  void dispose() {
-    phoneController.dispose();
-    for (var c in controllers.values) {
-      c.dispose();
-    }
-    super.dispose();
   }
 }
 </file>
@@ -1351,6 +675,693 @@ class CounterTemplateSelectorUi extends StatelessWidget {
 }
 </file>
 
+<file path="lib/features/customer_directory/args/customer_directory_args.dart">
+
+</file>
+
+<file path="lib/features/customer_directory/components/customer_profile_tile_ui.dart">
+
+</file>
+
+<file path="lib/features/customer_directory/components/directory_search_bar_ui.dart">
+
+</file>
+
+<file path="lib/features/customer_directory/customer_directory_controller.dart">
+import 'package:flutter/material.dart';
+import '../../core/constants/box_names.dart';
+import '../../core/database/hive_box_manager.dart';
+import '../../shared_models/customer_profile_model.dart';
+import '../../shared_services/agreement_storage_handler_service.dart';
+import '../../shared_services/payload_builders/agreement_payload_builder.dart';
+class CustomerDirectoryController extends ChangeNotifier {
+  List<CustomerProfileModel> profiles = [];
+  String searchQuery = '';
+  void loadProfiles() {
+    final box = HiveBoxManager.getBox(BoxNames.customerProfilesBox);
+    profiles = box.values
+        .whereType()
+        .map((m) => CustomerProfileModel.fromMap(Map<String, dynamic>.from(m)))
+        .where((p) => !p.isDeleted)
+        .toList();
+    notifyListeners();
+  }
+  List<CustomerProfileModel> get filteredProfiles {
+    if (searchQuery.trim().isEmpty) return profiles;
+    return profiles.where((p) {
+      return p.fullName.contains(searchQuery) ||
+          p.cnic.contains(searchQuery) ||
+          p.phone.contains(searchQuery);
+    }).toList();
+  }
+  void updateSearch(String q) {
+    searchQuery = q;
+    notifyListeners();
+  }
+  Future<void> saveProfile(CustomerProfileModel profile) async {
+    final payload = AgreementPayloadBuilder.buildProfilePayload(profile);
+    await AgreementStorageHandlerService.saveCustomerProfile(payload);
+    loadProfiles();
+  }
+}
+</file>
+
+<file path="lib/features/customer_directory/customer_directory_page.dart">
+import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
+import 'customer_directory_controller.dart';
+class CustomerDirectoryPage extends StatefulWidget {
+  const CustomerDirectoryPage({super.key});
+  @override
+  State<CustomerDirectoryPage> createState() => _CustomerDirectoryPageState();
+}
+class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
+  late final CustomerDirectoryController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = CustomerDirectoryController();
+    _controller.addListener(() => setState(() {}));
+    _controller.loadProfiles();
+  }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context) {
+    final list = _controller.filteredProfiles;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: AppBar(
+          title: const Text('کسٹمر و ضامن ڈائریکٹری', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19)),
+          backgroundColor: AppColors.primaryEmerald,
+          foregroundColor: Colors.white,
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: TextField(
+                textAlign: TextAlign.right,
+                onChanged: _controller.updateSearch,
+                decoration: InputDecoration(
+                  hintText: 'نام، شناختی کارڈ یا فون سے تلاش کریں...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+            ),
+            Expanded(
+              child: list.isEmpty
+                  ? const Center(
+                      child: Text('کوئی ریکارڈ نہیں ملا۔', style: TextStyle(color: AppColors.textMuted)),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: list.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final p = list[index];
+                        return Card(
+                          elevation: 1,
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.teal.shade100,
+                              child: Text(p.role.substring(0, 1)),
+                            ),
+                            title: Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('CNIC: ${p.cnic} | فون: ${p.phone}'),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/template_studio/components/studio_editor_canvas_ui.dart">
+
+</file>
+
+<file path="lib/features/template_studio/components/studio_paper_ruler_ui.dart">
+
+</file>
+
+<file path="lib/features/template_studio/components/studio_tag_toolbar_ui.dart">
+import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
+class StudioTagToolbarUi extends StatelessWidget {
+  final List<String> tags;
+  final Function(String) onTagSelected;
+  const StudioTagToolbarUi({
+    super.key,
+    required this.tags,
+    required this.onTagSelected,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        border: Border.symmetric(horizontal: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: tags.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final tag = tags[index];
+          return ActionChip(
+            label: Text(tag, style: const TextStyle(fontSize: 13)),
+            backgroundColor: Colors.teal.shade50,
+            onPressed: () => onTagSelected(tag),
+          );
+        },
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/template_studio/template_studio_controller.dart">
+import 'package:flutter/material.dart';
+import '../../shared_services/agreement_storage_handler_service.dart';
+import '../../shared_services/payload_builders/agreement_payload_builder.dart';
+import '../../shared_services/template_service.dart';
+import '../../shared_models/agreement_template_model.dart';
+class TemplateStudioController extends ChangeNotifier {
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController bodyController = TextEditingController();
+  String paperSize = 'A4';
+  double topMargin = 0.0;
+  List<String> availableTags = [
+    'کسٹمر کا نام',
+    'ولدیت',
+    'شناختی کارڈ',
+    'موبائل ماڈل',
+    'IMEI نمبر',
+    'ایڈوانس رقم',
+    'ماہانہ قسط',
+    'ٹوٹل رقم',
+    'مدت',
+  ];
+  void insertTag(String tagName) {
+    final text = bodyController.text;
+    final selection = bodyController.selection;
+    final tagToInsert = '{{$tagName}}';
+    if (selection.start >= 0) {
+      final newText = text.replaceRange(selection.start, selection.end, tagToInsert);
+      bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + tagToInsert.length),
+      );
+    } else {
+      bodyController.text += tagToInsert;
+    }
+    notifyListeners();
+  }
+  Future<void> saveTemplatePermanently(BuildContext context) async {
+    final title = titleController.text.trim();
+    final content = bodyController.text.trim();
+    if (title.isEmpty || content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('عنوان اور تحریر دونوں لازمی ہیں!')),
+      );
+      return;
+    }
+    final template = AgreementTemplateModel(
+      id: title,
+      title: title,
+      content: content,
+      paperSize: paperSize,
+      topMargin: topMargin,
+      fields: TemplateService.extractFields(content),
+      createdAt: '',
+      updatedAt: '',
+    );
+    final payload = AgreementPayloadBuilder.buildTemplatePayload(template);
+    await AgreementStorageHandlerService.saveTemplate(payload);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ ٹیمپلیٹ مستقل محفوظ ہو گیا!')),
+      );
+      Navigator.pop(context);
+    }
+  }
+  @override
+  void dispose() {
+    titleController.dispose();
+    bodyController.dispose();
+    super.dispose();
+  }
+}
+</file>
+
+<file path="lib/shared_models/customer_profile_model.dart">
+class CustomerProfileModel {
+  final String id;
+  final String fullName;
+  final String fatherName;
+  final String cnic;
+  final String phone;
+  final String address;
+  final String role;
+  final bool isSynced;
+  final String updatedAt;
+  final String createdAt;
+  final bool isDeleted;
+  CustomerProfileModel({
+    required this.id,
+    required this.fullName,
+    required this.fatherName,
+    required this.cnic,
+    required this.phone,
+    required this.address,
+    this.role = 'گاہک',
+    this.isSynced = false,
+    required this.updatedAt,
+    required this.createdAt,
+    this.isDeleted = false,
+  });
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'fullName': fullName,
+      'fatherName': fatherName,
+      'cnic': cnic,
+      'phone': phone,
+      'address': address,
+      'role': role,
+      'isSynced': isSynced,
+      'updatedAt': updatedAt,
+      'createdAt': createdAt,
+      'isDeleted': isDeleted,
+    };
+  }
+  factory CustomerProfileModel.fromMap(Map<String, dynamic> map) {
+    return CustomerProfileModel(
+      id: map['id']?.toString() ?? '',
+      fullName: map['fullName']?.toString() ?? '',
+      fatherName: map['fatherName']?.toString() ?? '',
+      cnic: map['cnic']?.toString() ?? '',
+      phone: map['phone']?.toString() ?? '',
+      address: map['address']?.toString() ?? '',
+      role: map['role']?.toString() ?? 'گاہک',
+      isSynced: map['isSynced'] as bool? ?? false,
+      updatedAt: map['updatedAt']?.toString() ?? '',
+      createdAt: map['createdAt']?.toString() ?? '',
+      isDeleted: map['isDeleted'] as bool? ?? false,
+    );
+  }
+}
+</file>
+
+<file path="lib/shared_services/agreement_payload_service.dart">
+class AgreementPayloadService {
+  static Map<String, dynamic> wrapIntoBatchMap(List<dynamic> payloads) {
+    final Map<String, dynamic> batchMap = {};
+    for (final payload in payloads) {
+      if (payload is Map) {
+        final key = payload['id']?.toString() ??
+            DateTime.now().millisecondsSinceEpoch.toString();
+        batchMap[key] = payload;
+      }
+    }
+    return batchMap;
+  }
+}
+</file>
+
+<file path="lib/shared_services/cnic_ocr_scanner_service.dart">
+import 'package:flutter/material.dart';
+import 'qr_scanner_service.dart';
+class CnicOcrScannerService {
+  static Future<dynamic> scanCnic(BuildContext context) async {
+    final rawData = await QrScannerService.scanQrCode(context);
+    if (rawData == null || rawData.isEmpty) return null;
+    final Map<String, String> result = <String, String>{};
+    final cnicRegexWithHyphen = RegExp(r'\d{5}-\d{7}-\d{1}');
+    final cnicRegexRaw = RegExp(r'\b\d{13}\b');
+    if (cnicRegexWithHyphen.hasMatch(rawData)) {
+      result['شناختی کارڈ'] = cnicRegexWithHyphen.firstMatch(rawData)!.group(0)!;
+    } else if (cnicRegexRaw.hasMatch(rawData)) {
+      final rawCnic = cnicRegexRaw.firstMatch(rawData)!.group(0)!;
+      result['شناختی کارڈ'] =
+          '${rawCnic.substring(0, 5)}-${rawCnic.substring(5, 12)}-${rawCnic.substring(12)}';
+    }
+    return result.isNotEmpty ? result : null;
+  }
+}
+</file>
+
+<file path="lib/shared_services/qr_scanner_service.dart">
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'dart:html' as html;
+class QrScannerService {
+  static Future<String?> scanQrCode(BuildContext context) async {
+    return await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const _QrScannerView()),
+    );
+  }
+}
+class _QrScannerView extends StatefulWidget {
+  const _QrScannerView();
+  @override
+  State<_QrScannerView> createState() => _QrScannerViewState();
+}
+class _QrScannerViewState extends State<_QrScannerView> {
+  final MobileScannerController _controller = MobileScannerController(
+    facing: CameraFacing.back,
+    torchEnabled: false,
+  );
+  bool _scanned = false;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  void _pickQrImageFromGallery() {
+    if (kIsWeb) {
+      final input = html.FileUploadInputElement()..accept = 'image/*';
+      input.click();
+      input.onChange.listen((event) {
+        final files = input.files;
+        if (files == null || files.isEmpty) return;
+        final file = files.first;
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((e) async {
+          final blobUrl = html.Url.createObjectUrlFromBlob(file);
+          try {
+            final barcodeCapture = await _controller.analyzeImage(blobUrl);
+            if (barcodeCapture != null && barcodeCapture.barcodes.isNotEmpty) {
+              final code = barcodeCapture.barcodes.first.rawValue;
+              if (code != null && !_scanned && mounted) {
+                _scanned = true;
+                Navigator.pop(context, code);
+              }
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('اس تصویر میں سے کوئی کیو آر کوڈ نہیں ملا!')),
+                );
+              }
+            }
+          } catch (err) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('کیو آر کوڈ پڑھنے میں مسئلہ: $err')),
+              );
+            }
+          } finally {
+            html.Url.revokeObjectUrl(blobUrl);
+          }
+        });
+        reader.readAsArrayBuffer(file);
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('گیلری فیچر فی الحال ویب پر لائیو ٹیسٹ ہو رہا ہے۔')),
+      );
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('کیو آر کوڈ سکین کریں', style: TextStyle(fontSize: 18)),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.photo_library_outlined),
+            tooltip: 'گیلری سے تصویر منتخب کریں',
+            onPressed: _pickQrImageFromGallery,
+          ),
+          IconButton(
+            icon: const Icon(Icons.flip_camera_ios_outlined),
+            tooltip: 'کیمرے کا رخ بدلیں',
+            onPressed: () => _controller.switchCamera(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.flash_on_outlined),
+            tooltip: 'ٹارچ آن / آف',
+            onPressed: () => _controller.toggleTorch(),
+          ),
+        ],
+      ),
+      body: Stack(
+        alignment: Alignment.center,
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              if (_scanned) return;
+              final barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                if (barcode.rawValue != null) {
+                  _scanned = true;
+                  Navigator.pop(context, barcode.rawValue);
+                  break;
+                }
+              }
+            },
+          ),
+          Container(
+            width: 260,
+            height: 260,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.tealAccent, width: 2.5),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          const Positioned(
+            bottom: 40,
+            child: Text(
+              'کیو آر کوڈ کو فریم کے سامنے لائیں یا اوپر سے تصویر منتخب کریں',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/shared_services/template_service.dart">
+class TemplateService {
+  static final Map<String, String> defaultPresets = {
+    'موبائل اقساط کا معاہدہ': '''نایاب قسط پوائنٹ حاصل پور
+اقرار نامہ و معاہدہ بیع بالاقساط
+منکہ {{کسٹمر کا نام}} ولد {{ولدیت}} قوم {{قومیت}} شناختی کارڈ نمبر {{شناختی کارڈ}} رہائشی {{مستقل پتہ}} موبائل نمبر {{رابطہ نمبر}} نے نایاب قسط پوائنٹ سے ایک عدد موبائل بمطابق تفصیل ذیل قسطوں پر خریدا ہے:
+• موبائل کمپنی و ماڈل: {{موبائل ماڈل}}
+• آئی ایم ای آئی نمبر: {{IMEI نمبر}}
+• کل قیمت طے شدہ: {{ٹوٹل رقم}} روپے
+• پیشگی ادائیگی (ایڈوانس): {{ایڈوانس رقم}} روپے
+• ماہانہ قسط: {{ماہانہ قسط}} روپے
+• اقساط کی کل مدت: {{مدت}}
+مقررہ تاریخ سے پہلے ہر ماہ کی قسط ادا کرنے کا پابند رہوں گا/رہوں گی۔ بصورت دیگر کمپنی کو قانونی کارروائی کا حق حاصل ہوگا۔''',
+    'بیان حلفی اقساط': '''حلف نامہ / بیان حلفی
+میں مسمی {{کسٹمر کا نام}} ولد {{ولدیت}} ساکن {{مستقل پتہ}} شناختی کارڈ نمبر {{شناختی کارڈ}} کا رہائشی ہوں اور حلفاً بیان کرتا ہوں کہ:
+1. میں نے نایاب قسط پوائنٹ سے {{موبائل ماڈل}} کل قیمت {{ٹوٹل رقم}} روپے میں خریدا ہے۔
+2. میں ہر ماہ کی {{تاریخ ادائیگی}} کو ماہانہ قسط مبلغ {{ماہانہ قسط}} روپے بروقت ادا کرنے کا پابند رہوں گا۔
+3. بقایا رقم کی مکمل ادائیگی تک موبائل سیٹ نایاب قسط پوائنٹ کی ملکیت تصور ہوگا۔
+المحلف: {{کسٹمر کا نام}}'''
+  };
+  static Map<String, String> get presetTemplates => defaultPresets;
+  static List<String> extractFields(String template) {
+    final regex = RegExp(r'\{\{(.*?)\}\}');
+    final matches = regex.allMatches(template);
+    return matches.map((m) => m.group(1)!.trim()).where((s) => s.isNotEmpty).toSet().toList();
+  }
+  static String replaceTags(String template, Map<String, String> values) {
+    String result = template;
+    values.forEach((key, val) {
+      result = result.replaceAll('{{$key}}', val.trim().isEmpty ? '__________' : val.trim());
+    });
+    return result;
+  }
+}
+</file>
+
+<file path="lib/sync/pull/agreement_pull_service.dart">
+
+</file>
+
+<file path="lib/sync/push/agreement_push_service.dart">
+
+</file>
+
+<file path="lib/sync/status/sync_status_service.dart">
+
+</file>
+
+<file path="lib/sync/master_sync_hub.dart">
+
+</file>
+
+<file path="lib/features/agreement_bucket_view/bucket_view_controller.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../shared_services/agreement_storage_handler_service.dart';
+import '../../shared_services/payload_builders/agreement_payload_builder.dart';
+import '../../shared_services/template_service.dart';
+class BucketViewController extends ChangeNotifier {
+  String templateId = '';
+  String templateText = '';
+  String paperSize = 'A4';
+  bool isEStamp = false;
+  double topMargin = 0.0;
+  double subsequentTopMargin = 45.0;
+  double bottomMargin = 0.0;
+  double sideMargin = 20.0;
+  final Map<String, TextEditingController> controllers = {};
+  List<String> fields = [];
+  Map<String, dynamic> qrSourceData = {};
+  final TextEditingController phoneController = TextEditingController();
+  void loadFromDraft() {
+    final draft = AgreementStorageHandlerService.getCurrentDraft();
+    if (draft != null) {
+      templateId = draft['templateId']?.toString() ?? '';
+      templateText = draft['templateText']?.toString() ?? '';
+      paperSize = draft['paperSize']?.toString() ?? 'A4';
+      isEStamp = draft['isEStamp'] as bool? ?? false;
+      topMargin = (draft['topMargin'] as num?)?.toDouble() ?? 0.0;
+      subsequentTopMargin = (draft['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0;
+      bottomMargin = (draft['bottomMargin'] as num?)?.toDouble() ?? 0.0;
+      sideMargin = (draft['sideMargin'] as num?)?.toDouble() ?? 20.0;
+      qrSourceData = Map<String, dynamic>.from(draft['qrSourceData'] ?? {});
+      final savedFieldValues = Map<String, dynamic>.from(draft['fieldValues'] ?? {});
+      fields = TemplateService.extractFields(templateText);
+      _setupControllers(savedFieldValues);
+    }
+    notifyListeners();
+  }
+  void _setupControllers(Map<String, dynamic> savedValues) {
+    for (var c in controllers.values) {
+      c.dispose();
+    }
+    controllers.clear();
+    for (var f in fields) {
+      final initial = savedValues[f]?.toString() ?? qrSourceData[f]?.toString() ?? '';
+      final c = TextEditingController(text: initial);
+      c.addListener(_persistDraft);
+      controllers[f] = c;
+    }
+  }
+  void _persistDraft() {
+    final values = controllers.map((k, v) => MapEntry(k, v.text));
+    final draft = AgreementPayloadBuilder.buildDraftPayload(
+      templateId: templateId,
+      templateText: templateText,
+      paperSize: paperSize,
+      isEStamp: isEStamp,
+      topMargin: topMargin,
+      subsequentTopMargin: subsequentTopMargin,
+      bottomMargin: bottomMargin,
+      sideMargin: sideMargin,
+      fieldValues: values,
+      qrSourceData: qrSourceData,
+    );
+    AgreementStorageHandlerService.saveCurrentDraft(draft);
+  }
+  List<String> get pendingFields =>
+      fields.where((f) => (controllers[f]?.text.trim().isEmpty ?? true)).toList();
+  Future<void> sendQuestionsOnWhatsapp(BuildContext context) async {
+    final missing = pendingFields;
+    if (missing.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تمام فیلڈز پہلے ہی مکمل ہیں!')),
+      );
+      return;
+    }
+    final buffer = StringBuffer();
+    buffer.writeln('محترم گاہک! نایاب قسط پوائنٹ پر آپ کا معاہدہ تیار کیا جا رہا ہے۔');
+    buffer.writeln('براہِ کرم درج ذیل خالی کوائف لکھ کر بھیجیں:\n');
+    for (int i = 0; i < missing.length; i++) {
+      buffer.writeln('${i + 1}. ${missing[i]}: ');
+    }
+    final message = buffer.toString();
+    String phone = phoneController.text.trim().replaceAll(' ', '').replaceAll('-', '');
+    if (phone.startsWith('03')) phone = '92${phone.substring(1)}';
+    if (phone.isNotEmpty) {
+      final url = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(message)}');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+    Clipboard.setData(ClipboardData(text: message));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('سوالنامہ کلپ بورڈ پر کاپی ہو گیا!')),
+      );
+    }
+  }
+  Future<void> pasteAndParseFromClipboard(BuildContext context) async {
+    final data = await Clipboard.getData('text/plain');
+    final text = data?.text ?? '';
+    if (text.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('کلپ بورڈ خالی ہے!')),
+        );
+      }
+      return;
+    }
+    int matchCount = 0;
+    final lines = text.split('\n');
+    for (var line in lines) {
+      if (line.contains(':')) {
+        final parts = line.split(':');
+        String key = parts[0].replaceAll(RegExp(r'^[0-9]+[\.\-\s]+'), '').trim();
+        String val = parts.sublist(1).join(':').trim();
+        if (controllers.containsKey(key) && val.isNotEmpty) {
+          controllers[key]!.text = val;
+          matchCount++;
+        }
+      }
+    }
+    _persistDraft();
+    notifyListeners();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ $matchCount معلومات خودکار طریقے سے درج ہو گئیں!'),
+          backgroundColor: Colors.teal,
+        ),
+      );
+    }
+  }
+  @override
+  void dispose() {
+    phoneController.dispose();
+    for (var c in controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+}
+</file>
+
 <file path="lib/features/agreement_counter/agreement_counter_controller.dart">
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -1546,450 +1557,6 @@ class AgreementCounterController extends ChangeNotifier {
 }
 </file>
 
-<file path="lib/features/agreement_counter/agreement_counter_page.dart">
-import 'dart:js_interop';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/box_names.dart';
-import '../../core/database/hive_box_manager.dart';
-import 'agreement_counter_controller.dart';
-import 'components/counter_scanner_bar_ui.dart';
-import 'components/counter_template_selector_ui.dart';
-import 'components/counter_bucket_badge_ui.dart';
-import 'components/counter_print_action_ui.dart';
-import '../agreement_bucket_view/bucket_view_page.dart';
-import '../template_studio/args/template_studio_args.dart';
-import '../template_studio/template_studio_page.dart';
-import '../customer_directory/customer_directory_page.dart';
-class AgreementCounterPage extends StatefulWidget {
-  const AgreementCounterPage({super.key});
-  @override
-  State<AgreementCounterPage> createState() => _AgreementCounterPageState();
-}
-class _AgreementCounterPageState extends State<AgreementCounterPage> {
-  late final AgreementCounterController _controller;
-  @override
-  void initState() {
-    super.initState();
-    _controller = AgreementCounterController();
-    _controller.addListener(() => setState(() {}));
-    _controller.loadDraftFromHive();
-  }
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-  void _pickCustomerStampPdf() {
-    if (kIsWeb) {
-      final uploadInput = web.document.createElement('input') as web.HTMLInputElement;
-      uploadInput.type = 'file';
-      uploadInput.accept = '.pdf,application/pdf';
-      uploadInput.click();
-      uploadInput.onchange = (web.Event e) {
-        final files = uploadInput.files;
-        if (files == null || files.length == 0) return;
-        final file = files.item(0);
-        if (file == null) return;
-        final reader = web.FileReader();
-        reader.readAsArrayBuffer(file);
-        reader.onloadend = (web.ProgressEvent pe) {
-          final result = reader.result;
-          if (result != null && mounted) {
-            final arrayBuffer = result as JSArrayBuffer;
-            final bytes = arrayBuffer.toDart.asUint8List();
-            setState(() {
-              _controller.selectedStampPdfBytes = bytes;
-              _controller.selectedStampFileName = file.name;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ اصل ای-اسٹامپ پی ڈی ایف منسلک ہو گیا: ${file.name}'),
-                backgroundColor: AppColors.successGreen,
-              ),
-            );
-          }
-        }.toJS;
-      }.toJS;
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ای-اسٹامپ اوورلے فعال ہے۔')),
-      );
-    }
-  }
-  String _buildCleanPreviewText() {
-    String raw = _controller.templateContent;
-    if (raw.isEmpty) return 'کوئی معاہدہ منتخب نہیں ہے۔';
-    raw = raw.replaceAll('**', '').replaceAll('*', '');
-    raw = raw.replaceAll('[center]', '').replaceAll('[/center]', '');
-    raw = raw.replaceAll(RegExp(r'^#+\s*', multiLine: true), '');
-    raw = raw.replaceAll(RegExp(r'\[space:\s*\d+\]'), '\n');
-    raw = raw.replaceAll(RegExp(r'\[signatures:.*?\]'), '');
-    for (var f in _controller.requiredFields) {
-      final val = _controller.currentFieldValues[f]?.trim();
-      final display = (val != null && val.isNotEmpty) ? val : '__________';
-      raw = raw.replaceAll('{{$f}}', display);
-    }
-    raw = raw.replaceAll(RegExp(r'\{\{.*?\}\}'), '__________');
-    return raw.trim();
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundLight,
-        appBar: AppBar(
-          title: const Text('نایاب قسط پوائنٹ - کاؤنٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-          centerTitle: true,
-          backgroundColor: AppColors.primaryEmerald,
-          foregroundColor: Colors.white,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.people_outline, size: 26),
-              tooltip: 'کسٹمر ڈائریکٹری',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CustomerDirectoryPage()),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 26),
-              tooltip: 'نیا معاہدہ بنائیں',
-              onPressed: () async {
-                final res = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TemplateStudioPage()),
-                );
-                if (res == true) _controller.loadDraftFromHive();
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh, size: 26),
-              tooltip: 'فارم نیا کریں',
-              onPressed: () => _controller.resetCounter(context),
-            ),
-          ],
-        ),
-        body: ValueListenableBuilder(
-          valueListenable: HiveBoxManager.listenToBox(BoxNames.agreementDraftBox),
-          builder: (context, box, child) {
-            final isEStampMode = _controller.isEStamp || _controller.paperSize == 'Legal';
-            return Padding(
-              padding: const EdgeInsets.all(14.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CounterScannerBarUi(
-                    onScanProduct: () => _controller.scanProduct(context),
-                    onScanCnic: () => _controller.scanCnic(context),
-                  ),
-                  const SizedBox(height: 10),
-                  CounterTemplateSelectorUi(
-                    selectedTitle: _controller.selectedTemplateTitle,
-                    availableTemplates: _controller.availableTemplates,
-                    onTemplateChanged: (t) => _controller.switchTemplate(t),
-                    onEditTemplate: () async {
-                      final res = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TemplateStudioPage(
-                            args: TemplateStudioArgs(
-                              templateTitle: _controller.selectedTemplateTitle,
-                              templateContent: _controller.templateContent,
-                              paperSize: _controller.paperSize,
-                              isEStamp: _controller.isEStamp,
-                              topMargin: _controller.topMargin,
-                              subsequentTopMargin: _controller.subsequentTopMargin,
-                              bottomMargin: _controller.bottomMargin,
-                              sideMargin: _controller.sideMargin,
-                            ),
-                          ),
-                        ),
-                      );
-                      if (res == true) _controller.loadDraftFromHive();
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isEStampMode ? const Color(0xFFFFF8E1) : AppColors.cardSurface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isEStampMode ? Colors.amber.shade600 : AppColors.borderLight,
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              isEStampMode ? Icons.verified_user : Icons.description_outlined,
-                              color: isEStampMode ? Colors.brown.shade800 : AppColors.primaryEmerald,
-                              size: 22,
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isEStampMode ? 'طرزِ دستاویز: پنجاب ای-اسٹامپ (لیگل اوورلے)' : 'طرزِ دستاویز: سادہ دفتری معاہدہ (A4 پیپر)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
-                                  ),
-                                ),
-                                if (isEStampMode && _controller.selectedStampFileName != null)
-                                  Text(
-                                    'فائل: ${_controller.selectedStampFileName}',
-                                    style: TextStyle(fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.bold),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        if (isEStampMode)
-                          ElevatedButton.icon(
-                            onPressed: _pickCustomerStampPdf,
-                            icon: const Icon(Icons.picture_as_pdf, size: 16),
-                            label: Text(
-                              _controller.selectedStampPdfBytes != null ? 'اسٹامپ تبدیل کریں' : 'ای-اسٹامپ PDF چنیں',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.brown.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  CounterBucketBadgeUi(
-                    totalFields: _controller.totalFieldsCount,
-                    filledFields: _controller.filledFieldsCount,
-                    onViewBucketDetails: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BucketViewPage()),
-                      );
-                      _controller.loadDraftFromHive();
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade400, width: 1.2),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'پیشگی قانونی نظارہ: ${_controller.selectedTemplateTitle}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryEmerald),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isEStampMode ? Colors.amber.shade100 : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: isEStampMode ? Colors.amber.shade400 : Colors.grey.shade300),
-                                ),
-                                child: Text(
-                                  isEStampMode ? 'لیگل ای-اسٹامپ' : 'A4 دفتری کاغذ',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 16, thickness: 1),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Text(
-                                _buildCleanPreviewText(),
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  height: 2.1,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1A1A1A),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  CounterPrintActionUi(
-                    onPrint: () => _controller.printAgreement(context),
-                    onCopyText: () => _controller.copyAgreementText(context),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/customer_directory/args/customer_directory_args.dart">
-
-</file>
-
-<file path="lib/features/customer_directory/components/customer_profile_tile_ui.dart">
-
-</file>
-
-<file path="lib/features/customer_directory/components/directory_search_bar_ui.dart">
-
-</file>
-
-<file path="lib/features/customer_directory/customer_directory_controller.dart">
-import 'package:flutter/material.dart';
-import '../../core/constants/box_names.dart';
-import '../../core/database/hive_box_manager.dart';
-import '../../shared_models/customer_profile_model.dart';
-import '../../shared_services/agreement_storage_handler_service.dart';
-import '../../shared_services/payload_builders/agreement_payload_builder.dart';
-class CustomerDirectoryController extends ChangeNotifier {
-  List<CustomerProfileModel> profiles = [];
-  String searchQuery = '';
-  void loadProfiles() {
-    final box = HiveBoxManager.getBox(BoxNames.customerProfilesBox);
-    profiles = box.values
-        .whereType()
-        .map((m) => CustomerProfileModel.fromMap(Map<String, dynamic>.from(m)))
-        .where((p) => !p.isDeleted)
-        .toList();
-    notifyListeners();
-  }
-  List<CustomerProfileModel> get filteredProfiles {
-    if (searchQuery.trim().isEmpty) return profiles;
-    return profiles.where((p) {
-      return p.fullName.contains(searchQuery) ||
-          p.cnic.contains(searchQuery) ||
-          p.phone.contains(searchQuery);
-    }).toList();
-  }
-  void updateSearch(String q) {
-    searchQuery = q;
-    notifyListeners();
-  }
-  Future<void> saveProfile(CustomerProfileModel profile) async {
-    final payload = AgreementPayloadBuilder.buildProfilePayload(profile);
-    await AgreementStorageHandlerService.saveCustomerProfile(payload);
-    loadProfiles();
-  }
-}
-</file>
-
-<file path="lib/features/customer_directory/customer_directory_page.dart">
-import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
-import 'customer_directory_controller.dart';
-class CustomerDirectoryPage extends StatefulWidget {
-  const CustomerDirectoryPage({super.key});
-  @override
-  State<CustomerDirectoryPage> createState() => _CustomerDirectoryPageState();
-}
-class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
-  late final CustomerDirectoryController _controller;
-  @override
-  void initState() {
-    super.initState();
-    _controller = CustomerDirectoryController();
-    _controller.addListener(() => setState(() {}));
-    _controller.loadProfiles();
-  }
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-  @override
-  Widget build(BuildContext context) {
-    final list = _controller.filteredProfiles;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundLight,
-        appBar: AppBar(
-          title: const Text('کسٹمر و ضامن ڈائریکٹری', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19)),
-          backgroundColor: AppColors.primaryEmerald,
-          foregroundColor: Colors.white,
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: TextField(
-                textAlign: TextAlign.right,
-                onChanged: _controller.updateSearch,
-                decoration: InputDecoration(
-                  hintText: 'نام، شناختی کارڈ یا فون سے تلاش کریں...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-            ),
-            Expanded(
-              child: list.isEmpty
-                  ? const Center(
-                      child: Text('کوئی ریکارڈ نہیں ملا۔', style: TextStyle(color: AppColors.textMuted)),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final p = list[index];
-                        return Card(
-                          elevation: 1,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.teal.shade100,
-                              child: Text(p.role.substring(0, 1)),
-                            ),
-                            title: Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('CNIC: ${p.cnic} | فون: ${p.phone}'),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-</file>
-
 <file path="lib/features/template_studio/args/template_studio_args.dart">
 class TemplateStudioArgs {
   final String? templateTitle;
@@ -2013,657 +1580,6 @@ class TemplateStudioArgs {
 }
 </file>
 
-<file path="lib/features/template_studio/components/studio_editor_canvas_ui.dart">
-
-</file>
-
-<file path="lib/features/template_studio/components/studio_paper_ruler_ui.dart">
-
-</file>
-
-<file path="lib/features/template_studio/components/studio_tag_toolbar_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-class StudioTagToolbarUi extends StatelessWidget {
-  final List<String> tags;
-  final Function(String) onTagSelected;
-  const StudioTagToolbarUi({
-    super.key,
-    required this.tags,
-    required this.onTagSelected,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        border: Border.symmetric(horizontal: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: tags.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 6),
-        itemBuilder: (context, index) {
-          final tag = tags[index];
-          return ActionChip(
-            label: Text(tag, style: const TextStyle(fontSize: 13)),
-            backgroundColor: Colors.teal.shade50,
-            onPressed: () => onTagSelected(tag),
-          );
-        },
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/template_studio/template_studio_controller.dart">
-import 'package:flutter/material.dart';
-import '../../shared_services/agreement_storage_handler_service.dart';
-import '../../shared_services/payload_builders/agreement_payload_builder.dart';
-import '../../shared_services/template_service.dart';
-import '../../shared_models/agreement_template_model.dart';
-class TemplateStudioController extends ChangeNotifier {
-  final TextEditingController titleController = TextEditingController();
-  final TextEditingController bodyController = TextEditingController();
-  String paperSize = 'A4';
-  double topMargin = 0.0;
-  List<String> availableTags = [
-    'کسٹمر کا نام',
-    'ولدیت',
-    'شناختی کارڈ',
-    'موبائل ماڈل',
-    'IMEI نمبر',
-    'ایڈوانس رقم',
-    'ماہانہ قسط',
-    'ٹوٹل رقم',
-    'مدت',
-  ];
-  void insertTag(String tagName) {
-    final text = bodyController.text;
-    final selection = bodyController.selection;
-    final tagToInsert = '{{$tagName}}';
-    if (selection.start >= 0) {
-      final newText = text.replaceRange(selection.start, selection.end, tagToInsert);
-      bodyController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: selection.start + tagToInsert.length),
-      );
-    } else {
-      bodyController.text += tagToInsert;
-    }
-    notifyListeners();
-  }
-  Future<void> saveTemplatePermanently(BuildContext context) async {
-    final title = titleController.text.trim();
-    final content = bodyController.text.trim();
-    if (title.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('عنوان اور تحریر دونوں لازمی ہیں!')),
-      );
-      return;
-    }
-    final template = AgreementTemplateModel(
-      id: title,
-      title: title,
-      content: content,
-      paperSize: paperSize,
-      topMargin: topMargin,
-      fields: TemplateService.extractFields(content),
-      createdAt: '',
-      updatedAt: '',
-    );
-    final payload = AgreementPayloadBuilder.buildTemplatePayload(template);
-    await AgreementStorageHandlerService.saveTemplate(payload);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ ٹیمپلیٹ مستقل محفوظ ہو گیا!')),
-      );
-      Navigator.pop(context);
-    }
-  }
-  @override
-  void dispose() {
-    titleController.dispose();
-    bodyController.dispose();
-    super.dispose();
-  }
-}
-</file>
-
-<file path="lib/features/template_studio/template_studio_page.dart">
-import 'dart:js_interop';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
-import '../../core/constants/app_colors.dart';
-import '../../shared_models/agreement_template_model.dart';
-import '../../shared_services/agreement_storage_handler_service.dart';
-import '../../shared_services/payload_builders/agreement_payload_builder.dart';
-import '../../shared_services/template_service.dart';
-import 'args/template_studio_args.dart';
-class TemplateStudioPage extends StatefulWidget {
-  final TemplateStudioArgs? args;
-  const TemplateStudioPage({super.key, this.args});
-  @override
-  State<TemplateStudioPage> createState() => _TemplateStudioPageState();
-}
-class _TemplateStudioPageState extends State<TemplateStudioPage> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _bodyController;
-  final FocusNode _bodyFocusNode = FocusNode();
-  final TransformationController _zoomController = TransformationController();
-  String _paperSize = 'A4';
-  bool _isEStamp = false;
-  double _topMargin = 220.0;
-  double _subsequentTopMargin = 45.0;
-  double _bottomMargin = 75.0;
-  double _sideMargin = 35.0;
-  double _currentFontSize = 16.0;
-  bool _isBold = false;
-  bool _isUnderline = false;
-  final TextAlign _alignment = TextAlign.right;
-  bool _isZoomFit = false;
-  String? _loadedPdfFileName;
-  final List<String> _pinnedTags = [
-    'کسٹمر کا نام',
-    'ولدیت',
-    'شناختی کارڈ',
-    'موبائل ماڈل',
-    'IMEI نمبر',
-    'ایڈوانس رقم',
-    'ماہانہ قسط',
-    'ٹوٹل رقم',
-    'مدت',
-  ];
-  @override
-  void initState() {
-    super.initState();
-    _titleController = TextEditingController(text: widget.args?.templateTitle ?? '');
-    String cleanContent = (widget.args?.templateContent ?? '')
-        .replaceAll('**', '')
-        .replaceAll('[center]', '')
-        .replaceAll('[/center]', '')
-        .replaceAll(RegExp(r'^#\s+', multiLine: true), '')
-        .replaceAll(RegExp(r'^##\s+', multiLine: true), '')
-        .replaceAll(RegExp(r'\[signatures:.*?\]'), '')
-        .replaceAll(RegExp(r'\[space:\s*\d+\]'), '\n');
-    _bodyController = TextEditingController(text: cleanContent.trim());
-    _paperSize = widget.args?.paperSize ?? 'A4';
-    _isEStamp = widget.args?.isEStamp ?? (_paperSize == 'Legal');
-    _topMargin = widget.args?.topMargin ?? (_isEStamp ? 220.0 : 45.0);
-    _subsequentTopMargin = widget.args?.subsequentTopMargin ?? 45.0;
-    _bottomMargin = widget.args?.bottomMargin ?? (_isEStamp ? 75.0 : 40.0);
-    _sideMargin = widget.args?.sideMargin ?? (_isEStamp ? 35.0 : 45.0);
-  }
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _bodyController.dispose();
-    _bodyFocusNode.dispose();
-    _zoomController.dispose();
-    super.dispose();
-  }
-  void _pickEStampPdf() {
-    if (kIsWeb) {
-      final uploadInput = web.document.createElement('input') as web.HTMLInputElement;
-      uploadInput.type = 'file';
-      uploadInput.accept = '.pdf,application/pdf';
-      uploadInput.click();
-      uploadInput.onchange = (web.Event e) {
-        final files = uploadInput.files;
-        if (files == null || files.length == 0) return;
-        final file = files.item(0);
-        if (file == null) return;
-        if (mounted) {
-          setState(() {
-            _isEStamp = true;
-            _paperSize = 'Legal';
-            _loadedPdfFileName = file.name;
-            if (_topMargin < 150) _topMargin = 220.0;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ ای-اسٹامپ پی ڈی ایف منسلک ہو گیا: ${file.name}'),
-              backgroundColor: AppColors.successGreen,
-            ),
-          );
-        }
-      }.toJS;
-    } else {
-      setState(() {
-        _isEStamp = true;
-        _paperSize = 'Legal';
-        if (_topMargin < 150) _topMargin = 220.0;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ای-اسٹامپ اوورلے موڈ فعال ہو گیا۔')),
-      );
-    }
-  }
-  void _openMarginSettingsSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Directionality(
-              textDirection: TextDirection.rtl,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'ای-اسٹامپ حاشیے (Margins) سیٹ کریں',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                    ),
-                    const SizedBox(height: 14),
-                    Text('صفحہ 1: مونوگرام کا فاصلہ: ${_topMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Slider(
-                      value: _topMargin,
-                      min: 40.0,
-                      max: 400.0,
-                      divisions: 72,
-                      activeColor: AppColors.primaryEmerald,
-                      onChanged: (val) {
-                        setSheetState(() => _topMargin = val);
-                        setState(() => _topMargin = val);
-                      },
-                    ),
-                    Text('صفحہ 2 اور بعد کے صفحات: ٹاپ مارجن: ${_subsequentTopMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Slider(
-                      value: _subsequentTopMargin,
-                      min: 20.0,
-                      max: 150.0,
-                      divisions: 26,
-                      activeColor: Colors.teal,
-                      onChanged: (val) {
-                        setSheetState(() => _subsequentTopMargin = val);
-                        setState(() => _subsequentTopMargin = val);
-                      },
-                    ),
-                    Text('نیچے کا مارجن (کیو آر کوڈ سے فاصلہ): ${_bottomMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Slider(
-                      value: _bottomMargin,
-                      min: 20.0,
-                      max: 200.0,
-                      divisions: 36,
-                      activeColor: Colors.deepOrange,
-                      onChanged: (val) {
-                        setSheetState(() => _bottomMargin = val);
-                        setState(() => _bottomMargin = val);
-                      },
-                    ),
-                    Text('دائیں اور بائیں کا حاشیہ: ${_sideMargin.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Slider(
-                      value: _sideMargin,
-                      min: 15.0,
-                      max: 100.0,
-                      divisions: 17,
-                      activeColor: Colors.blueGrey,
-                      onChanged: (val) {
-                        setSheetState(() => _sideMargin = val);
-                        setState(() => _sideMargin = val);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryEmerald, padding: const EdgeInsets.symmetric(vertical: 12)),
-                      child: const Text('مارجن لاگو کریں', style: TextStyle(color: Colors.white, fontSize: 16)),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-  Future<void> _deleteTemplate() async {
-    final title = _titleController.text.trim();
-    if (title.isEmpty) return;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('ٹیمپلیٹ ڈیلیٹ کریں؟'),
-          content: Text('کیا آپ واقعی معاہدہ "$title" کو ہمیشہ کے لیے ختم کرنا چاہتے ہیں؟'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('منسوخ')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('ہاں، ڈیلیٹ کریں', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirm == true) {
-      await AgreementStorageHandlerService.deleteTemplatePermanently(title);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ٹیمپلیٹ ڈیلیٹ کر دیا گیا!'), backgroundColor: Colors.red),
-        );
-        Navigator.pop(context, true);
-      }
-    }
-  }
-  void _toggleZoom() {
-    setState(() {
-      if (_isZoomFit) {
-        _zoomController.value = Matrix4.identity();
-        _isZoomFit = false;
-      } else {
-        final matrix = Matrix4.identity();
-        matrix.setEntry(0, 0, 0.55);
-        matrix.setEntry(1, 1, 0.55);
-        _zoomController.value = matrix;
-        _isZoomFit = true;
-      }
-    });
-  }
-  void _insertNamedTag(String tagName) {
-    final text = _bodyController.text;
-    final selection = _bodyController.selection;
-    final tagToInsert = '{{$tagName}}';
-    if (selection.start >= 0) {
-      final newText = text.replaceRange(selection.start, selection.end, tagToInsert);
-      _bodyController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: selection.start + tagToInsert.length),
-      );
-    } else {
-      _bodyController.text += tagToInsert;
-    }
-    _bodyFocusNode.requestFocus();
-  }
-  Future<void> _saveTemplate() async {
-    final title = _titleController.text.trim();
-    String content = _bodyController.text.trim();
-    if (title.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('عنوان اور تحریر درج کرنا لازمی ہے!')),
-      );
-      return;
-    }
-    final template = AgreementTemplateModel(
-      id: title,
-      title: title,
-      content: content,
-      paperSize: _paperSize,
-      isEStamp: _isEStamp,
-      topMargin: _topMargin,
-      subsequentTopMargin: _subsequentTopMargin,
-      bottomMargin: _bottomMargin,
-      sideMargin: _sideMargin,
-      fields: TemplateService.extractFields(content),
-      createdAt: '',
-      updatedAt: '',
-    );
-    final payload = AgreementPayloadBuilder.buildTemplatePayload(template);
-    await AgreementStorageHandlerService.saveTemplate(payload);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ معاہدہ بمعہ لائیو ای-اسٹامپ حدود محفوظ ہو گیا!'),
-          backgroundColor: AppColors.successGreen,
-        ),
-      );
-      Navigator.pop(context, true);
-    }
-  }
-  @override
-  Widget build(BuildContext context) {
-    final bool isLegal = _paperSize == 'Legal' || _isEStamp;
-    final double pageWidth = isLegal ? 640.0 : 620.0;
-    final double pageHeight = isLegal ? 1050.0 : 880.0;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFC7C7C7),
-        appBar: AppBar(
-          title: Text(
-            widget.args?.templateTitle != null ? 'معاہدہ ایڈیٹر' : 'نیا معاہدہ اسٹوڈیو',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          backgroundColor: AppColors.primaryEmerald,
-          foregroundColor: Colors.white,
-          actions: [
-            if (widget.args?.templateTitle != null)
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white),
-                tooltip: 'ٹیمپلیٹ ڈیلیٹ کریں',
-                onPressed: _deleteTemplate,
-              ),
-            IconButton(
-              icon: Icon(_isZoomFit ? Icons.zoom_in : Icons.zoom_out_map),
-              tooltip: _isZoomFit ? 'اصل سائز (100%)' : 'پورا صفحہ اسکرین پر لائیں (Fit)',
-              onPressed: _toggleZoom,
-            ),
-            ElevatedButton.icon(
-              onPressed: _saveTemplate,
-              icon: const Icon(Icons.check, color: Colors.white, size: 20),
-              label: const Text('محفوظ کریں', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.successGreen,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
-        body: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              color: Colors.white,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 170,
-                      child: TextField(
-                        controller: _titleController,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                        decoration: const InputDecoration(
-                          labelText: 'معاہدے کا عنوان',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _pickEStampPdf,
-                      icon: const Icon(Icons.upload_file, size: 18),
-                      label: Text(_loadedPdfFileName != null ? 'تبدیل کریں' : 'ای-اسٹامپ PDF لوڈ کریں'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.brown.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _openMarginSettingsSheet,
-                      icon: const Icon(Icons.tune, size: 18),
-                      label: const Text('مارجن سیٹ کریں'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove, size: 16),
-                            onPressed: () {
-                              if (_currentFontSize > 10.0) setState(() => _currentFontSize -= 1.0);
-                            },
-                          ),
-                          Text('${_currentFontSize.toInt()} pt', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          IconButton(
-                            icon: const Icon(Icons.add, size: 16),
-                            onPressed: () {
-                              if (_currentFontSize < 36.0) setState(() => _currentFontSize += 1.0);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      icon: Icon(Icons.format_bold, color: _isBold ? AppColors.primaryEmerald : Colors.grey.shade700),
-                      onPressed: () => setState(() => _isBold = !_isBold),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.format_underlined, color: _isUnderline ? AppColors.primaryEmerald : Colors.grey.shade700),
-                      onPressed: () => setState(() => _isUnderline = !_isUnderline),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              color: Colors.grey.shade100,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _pinnedTags.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
-                itemBuilder: (context, index) {
-                  final tag = _pinnedTags[index];
-                  return ActionChip(
-                    label: Text(tag, style: const TextStyle(fontSize: 13)),
-                    backgroundColor: Colors.teal.shade50,
-                    onPressed: () => _insertNamedTag(tag),
-                  );
-                },
-              ),
-            ),
-            Expanded(
-              child: InteractiveViewer(
-                transformationController: _zoomController,
-                minScale: 0.3,
-                maxScale: 3.0,
-                boundaryMargin: const EdgeInsets.all(400),
-                constrained: false,
-                child: Center(
-                  child: Container(
-                    width: pageWidth,
-                    height: pageHeight,
-                    margin: const EdgeInsets.all(40),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black38,
-                          blurRadius: 15,
-                          spreadRadius: 3,
-                          offset: Offset(0, 6),
-                        ),
-                      ],
-                      border: Border.all(color: Colors.grey.shade400),
-                    ),
-                    child: Stack(
-                      children: [
-                        if (_isEStamp)
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: _topMargin,
-                            child: Container(
-                              color: Colors.amber.shade50.withAlpha(178),
-                              child: Center(
-                                child: Text(
-                                  '↑ صفحہ 1: سرکاری مونوگرام کے لیے محفوظ جگہ (${_topMargin.toInt()} pt)',
-                                  style: const TextStyle(fontSize: 12, color: Colors.brown, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (_isEStamp)
-                          Positioned(
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            height: _bottomMargin,
-                            child: Container(
-                              color: Colors.red.shade50.withAlpha(178),
-                              child: Center(
-                                child: Text(
-                                  '↓ نیچے والی جگہ سرکاری کیو آر کوڈ کے لیے محفوظ ہے (${_bottomMargin.toInt()} pt)',
-                                  style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ),
-                        Positioned(
-                          top: _isEStamp ? _topMargin : 45.0,
-                          bottom: _isEStamp ? _bottomMargin : 40.0,
-                          left: _isEStamp ? _sideMargin : 45.0,
-                          right: _isEStamp ? _sideMargin : 45.0,
-                          child: TextField(
-                            controller: _bodyController,
-                            focusNode: _bodyFocusNode,
-                            maxLines: null,
-                            expands: true,
-                            textAlign: _alignment,
-                            textAlignVertical: TextAlignVertical.top,
-                            style: TextStyle(
-                              fontSize: _currentFontSize,
-                              height: 2.1,
-                              fontWeight: _isBold ? FontWeight.bold : FontWeight.normal,
-                              decoration: _isUnderline ? TextDecoration.underline : TextDecoration.none,
-                              color: const Color(0xFF1A1A1A),
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'یہاں معاہدے کی قانونی تحریر مع ٹیگز درج کریں...',
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-</file>
-
 <file path="lib/shared_models/agreement_template_model.dart">
 class AgreementTemplateModel {
   final String id;
@@ -2676,6 +1592,7 @@ class AgreementTemplateModel {
   final double bottomMargin;
   final double sideMargin;
   final List<String> fields;
+  final String? base64Pdf;
   final bool isSynced;
   final String updatedAt;
   final String createdAt;
@@ -2684,13 +1601,14 @@ class AgreementTemplateModel {
     required this.id,
     required this.title,
     required this.content,
-    this.paperSize = 'A4',
-    this.isEStamp = false,
-    this.topMargin = 220.0,
-    this.subsequentTopMargin = 45.0,
-    this.bottomMargin = 75.0,
-    this.sideMargin = 35.0,
+    this.paperSize = 'Legal',
+    this.isEStamp = true,
+    this.topMargin = 320.0,
+    this.subsequentTopMargin = 65.0,
+    this.bottomMargin = 270.0,
+    this.sideMargin = 40.0,
     required this.fields,
+    this.base64Pdf,
     this.isSynced = false,
     required this.updatedAt,
     required this.createdAt,
@@ -2708,6 +1626,7 @@ class AgreementTemplateModel {
       'bottomMargin': bottomMargin,
       'sideMargin': sideMargin,
       'fields': fields,
+      'base64Pdf': base64Pdf,
       'isSynced': isSynced,
       'updatedAt': updatedAt,
       'createdAt': createdAt,
@@ -2719,72 +1638,14 @@ class AgreementTemplateModel {
       id: map['id']?.toString() ?? '',
       title: map['title']?.toString() ?? '',
       content: map['content']?.toString() ?? '',
-      paperSize: map['paperSize']?.toString() ?? 'A4',
-      isEStamp: map['isEStamp'] as bool? ?? false,
-      topMargin: (map['topMargin'] as num?)?.toDouble() ?? 220.0,
-      subsequentTopMargin: (map['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0,
-      bottomMargin: (map['bottomMargin'] as num?)?.toDouble() ?? 75.0,
-      sideMargin: (map['sideMargin'] as num?)?.toDouble() ?? 35.0,
+      paperSize: map['paperSize']?.toString() ?? 'Legal',
+      isEStamp: map['isEStamp'] as bool? ?? true,
+      topMargin: (map['topMargin'] as num?)?.toDouble() ?? 320.0,
+      subsequentTopMargin: (map['subsequentTopMargin'] as num?)?.toDouble() ?? 65.0,
+      bottomMargin: (map['bottomMargin'] as num?)?.toDouble() ?? 270.0,
+      sideMargin: (map['sideMargin'] as num?)?.toDouble() ?? 40.0,
       fields: List<String>.from(map['fields'] ?? []),
-      isSynced: map['isSynced'] as bool? ?? false,
-      updatedAt: map['updatedAt']?.toString() ?? '',
-      createdAt: map['createdAt']?.toString() ?? '',
-      isDeleted: map['isDeleted'] as bool? ?? false,
-    );
-  }
-}
-</file>
-
-<file path="lib/shared_models/customer_profile_model.dart">
-class CustomerProfileModel {
-  final String id;
-  final String fullName;
-  final String fatherName;
-  final String cnic;
-  final String phone;
-  final String address;
-  final String role;
-  final bool isSynced;
-  final String updatedAt;
-  final String createdAt;
-  final bool isDeleted;
-  CustomerProfileModel({
-    required this.id,
-    required this.fullName,
-    required this.fatherName,
-    required this.cnic,
-    required this.phone,
-    required this.address,
-    this.role = 'گاہک',
-    this.isSynced = false,
-    required this.updatedAt,
-    required this.createdAt,
-    this.isDeleted = false,
-  });
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'fullName': fullName,
-      'fatherName': fatherName,
-      'cnic': cnic,
-      'phone': phone,
-      'address': address,
-      'role': role,
-      'isSynced': isSynced,
-      'updatedAt': updatedAt,
-      'createdAt': createdAt,
-      'isDeleted': isDeleted,
-    };
-  }
-  factory CustomerProfileModel.fromMap(Map<String, dynamic> map) {
-    return CustomerProfileModel(
-      id: map['id']?.toString() ?? '',
-      fullName: map['fullName']?.toString() ?? '',
-      fatherName: map['fatherName']?.toString() ?? '',
-      cnic: map['cnic']?.toString() ?? '',
-      phone: map['phone']?.toString() ?? '',
-      address: map['address']?.toString() ?? '',
-      role: map['role']?.toString() ?? 'گاہک',
+      base64Pdf: map['base64Pdf']?.toString(),
       isSynced: map['isSynced'] as bool? ?? false,
       updatedAt: map['updatedAt']?.toString() ?? '',
       createdAt: map['createdAt']?.toString() ?? '',
@@ -2853,22 +1714,6 @@ class AgreementPayloadBuilder {
 }
 </file>
 
-<file path="lib/shared_services/agreement_payload_service.dart">
-class AgreementPayloadService {
-  static Map<String, dynamic> wrapIntoBatchMap(List<dynamic> payloads) {
-    final Map<String, dynamic> batchMap = {};
-    for (final payload in payloads) {
-      if (payload is Map) {
-        final key = payload['id']?.toString() ??
-            DateTime.now().millisecondsSinceEpoch.toString();
-        batchMap[key] = payload;
-      }
-    }
-    return batchMap;
-  }
-}
-</file>
-
 <file path="lib/shared_services/agreement_storage_handler_service.dart">
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
@@ -2927,396 +1772,6 @@ class AgreementStorageHandlerService {
 }
 </file>
 
-<file path="lib/shared_services/cnic_ocr_scanner_service.dart">
-import 'package:flutter/material.dart';
-import 'qr_scanner_service.dart';
-class CnicOcrScannerService {
-  static Future<dynamic> scanCnic(BuildContext context) async {
-    final rawData = await QrScannerService.scanQrCode(context);
-    if (rawData == null || rawData.isEmpty) return null;
-    final Map<String, String> result = <String, String>{};
-    final cnicRegexWithHyphen = RegExp(r'\d{5}-\d{7}-\d{1}');
-    final cnicRegexRaw = RegExp(r'\b\d{13}\b');
-    if (cnicRegexWithHyphen.hasMatch(rawData)) {
-      result['شناختی کارڈ'] = cnicRegexWithHyphen.firstMatch(rawData)!.group(0)!;
-    } else if (cnicRegexRaw.hasMatch(rawData)) {
-      final rawCnic = cnicRegexRaw.firstMatch(rawData)!.group(0)!;
-      result['شناختی کارڈ'] =
-          '${rawCnic.substring(0, 5)}-${rawCnic.substring(5, 12)}-${rawCnic.substring(12)}';
-    }
-    return result.isNotEmpty ? result : null;
-  }
-}
-</file>
-
-<file path="lib/shared_services/pdf_render_service.dart">
-import 'package:flutter/services.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-class PdfRenderService {
-  static String _cleanAndNormalizeUrduText(String input) {
-    var text = input
-        .replaceAll('\uFB88', 'ز')
-        .replaceAll('\uFB8A', 'ژ')
-        .replaceAll('\uFB8E', 'ک')
-        .replaceAll('\uFB90', 'گ')
-        .replaceAll('\uFBAE', 'ے')
-        .replaceAll('\uFBAF', 'ے')
-        .replaceAll('\uFB56', 'پ')
-        .replaceAll('\uFB66', 'ٹ')
-        .replaceAll('\uFB7A', 'چ')
-        .replaceAll('\uFB9E', 'گ')
-        .replaceAll('\uFB84', 'ڈ')
-        .replaceAll('\uFB8C', 'ڑ')
-        .replaceAll('\uFBA6', 'ہ')
-        .replaceAll('\uFBA7', 'ہ')
-        .replaceAll('\uFBA8', 'ہ')
-        .replaceAll('\uFBA9', 'ہ')
-        .replaceAll('\uFBAA', 'ہ')
-        .replaceAll('\uFBAB', 'ہ')
-        .replaceAll('\uFBAC', 'ہ')
-        .replaceAll('\uFBAD', 'ہ');
-    text = text.replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
-    return text;
-  }
-  static Future<void> generateAndPrintAgreement({
-    required String rawContent,
-    required Map<String, String> fieldValues,
-    String paperSize = 'A4',
-    bool isEStamp = false,
-    required double topMargin,
-    required double subsequentTopMargin,
-    required double bottomMargin,
-    required double sideMargin,
-    Uint8List? originalStampPdfBytes,
-  }) async {
-    String processed = rawContent;
-    fieldValues.forEach((key, val) {
-      final safeVal = val.trim().isEmpty ? '________________' : val.trim();
-      processed = processed.replaceAll('{{$key}}', safeVal);
-    });
-    processed = _cleanAndNormalizeUrduText(processed);
-    final fontData = await rootBundle.load('assets/fonts/jameel.ttf');
-    final ttf = pw.Font.ttf(fontData);
-    final pageFormat = (isEStamp || paperSize == 'Legal')
-        ? PdfPageFormat.legal
-        : PdfPageFormat.a4;
-    final pdf = pw.Document();
-    pw.MemoryImage? backgroundUnderlay;
-    if (isEStamp && originalStampPdfBytes != null && originalStampPdfBytes.isNotEmpty) {
-      try {
-        await for (final page in Printing.raster(originalStampPdfBytes, pages: [0], dpi: 200)) {
-          final pngBytes = await page.toPng();
-          backgroundUnderlay = pw.MemoryImage(pngBytes);
-          break;
-        }
-      } catch (_) {}
-    }
-    final contentWidgets = _buildPdfElements(processed, ttf);
-    pdf.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          pageFormat: pageFormat,
-          theme: pw.ThemeData.withFont(base: ttf),
-          margin: pw.EdgeInsets.only(
-            left: sideMargin,
-            right: sideMargin,
-            bottom: bottomMargin,
-          ),
-          buildBackground: (pw.Context context) {
-            if (context.pageNumber == 1 && backgroundUnderlay != null) {
-              return pw.FullPage(
-                ignoreMargins: true,
-                child: pw.Image(
-                  backgroundUnderlay,
-                  fit: pw.BoxFit.fill,
-                ),
-              );
-            }
-            return pw.Container();
-          },
-        ),
-        header: (pw.Context context) {
-          final double h = (context.pageNumber == 1) ? topMargin : subsequentTopMargin;
-          return pw.SizedBox(height: h);
-        },
-        build: (pw.Context context) {
-          return [
-            pw.Directionality(
-              textDirection: pw.TextDirection.rtl,
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: contentWidgets,
-              ),
-            ),
-          ];
-        },
-      ),
-    );
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Agreement_${DateTime.now().millisecondsSinceEpoch}.pdf',
-    );
-  }
-  static List<pw.Widget> _buildPdfElements(String content, pw.Font ttf) {
-    final List<pw.Widget> widgets = [];
-    final lines = content.split('\n');
-    for (var line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) {
-        widgets.add(pw.SizedBox(height: 5));
-        continue;
-      }
-      if (trimmed.startsWith('[space:') && trimmed.endsWith(']')) {
-        final heightStr = trimmed.replaceAll('[space:', '').replaceAll(']', '').trim();
-        final h = double.tryParse(heightStr) ?? 15.0;
-        widgets.add(pw.SizedBox(height: h));
-        continue;
-      }
-      if (trimmed.startsWith('[signatures:') && trimmed.endsWith(']')) {
-        final rawSigns = trimmed.replaceAll('[signatures:', '').replaceAll(']', '').trim();
-        final signs = rawSigns.split('|').map((s) => s.trim()).toList();
-        widgets.add(
-          pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(vertical: 10),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: signs.map((sign) {
-                return pw.Expanded(
-                  child: pw.Column(
-                    children: [
-                      pw.Container(
-                        height: 1,
-                        margin: const pw.EdgeInsets.symmetric(horizontal: 8),
-                        color: PdfColors.grey800,
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        sign,
-                        textAlign: pw.TextAlign.center,
-                        style: pw.TextStyle(font: ttf, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        );
-        continue;
-      }
-      widgets.add(
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
-          child: pw.Text(
-            trimmed,
-            textAlign: pw.TextAlign.right,
-            style: pw.TextStyle(
-              font: ttf,
-              fontSize: 13.0,
-              lineSpacing: 1.8,
-              color: PdfColors.black,
-            ),
-          ),
-        ),
-      );
-    }
-    return widgets;
-  }
-}
-</file>
-
-<file path="lib/shared_services/qr_scanner_service.dart">
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'dart:html' as html;
-class QrScannerService {
-  static Future<String?> scanQrCode(BuildContext context) async {
-    return await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (context) => const _QrScannerView()),
-    );
-  }
-}
-class _QrScannerView extends StatefulWidget {
-  const _QrScannerView();
-  @override
-  State<_QrScannerView> createState() => _QrScannerViewState();
-}
-class _QrScannerViewState extends State<_QrScannerView> {
-  final MobileScannerController _controller = MobileScannerController(
-    facing: CameraFacing.back,
-    torchEnabled: false,
-  );
-  bool _scanned = false;
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-  void _pickQrImageFromGallery() {
-    if (kIsWeb) {
-      final input = html.FileUploadInputElement()..accept = 'image/*';
-      input.click();
-      input.onChange.listen((event) {
-        final files = input.files;
-        if (files == null || files.isEmpty) return;
-        final file = files.first;
-        final reader = html.FileReader();
-        reader.onLoadEnd.listen((e) async {
-          final blobUrl = html.Url.createObjectUrlFromBlob(file);
-          try {
-            final barcodeCapture = await _controller.analyzeImage(blobUrl);
-            if (barcodeCapture != null && barcodeCapture.barcodes.isNotEmpty) {
-              final code = barcodeCapture.barcodes.first.rawValue;
-              if (code != null && !_scanned && mounted) {
-                _scanned = true;
-                Navigator.pop(context, code);
-              }
-            } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('اس تصویر میں سے کوئی کیو آر کوڈ نہیں ملا!')),
-                );
-              }
-            }
-          } catch (err) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('کیو آر کوڈ پڑھنے میں مسئلہ: $err')),
-              );
-            }
-          } finally {
-            html.Url.revokeObjectUrl(blobUrl);
-          }
-        });
-        reader.readAsArrayBuffer(file);
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('گیلری فیچر فی الحال ویب پر لائیو ٹیسٹ ہو رہا ہے۔')),
-      );
-    }
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('کیو آر کوڈ سکین کریں', style: TextStyle(fontSize: 18)),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.photo_library_outlined),
-            tooltip: 'گیلری سے تصویر منتخب کریں',
-            onPressed: _pickQrImageFromGallery,
-          ),
-          IconButton(
-            icon: const Icon(Icons.flip_camera_ios_outlined),
-            tooltip: 'کیمرے کا رخ بدلیں',
-            onPressed: () => _controller.switchCamera(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.flash_on_outlined),
-            tooltip: 'ٹارچ آن / آف',
-            onPressed: () => _controller.toggleTorch(),
-          ),
-        ],
-      ),
-      body: Stack(
-        alignment: Alignment.center,
-        children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: (capture) {
-              if (_scanned) return;
-              final barcodes = capture.barcodes;
-              for (final barcode in barcodes) {
-                if (barcode.rawValue != null) {
-                  _scanned = true;
-                  Navigator.pop(context, barcode.rawValue);
-                  break;
-                }
-              }
-            },
-          ),
-          Container(
-            width: 260,
-            height: 260,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.tealAccent, width: 2.5),
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          const Positioned(
-            bottom: 40,
-            child: Text(
-              'کیو آر کوڈ کو فریم کے سامنے لائیں یا اوپر سے تصویر منتخب کریں',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/shared_services/template_service.dart">
-class TemplateService {
-  static final Map<String, String> defaultPresets = {
-    'موبائل اقساط کا معاہدہ': '''نایاب قسط پوائنٹ حاصل پور
-اقرار نامہ و معاہدہ بیع بالاقساط
-منکہ {{کسٹمر کا نام}} ولد {{ولدیت}} قوم {{قومیت}} شناختی کارڈ نمبر {{شناختی کارڈ}} رہائشی {{مستقل پتہ}} موبائل نمبر {{رابطہ نمبر}} نے نایاب قسط پوائنٹ سے ایک عدد موبائل بمطابق تفصیل ذیل قسطوں پر خریدا ہے:
-• موبائل کمپنی و ماڈل: {{موبائل ماڈل}}
-• آئی ایم ای آئی نمبر: {{IMEI نمبر}}
-• کل قیمت طے شدہ: {{ٹوٹل رقم}} روپے
-• پیشگی ادائیگی (ایڈوانس): {{ایڈوانس رقم}} روپے
-• ماہانہ قسط: {{ماہانہ قسط}} روپے
-• اقساط کی کل مدت: {{مدت}}
-مقررہ تاریخ سے پہلے ہر ماہ کی قسط ادا کرنے کا پابند رہوں گا/رہوں گی۔ بصورت دیگر کمپنی کو قانونی کارروائی کا حق حاصل ہوگا۔''',
-    'بیان حلفی اقساط': '''حلف نامہ / بیان حلفی
-میں مسمی {{کسٹمر کا نام}} ولد {{ولدیت}} ساکن {{مستقل پتہ}} شناختی کارڈ نمبر {{شناختی کارڈ}} کا رہائشی ہوں اور حلفاً بیان کرتا ہوں کہ:
-1. میں نے نایاب قسط پوائنٹ سے {{موبائل ماڈل}} کل قیمت {{ٹوٹل رقم}} روپے میں خریدا ہے۔
-2. میں ہر ماہ کی {{تاریخ ادائیگی}} کو ماہانہ قسط مبلغ {{ماہانہ قسط}} روپے بروقت ادا کرنے کا پابند رہوں گا۔
-3. بقایا رقم کی مکمل ادائیگی تک موبائل سیٹ نایاب قسط پوائنٹ کی ملکیت تصور ہوگا۔
-المحلف: {{کسٹمر کا نام}}'''
-  };
-  static Map<String, String> get presetTemplates => defaultPresets;
-  static List<String> extractFields(String template) {
-    final regex = RegExp(r'\{\{(.*?)\}\}');
-    final matches = regex.allMatches(template);
-    return matches.map((m) => m.group(1)!.trim()).where((s) => s.isNotEmpty).toSet().toList();
-  }
-  static String replaceTags(String template, Map<String, String> values) {
-    String result = template;
-    values.forEach((key, val) {
-      result = result.replaceAll('{{$key}}', val.trim().isEmpty ? '__________' : val.trim());
-    });
-    return result;
-  }
-}
-</file>
-
-<file path="lib/sync/pull/agreement_pull_service.dart">
-
-</file>
-
-<file path="lib/sync/push/agreement_push_service.dart">
-
-</file>
-
-<file path="lib/sync/status/sync_status_service.dart">
-
-</file>
-
-<file path="lib/sync/master_sync_hub.dart">
-
-</file>
-
 <file path="lib/main.dart">
 import 'package:flutter/material.dart';
 import 'core/database/hive_box_manager.dart';
@@ -3346,6 +1801,1178 @@ class NayabAgreementApp extends StatelessWidget {
       ),
       home: const AgreementCounterPage(),
     );
+  }
+}
+</file>
+
+<file path="lib/features/agreement_counter/agreement_counter_page.dart">
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/box_names.dart';
+import '../../core/database/hive_box_manager.dart';
+import '../../shared_services/agreement_storage_handler_service.dart';
+import 'agreement_counter_controller.dart';
+import 'components/counter_scanner_bar_ui.dart';
+import 'components/counter_template_selector_ui.dart';
+import 'components/counter_bucket_badge_ui.dart';
+import 'components/counter_print_action_ui.dart';
+import '../agreement_bucket_view/bucket_view_page.dart';
+import '../template_studio/args/template_studio_args.dart';
+import '../template_studio/template_studio_page.dart';
+import '../customer_directory/customer_directory_page.dart';
+class AgreementCounterPage extends StatefulWidget {
+  const AgreementCounterPage({super.key});
+  @override
+  State<AgreementCounterPage> createState() => _AgreementCounterPageState();
+}
+class _AgreementCounterPageState extends State<AgreementCounterPage> {
+  late final AgreementCounterController _controller;
+  Uint8List? _cachedStampPage1;
+  Uint8List? _cachedStampPage2;
+  bool _isRenderingStamp = false;
+  String? _lastLoadedTemplate;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AgreementCounterController();
+    _controller.addListener(_onControllerUpdate);
+    _controller.loadDraftFromHive();
+  }
+  void _onControllerUpdate() {
+    if (_controller.selectedTemplateTitle != _lastLoadedTemplate) {
+      _lastLoadedTemplate = _controller.selectedTemplateTitle;
+      _loadTemplateStampFromHive();
+    }
+    setState(() {});
+  }
+  Future<void> _loadTemplateStampFromHive() async {
+    final title = _controller.selectedTemplateTitle;
+    if (title.isEmpty) return;
+    final all = AgreementStorageHandlerService.getAllTemplates();
+    if (all.containsKey(title)) {
+      final t = all[title]!;
+      final b64 = t['base64Pdf']?.toString();
+      if (b64 != null && b64.isNotEmpty) {
+        try {
+          final bytes = base64Decode(b64);
+          _controller.selectedStampPdfBytes = bytes;
+          _controller.selectedStampFileName = "ٹیمپلیٹ کا محفوظ اسٹامپ";
+          await _renderStampPdfToCache(bytes);
+          return;
+        } catch (_) {}
+      }
+    }
+    if (_controller.selectedStampPdfBytes == null) {
+      setState(() {
+        _cachedStampPage1 = null;
+        _cachedStampPage2 = null;
+      });
+    }
+  }
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerUpdate);
+    _controller.dispose();
+    super.dispose();
+  }
+  Future<void> _renderStampPdfToCache(Uint8List pdfBytes) async {
+    setState(() => _isRenderingStamp = true);
+    try {
+      Uint8List? p1;
+      Uint8List? p2;
+      int idx = 0;
+      await for (final page in Printing.raster(pdfBytes, pages: [0, 1], dpi: 110)) {
+        final png = await page.toPng();
+        if (idx == 0) p1 = png;
+        if (idx == 1) p2 = png;
+        idx++;
+      }
+      if (mounted) {
+        setState(() {
+          _cachedStampPage1 = p1;
+          _cachedStampPage2 = p2;
+          _isRenderingStamp = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isRenderingStamp = false);
+    }
+  }
+  Future<void> _pickCustomerStampPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+    if (result != null && result.files.single.bytes != null) {
+      final bytes = result.files.single.bytes!;
+      setState(() {
+        _controller.selectedStampPdfBytes = bytes;
+        _controller.selectedStampFileName = result.files.single.name;
+      });
+      await _renderStampPdfToCache(bytes);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ نیا کسٹمر اسٹامپ پیپر منسلک ہو گیا: ${result.files.single.name}'),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    }
+  }
+  String _buildProcessedAgreementText() {
+    String raw = _controller.templateContent;
+    if (raw.isEmpty) return '';
+    raw = raw.replaceAll('**', '').replaceAll('*', '');
+    raw = raw.replaceAll('[center]', '').replaceAll('[/center]', '');
+    raw = raw.replaceAll(RegExp(r'^#+\s*', multiLine: true), '');
+    raw = raw.replaceAll(RegExp(r'\[space:\s*\d+\]'), '\n');
+    raw = raw.replaceAll(RegExp(r'\[signatures:.*?\]'), '');
+    for (var f in _controller.requiredFields) {
+      final val = _controller.currentFieldValues[f]?.trim();
+      final display = (val != null && val.isNotEmpty) ? val : '__________';
+      raw = raw.replaceAll('{{$f}}', display);
+    }
+    raw = raw.replaceAll(RegExp(r'\{\{.*?\}\}'), '__________');
+    return raw.trim();
+  }
+  Map<String, String> _splitTextForCounterPages(String fullText) {
+    if (fullText.isEmpty) return {"page1": "", "page2": ""};
+    const double totalPoints = 1008.0;
+    final double p1AvailableHeight = (totalPoints - _controller.topMargin - _controller.bottomMargin).clamp(100.0, totalPoints);
+    final int p1EstimatedLines = (p1AvailableHeight / 24.0).floor();
+    final lines = fullText.split('\n');
+    List<String> wrappedLines = [];
+    for (var l in lines) {
+      if (l.trim().isEmpty) {
+        wrappedLines.add("");
+        continue;
+      }
+      final words = l.split(' ');
+      String cur = "";
+      for (var w in words) {
+        if ((cur + w).length > 50) {
+          wrappedLines.add(cur.trim());
+          cur = "$w ";
+        } else {
+          cur += "$w ";
+        }
+      }
+      if (cur.isNotEmpty) wrappedLines.add(cur.trim());
+    }
+    if (wrappedLines.length <= p1EstimatedLines) {
+      return {"page1": fullText, "page2": ""};
+    }
+    final p1 = wrappedLines.take(p1EstimatedLines).join('\n');
+    final p2 = wrappedLines.skip(p1EstimatedLines).join('\n');
+    return {"page1": p1, "page2": p2};
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: AppBar(
+          title: const Text('نایاب قسط پوائنٹ - کاؤنٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+          centerTitle: true,
+          backgroundColor: AppColors.primaryEmerald,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.people_outline, size: 26),
+              tooltip: 'کسٹمر ڈائریکٹری',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CustomerDirectoryPage()),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, size: 26),
+              tooltip: 'نیا معاہدہ بنائیں',
+              onPressed: () async {
+                final res = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TemplateStudioPage()),
+                );
+                if (res == true) {
+                  _controller.loadDraftFromHive();
+                  _loadTemplateStampFromHive();
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh, size: 26),
+              tooltip: 'فارم نیا کریں',
+              onPressed: () => _controller.resetCounter(context),
+            ),
+          ],
+        ),
+        body: ValueListenableBuilder(
+          valueListenable: HiveBoxManager.listenToBox(BoxNames.agreementDraftBox),
+          builder: (context, box, child) {
+            final isEStampMode = _controller.isEStamp || _controller.paperSize == 'Legal' || _controller.selectedTemplateTitle.isNotEmpty;
+            final processedText = _buildProcessedAgreementText();
+            final splitPages = _splitTextForCounterPages(processedText);
+            final String page1Content = splitPages["page1"]!;
+            final String page2Content = splitPages["page2"]!;
+            final bool hasPage2 = page2Content.isNotEmpty;
+            return Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CounterScannerBarUi(
+                    onScanProduct: () => _controller.scanProduct(context),
+                    onScanCnic: () => _controller.scanCnic(context),
+                  ),
+                  const SizedBox(height: 8),
+                  CounterTemplateSelectorUi(
+                    selectedTitle: _controller.selectedTemplateTitle,
+                    availableTemplates: _controller.availableTemplates,
+                    onTemplateChanged: (t) => _controller.switchTemplate(t),
+                    onEditTemplate: () async {
+                      final res = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TemplateStudioPage(
+                            args: TemplateStudioArgs(
+                              templateTitle: _controller.selectedTemplateTitle,
+                              templateContent: _controller.templateContent,
+                              paperSize: _controller.paperSize,
+                              isEStamp: _controller.isEStamp,
+                              topMargin: _controller.topMargin,
+                              subsequentTopMargin: _controller.subsequentTopMargin,
+                              bottomMargin: _controller.bottomMargin,
+                              sideMargin: _controller.sideMargin,
+                            ),
+                          ),
+                        ),
+                      );
+                      if (res == true) {
+                        _controller.loadDraftFromHive();
+                        _loadTemplateStampFromHive();
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isEStampMode ? const Color(0xFFFFF8E1) : AppColors.cardSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isEStampMode ? Colors.amber.shade600 : AppColors.borderLight,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              isEStampMode ? Icons.verified_user : Icons.description_outlined,
+                              color: isEStampMode ? Colors.brown.shade800 : AppColors.primaryEmerald,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEStampMode ? 'طرزِ دستاویز: پنجاب ای-اسٹامپ (لیگل اوورلے)' : 'طرزِ دستاویز: سادہ دفتری کاغذ (A4)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: isEStampMode ? Colors.brown.shade900 : AppColors.textDark,
+                                  ),
+                                ),
+                                if (isEStampMode && _controller.selectedStampFileName != null)
+                                  Text(
+                                    'اسٹامپ: ${_controller.selectedStampFileName}',
+                                    style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        if (isEStampMode)
+                          ElevatedButton.icon(
+                            onPressed: _pickCustomerStampPdf,
+                            icon: const Icon(Icons.picture_as_pdf, size: 15),
+                            label: Text(
+                              _controller.selectedStampPdfBytes != null ? 'اسٹامپ تبدیل کریں' : 'اصل ای-اسٹامپ PDF چنیں',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.brown.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CounterBucketBadgeUi(
+                    totalFields: _controller.totalFieldsCount,
+                    filledFields: _controller.filledFieldsCount,
+                    onViewBucketDetails: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const BucketViewPage()),
+                      );
+                      _controller.loadDraftFromHive();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      border: Border.all(color: Colors.grey.shade400),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'پیشگی قانونی نظارہ: ${_controller.selectedTemplateTitle.isEmpty ? "کوئی معاہدہ منتخب نہیں" : _controller.selectedTemplateTitle}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryEmerald),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isEStampMode ? Colors.amber.shade100 : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: isEStampMode ? Colors.amber.shade400 : Colors.grey.shade400),
+                          ),
+                          child: Text(
+                            isEStampMode ? 'لیگل ای-اسٹامپ' : 'A4 دفتری کاغذ',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isEStampMode ? Colors.brown.shade900 : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                        border: Border.all(color: Colors.grey.shade400),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                        child: _isRenderingStamp
+                            ? const Center(child: CircularProgressIndicator())
+                            : SingleChildScrollView(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: Column(
+                                    children: [
+                                      const Text("— صفحہ نمبر 1 (اصل لے آؤٹ) —",
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                                      const SizedBox(height: 6),
+                                      _buildCounterSheet(
+                                        topM: _controller.topMargin,
+                                        botM: _controller.bottomMargin,
+                                        sideM: _controller.sideMargin,
+                                        textContent: page1Content,
+                                        bgImage: _cachedStampPage1,
+                                        isFirstPage: true,
+                                      ),
+                                      if (hasPage2) ...[
+                                        const SizedBox(height: 24),
+                                        const Text("— صفحہ نمبر 2 (بقیہ شرائط) —",
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                                        const SizedBox(height: 6),
+                                        _buildCounterSheet(
+                                          topM: _controller.subsequentTopMargin,
+                                          botM: _controller.bottomMargin,
+                                          sideM: _controller.sideMargin,
+                                          textContent: page2Content,
+                                          bgImage: _cachedStampPage2,
+                                          isFirstPage: false,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CounterPrintActionUi(
+                    onPrint: () => _controller.printAgreement(context),
+                    onCopyText: () => _controller.copyAgreementText(context),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+  Widget _buildCounterSheet({
+    required double topM,
+    required double botM,
+    required double sideM,
+    required String textContent,
+    required Uint8List? bgImage,
+    required bool isFirstPage,
+  }) {
+    const double sheetWidth = 360.0;
+    const double sheetHeight = 593.0;
+    const double scale = sheetHeight / 1008.0;
+    final scaledTop = topM * scale;
+    final scaledBot = botM * scale;
+    final scaledSide = (sideM * scale).clamp(12.0, 40.0);
+    final boxW = (sheetWidth - (scaledSide * 2)).clamp(100.0, sheetWidth);
+    final boxH = (sheetHeight - scaledTop - scaledBot).clamp(50.0, sheetHeight);
+    return Container(
+      width: sheetWidth,
+      height: sheetHeight,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
+        ],
+      ),
+      child: Stack(
+        children: [
+          if (bgImage != null)
+            Positioned.fill(
+              child: Image.memory(bgImage, fit: BoxFit.fill),
+            )
+          else
+            Center(
+              child: Opacity(
+                opacity: 0.08,
+                child: Text(
+                  isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "ای-اسٹامپ صفحہ 2",
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          Positioned(
+            top: scaledTop,
+            left: scaledSide,
+            width: boxW,
+            height: boxH,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.red.shade700, width: 1.5),
+                color: Colors.white.withAlpha(102),
+              ),
+              padding: const EdgeInsets.all(6.0),
+              child: Text(
+                textContent,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontFamily: 'JameelNoori',
+                  fontSize: 12.0,
+                  height: 1.6,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111111),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/template_studio/template_studio_page.dart">
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
+import '../../core/constants/app_colors.dart';
+import '../../shared_models/agreement_template_model.dart';
+import '../../shared_services/agreement_storage_handler_service.dart';
+import '../../shared_services/payload_builders/agreement_payload_builder.dart';
+import '../../shared_services/template_service.dart';
+import 'args/template_studio_args.dart';
+class TemplateStudioPage extends StatefulWidget {
+  final TemplateStudioArgs? args;
+  const TemplateStudioPage({super.key, this.args});
+  @override
+  State<TemplateStudioPage> createState() => _TemplateStudioPageState();
+}
+class _TemplateStudioPageState extends State<TemplateStudioPage> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _bodyController;
+  final TransformationController _zoomController = TransformationController();
+  String _paperSize = 'Legal';
+  bool _isEStamp = true;
+  double _topMargin = 320.0;
+  double _subsequentTopMargin = 65.0;
+  double _bottomMargin = 270.0;
+  double _sideMargin = 40.0;
+  Uint8List? _stampPdfBytes;
+  Uint8List? _stampPage1Image;
+  Uint8List? _stampPage2Image;
+  String? _loadedPdfFileName;
+  bool _isLoadingPdf = false;
+  bool _isZoomFit = false;
+  final List<String> _pinnedTags = [
+    'کسٹمر کا نام',
+    'ولدیت',
+    'شناختی کارڈ',
+    'موبائل ماڈل',
+    'IMEI نمبر',
+    'ایڈوانس رقم',
+    'ماہانہ قسط',
+    'ٹوٹل رقم',
+    'مدت',
+  ];
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.args?.templateTitle ?? '');
+    String cleanContent = (widget.args?.templateContent ?? '')
+        .replaceAll('**', '')
+        .replaceAll('[center]', '')
+        .replaceAll('[/center]', '')
+        .replaceAll(RegExp(r'^#+\s*', multiLine: true), '')
+        .replaceAll(RegExp(r'\[signatures:.*?\]'), '')
+        .replaceAll(RegExp(r'\[space:\s*\d+\]'), '\n');
+    _bodyController = TextEditingController(text: cleanContent.trim());
+    _paperSize = widget.args?.paperSize ?? 'Legal';
+    _isEStamp = widget.args?.isEStamp ?? true;
+    _topMargin = widget.args?.topMargin ?? 320.0;
+    _subsequentTopMargin = widget.args?.subsequentTopMargin ?? 65.0;
+    _bottomMargin = widget.args?.bottomMargin ?? 270.0;
+    _sideMargin = widget.args?.sideMargin ?? 40.0;
+    _loadExistingStampFromHive();
+  }
+  Future<void> _loadExistingStampFromHive() async {
+    final title = widget.args?.templateTitle;
+    if (title == null || title.isEmpty) return;
+    final all = AgreementStorageHandlerService.getAllTemplates();
+    if (all.containsKey(title)) {
+      final t = all[title]!;
+      final b64 = t['base64Pdf']?.toString();
+      if (b64 != null && b64.isNotEmpty) {
+        try {
+          final bytes = base64Decode(b64);
+          _stampPdfBytes = bytes;
+          _loadedPdfFileName = "محفوظ شدہ اسٹامپ پیپر";
+          await _renderStampBytesToImages(bytes);
+        } catch (_) {}
+      }
+    }
+  }
+  Future<void> _renderStampBytesToImages(Uint8List bytes) async {
+    setState(() => _isLoadingPdf = true);
+    Uint8List? p1;
+    Uint8List? p2;
+    int idx = 0;
+    try {
+      await for (final page in Printing.raster(bytes, pages: [0, 1], dpi: 110)) {
+        final png = await page.toPng();
+        if (idx == 0) p1 = png;
+        if (idx == 1) p2 = png;
+        idx++;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _stampPage1Image = p1;
+        _stampPage2Image = p2;
+        _isLoadingPdf = false;
+      });
+    }
+  }
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    _zoomController.dispose();
+    super.dispose();
+  }
+  Future<void> _pickStampPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+    if (result != null && result.files.single.bytes != null) {
+      final bytes = result.files.single.bytes!;
+      _stampPdfBytes = bytes;
+      _loadedPdfFileName = result.files.single.name;
+      await _renderStampBytesToImages(bytes);
+    }
+  }
+  void _insertNamedTag(String tagName) {
+    final text = _bodyController.text;
+    final selection = _bodyController.selection;
+    final tagToInsert = '{{$tagName}}';
+    if (selection.start >= 0) {
+      final newText = text.replaceRange(selection.start, selection.end, tagToInsert);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + tagToInsert.length),
+      );
+    } else {
+      _bodyController.text += tagToInsert;
+    }
+    setState(() {});
+  }
+  void _toggleZoom() {
+    setState(() {
+      if (_isZoomFit) {
+        _zoomController.value = Matrix4.identity();
+        _isZoomFit = false;
+      } else {
+        final matrix = Matrix4.identity();
+        matrix.setEntry(0, 0, 0.65);
+        matrix.setEntry(1, 1, 0.65);
+        _zoomController.value = matrix;
+        _isZoomFit = true;
+      }
+    });
+  }
+  Future<void> _saveTemplate() async {
+    final title = _titleController.text.trim();
+    String content = _bodyController.text.trim();
+    if (title.isEmpty || content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('عنوان اور تحریر درج کرنا لازمی ہے!')),
+      );
+      return;
+    }
+    String? b64;
+    if (_stampPdfBytes != null) {
+      b64 = base64Encode(_stampPdfBytes!);
+    }
+    final template = AgreementTemplateModel(
+      id: title,
+      title: title,
+      content: content,
+      paperSize: _paperSize,
+      isEStamp: _isEStamp,
+      topMargin: _topMargin,
+      subsequentTopMargin: _subsequentTopMargin,
+      bottomMargin: _bottomMargin,
+      sideMargin: _sideMargin,
+      base64Pdf: b64,
+      fields: TemplateService.extractFields(content),
+      createdAt: '',
+      updatedAt: '',
+    );
+    final payload = AgreementPayloadBuilder.buildTemplatePayload(template);
+    await AgreementStorageHandlerService.saveTemplate(payload);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ معاہدہ بمعہ اصل اسٹامپ اور ریڈ باکس حدود محفوظ ہو گیا!'),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+      Navigator.pop(context, true);
+    }
+  }
+  Map<String, String> _splitTextIntoPages(String fullText) {
+    if (fullText.isEmpty) return {"page1": "", "page2": ""};
+    const double totalPoints = 1008.0;
+    final double p1AvailableHeight = (totalPoints - _topMargin - _bottomMargin).clamp(100.0, totalPoints);
+    final int p1EstimatedLines = (p1AvailableHeight / 24.0).floor();
+    final lines = fullText.split('\n');
+    List<String> wrappedLines = [];
+    for (var l in lines) {
+      if (l.trim().isEmpty) {
+        wrappedLines.add("");
+        continue;
+      }
+      final words = l.split(' ');
+      String cur = "";
+      for (var w in words) {
+        if ((cur + w).length > 50) {
+          wrappedLines.add(cur.trim());
+          cur = "$w ";
+        } else {
+          cur += "$w ";
+        }
+      }
+      if (cur.isNotEmpty) wrappedLines.add(cur.trim());
+    }
+    if (wrappedLines.length <= p1EstimatedLines) {
+      return {"page1": fullText, "page2": ""};
+    }
+    final p1Text = wrappedLines.take(p1EstimatedLines).join('\n');
+    final p2Text = wrappedLines.skip(p1EstimatedLines).join('\n');
+    return {"page1": p1Text, "page2": p2Text};
+  }
+  @override
+  Widget build(BuildContext context) {
+    const double sheetW = 390.0;
+    const double sheetH = 642.0;
+    const double scale = sheetH / 1008.0;
+    final p1ScaledTop = _topMargin * scale;
+    final p1ScaledBot = _bottomMargin * scale;
+    final p2ScaledTop = _subsequentTopMargin * scale;
+    final scaledSide = _sideMargin * scale;
+    final pagesData = _splitTextIntoPages(_bodyController.text);
+    final bool hasPage2 = pagesData["page2"]!.isNotEmpty;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFD4D4D4),
+        appBar: AppBar(
+          title: const Text('معاہدہ اسٹوڈیو - ریڈ باکس ایڈیٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          backgroundColor: AppColors.primaryEmerald,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: Icon(_isZoomFit ? Icons.zoom_in : Icons.zoom_out_map),
+              tooltip: _isZoomFit ? 'اصل سائز' : 'پورا صفحہ سکرین پر لائیں',
+              onPressed: _toggleZoom,
+            ),
+            ElevatedButton.icon(
+              onPressed: _saveTemplate,
+              icon: const Icon(Icons.check, color: Colors.white, size: 18),
+              label: const Text('محفوظ کریں', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.successGreen),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              color: Colors.white,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 160,
+                      child: TextField(
+                        controller: _titleController,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        decoration: const InputDecoration(
+                          labelText: 'معاہدے کا عنوان',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _pickStampPdf,
+                      icon: const Icon(Icons.upload_file, size: 16),
+                      label: Text(_loadedPdfFileName != null ? _loadedPdfFileName! : 'اسٹامپ PDF چنیں'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.brown.shade700,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildMarginQuickTag('مونوگرام حد: ${_topMargin.toInt()} pt', () => _showMarginModal(context)),
+                    const SizedBox(width: 6),
+                    _buildMarginQuickTag('کیو آر حد: ${_bottomMargin.toInt()} pt', () => _showMarginModal(context)),
+                    const SizedBox(width: 6),
+                    _buildMarginQuickTag('حاشیہ: ${_sideMargin.toInt()} pt', () => _showMarginModal(context)),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              color: Colors.grey.shade100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _pinnedTags.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (context, index) {
+                  final tag = _pinnedTags[index];
+                  return ActionChip(
+                    label: Text(tag, style: const TextStyle(fontSize: 12)),
+                    backgroundColor: Colors.teal.shade50,
+                    onPressed: () => _insertNamedTag(tag),
+                  );
+                },
+              ),
+            ),
+            Expanded(
+              child: _isLoadingPdf
+                  ? const Center(child: CircularProgressIndicator())
+                  : InteractiveViewer(
+                      transformationController: _zoomController,
+                      minScale: 0.3,
+                      maxScale: 2.5,
+                      boundaryMargin: const EdgeInsets.all(400),
+                      constrained: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(30.0),
+                          child: Column(
+                            children: [
+                              _buildVisualStampSheet(
+                                sheetWidth: sheetW,
+                                sheetHeight: sheetH,
+                                scaledTop: p1ScaledTop,
+                                scaledBottom: p1ScaledBot,
+                                scaledSide: scaledSide,
+                                bgImage: _stampPage1Image,
+                                pageLabel: "صفحہ نمبر 1 (اصل اسٹامپ مع ریڈ ٹیکسٹ باکس)",
+                                isFirstPage: true,
+                                textContent: pagesData["page1"]!,
+                                onTopDrag: (delta) {
+                                  setState(() {
+                                    _topMargin = (_topMargin + (delta / scale)).clamp(100.0, 700.0);
+                                  });
+                                },
+                                onBottomDrag: (delta) {
+                                  setState(() {
+                                    _bottomMargin = (_bottomMargin - (delta / scale)).clamp(80.0, 500.0);
+                                  });
+                                },
+                                onSideDrag: (delta) {
+                                  setState(() {
+                                    _sideMargin = (_sideMargin - (delta / scale)).clamp(15.0, 150.0);
+                                  });
+                                },
+                              ),
+                              if (hasPage2) ...[
+                                const SizedBox(height: 35),
+                                _buildVisualStampSheet(
+                                  sheetWidth: sheetW,
+                                  sheetHeight: sheetH,
+                                  scaledTop: p2ScaledTop,
+                                  scaledBottom: p1ScaledBot,
+                                  scaledSide: scaledSide,
+                                  bgImage: _stampPage2Image,
+                                  pageLabel: "صفحہ نمبر 2 (بقیہ تحریر)",
+                                  isFirstPage: false,
+                                  textContent: pagesData["page2"]!,
+                                  onTopDrag: (delta) {
+                                    setState(() {
+                                      _subsequentTopMargin = (_subsequentTopMargin + (delta / scale)).clamp(30.0, 400.0);
+                                    });
+                                  },
+                                  onBottomDrag: (delta) {
+                                    setState(() {
+                                      _bottomMargin = (_bottomMargin - (delta / scale)).clamp(80.0, 500.0);
+                                    });
+                                  },
+                                  onSideDrag: (delta) {
+                                    setState(() {
+                                      _sideMargin = (_sideMargin - (delta / scale)).clamp(15.0, 150.0);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget _buildMarginQuickTag(String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+  Widget _buildVisualStampSheet({
+    required double sheetWidth,
+    required double sheetHeight,
+    required double scaledTop,
+    required double scaledBottom,
+    required double scaledSide,
+    required Uint8List? bgImage,
+    required String pageLabel,
+    required bool isFirstPage,
+    required String textContent,
+    required Function(double) onTopDrag,
+    required Function(double) onBottomDrag,
+    required Function(double) onSideDrag,
+  }) {
+    final double boxH = (sheetHeight - scaledTop - scaledBottom).clamp(50.0, sheetHeight);
+    final double boxW = (sheetWidth - (scaledSide * 2)).clamp(100.0, sheetWidth);
+    return Column(
+      children: [
+        Text(pageLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+        const SizedBox(height: 6),
+        Container(
+          width: sheetWidth,
+          height: sheetHeight,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: const [
+              BoxShadow(color: Colors.black38, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
+            ],
+          ),
+          child: Stack(
+            children: [
+              if (bgImage != null)
+                Positioned.fill(
+                  child: Image.memory(bgImage, fit: BoxFit.fill),
+                )
+              else
+                Center(
+                  child: Opacity(
+                    opacity: 0.1,
+                    child: Text(
+                      isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "ای-اسٹامپ صفحہ 2",
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: scaledTop,
+                child: Container(color: Colors.black.withAlpha(10)),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: scaledBottom,
+                child: Container(color: Colors.black.withAlpha(10)),
+              ),
+              Positioned(
+                top: scaledTop,
+                left: scaledSide,
+                width: boxW,
+                height: boxH,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.red.shade700, width: 2.0),
+                    color: Colors.white.withAlpha(166),
+                  ),
+                  child: Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: isFirstPage
+                            ? TextField(
+                                controller: _bodyController,
+                                maxLines: null,
+                                expands: true,
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontFamily: 'JameelNoori',
+                                  fontSize: 14.5,
+                                  height: 1.8,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF111111),
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'یہاں معاہدے کی تحریر درج کریں...',
+                                  border: InputBorder.none,
+                                ),
+                                onChanged: (val) => setState(() {}),
+                              )
+                            : SingleChildScrollView(
+                                child: Text(
+                                  textContent,
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontFamily: 'JameelNoori',
+                                    fontSize: 14.5,
+                                    height: 1.8,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111111),
+                                  ),
+                                ),
+                              ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 14,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onVerticalDragUpdate: (details) => onTopDrag(details.delta.dy),
+                          child: Container(
+                            color: Colors.red.withAlpha(77),
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.drag_handle, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 14,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onVerticalDragUpdate: (details) => onBottomDrag(details.delta.dy),
+                          child: Container(
+                            color: Colors.red.withAlpha(77),
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.drag_handle, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 14,
+                        bottom: 14,
+                        right: 0,
+                        width: 12,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onHorizontalDragUpdate: (details) => onSideDrag(details.delta.dx),
+                          child: Container(color: Colors.red.withAlpha(51)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  void _showMarginModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setMState) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('مارجن پوائنٹس کی ترتیب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 10),
+                Text('مونوگرام محفوظ حد: ${_topMargin.toInt()} pt'),
+                Slider(
+                  value: _topMargin,
+                  min: 100,
+                  max: 700,
+                  onChanged: (v) {
+                    setMState(() => _topMargin = v);
+                    setState(() => _topMargin = v);
+                  },
+                ),
+                Text('کیو آر کوڈ محفوظ حد: ${_bottomMargin.toInt()} pt'),
+                Slider(
+                  value: _bottomMargin,
+                  min: 50,
+                  max: 500,
+                  onChanged: (v) {
+                    setMState(() => _bottomMargin = v);
+                    setState(() => _bottomMargin = v);
+                  },
+                ),
+                Text('دائیں بائیں حاشیہ: ${_sideMargin.toInt()} pt'),
+                Slider(
+                  value: _sideMargin,
+                  min: 15,
+                  max: 150,
+                  onChanged: (v) {
+                    setMState(() => _sideMargin = v);
+                    setState(() => _sideMargin = v);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/shared_services/pdf_render_service.dart">
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:printing/printing.dart';
+class PdfRenderService {
+  static const String serverBaseUrl = kIsWeb
+      ? 'http://localhost:8000'
+      : 'http://192.168.1.5:8000';
+  static Future<void> generateAndPrintAgreement({
+    required String rawContent,
+    required Map<String, String> fieldValues,
+    String paperSize = 'A4',
+    bool isEStamp = false,
+    required double topMargin,
+    required double subsequentTopMargin,
+    required double bottomMargin,
+    required double sideMargin,
+    Uint8List? originalStampPdfBytes,
+  }) async {
+    String processed = rawContent;
+    fieldValues.forEach((key, val) {
+      final safeVal = val.trim().isEmpty ? '________________' : val.trim();
+      processed = processed.replaceAll('{{$key}}', safeVal);
+    });
+    try {
+      final url = Uri.parse('$serverBaseUrl/generate-pdf');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({
+          'raw_text': processed,
+          'top_margin': topMargin,
+          'bottom_margin': bottomMargin,
+          'side_margin': sideMargin,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+        await Printing.layoutPdf(
+          onLayout: (_) async => pdfBytes,
+          name: 'Nayab_Agreement_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        );
+      } else {
+        throw Exception('سرور کی طرف سے پی ڈی ایف بنانے میں خامی: کوڈ ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('پی ڈی ایف سروس رابطہ خامی: $e');
+      rethrow;
+    }
   }
 }
 </file>

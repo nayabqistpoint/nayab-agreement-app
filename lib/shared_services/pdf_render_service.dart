@@ -1,25 +1,20 @@
-import 'package:flutter/services.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:printing/printing.dart';
 
 class PdfRenderService {
-  static const double legalWidth = 612.0;
-  static const double legalHeight = 1008.0;
-
-  static String _cleanText(String input) {
-    return input
-        .replaceAll('\u200B', '')
-        .replaceAll('\u200C', '')
-        .replaceAll('\u200D', '')
-        .replaceAll('\uFEFF', '');
-  }
+  static const String serverBaseUrl = kIsWeb
+      ? 'http://localhost:8000'
+      : 'http://192.168.1.5:8000';
 
   static Future<void> generateAndPrintAgreement({
     required String rawContent,
     required Map<String, String> fieldValues,
-    String paperSize = 'A4',
-    bool isEStamp = false,
+    double fontSize = 13.5,
+    double lineHeight = 2.0,
+    String paperSize = 'Legal',
+    bool isEStamp = true,
     required double topMargin,
     required double subsequentTopMargin,
     required double bottomMargin,
@@ -27,163 +22,79 @@ class PdfRenderService {
     Uint8List? originalStampPdfBytes,
   }) async {
     String processed = rawContent;
+
+    // فیلڈز تبدیل کریں
     fieldValues.forEach((key, val) {
       final safeVal = val.trim().isEmpty ? '________________' : val.trim();
       processed = processed.replaceAll('{{$key}}', safeVal);
     });
-    processed = _cleanText(processed);
+    processed = processed.replaceAll(RegExp(r'\{\{.*?\}\}'), '________________');
 
-    final fontData = await rootBundle.load('assets/fonts/jameel.ttf');
-    final ttf = pw.Font.ttf(fontData);
+    // مارک ڈاؤن کو HTML میں بدلیں (Bold, Center, Headings)
+    final lines = processed.split('\n');
+    final htmlBuffer = StringBuffer();
 
-    final pdf = pw.Document();
-
-    pw.MemoryImage? bgP1;
-    pw.MemoryImage? bgP2;
-
-    if (isEStamp && originalStampPdfBytes != null && originalStampPdfBytes.isNotEmpty) {
-      try {
-        int idx = 0;
-        await for (final page in Printing.raster(originalStampPdfBytes, pages: [0, 1], dpi: 150)) {
-          final pngBytes = await page.toPng();
-          if (idx == 0) bgP1 = pw.MemoryImage(pngBytes);
-          if (idx == 1) bgP2 = pw.MemoryImage(pngBytes);
-          idx++;
-        }
-      } catch (_) {}
-    }
-
-    const double fontSize = 11.0;
-    const double lineSpacing = 18.0;
-
-    final double p1Height = (legalHeight - topMargin - bottomMargin).clamp(100.0, legalHeight);
-    final double p2Height = (legalHeight - subsequentTopMargin - bottomMargin).clamp(100.0, legalHeight);
-
-    final int p1MaxLines = (p1Height / lineSpacing).floor();
-    final int p2MaxLines = (p2Height / lineSpacing).floor();
-
-    final rawLines = processed.split('\n');
-    final List<String> allLines = [];
-
-    for (var l in rawLines) {
-      final t = l.trim();
-      if (t.isEmpty) {
-        allLines.add("");
+    for (var line in lines) {
+      String l = line.trim();
+      if (l.isEmpty) {
+        htmlBuffer.writeln("<div class='spacer'></div>");
         continue;
       }
-      final words = t.split(' ');
-      String currentLine = "";
-      for (var w in words) {
-        if ((currentLine + w).length > 48) {
-          allLines.add(currentLine.trim());
-          currentLine = "$w ";
-        } else {
-          currentLine += "$w ";
-        }
+
+      // بولڈ ٹیکسٹ
+      l = l.replaceAllMapped(RegExp(r'\*\*(.*?)\*\*'), (m) => '<b>${m[1]}</b>');
+      l = l.replaceAllMapped(RegExp(r'\*(.*?)\*'), (m) => '<b>${m[1]}</b>');
+
+      // سنٹر ٹیکسٹ
+      if (l.contains('[center]') && l.contains('[/center]')) {
+        l = l.replaceAll('[center]', '<div style="text-align: center;"><b>').replaceAll('[/center]', '</b></div>');
       }
-      if (currentLine.isNotEmpty) {
-        allLines.add(currentLine.trim());
+
+      // سرخیاں
+      if (l.startsWith('# ')) {
+        l = '<h3>${l.substring(2)}</h3>';
+      } else {
+        l = '<p>$l</p>';
       }
+
+      htmlBuffer.writeln(l);
     }
 
-    final List<String> page1Lines = [];
-    final List<String> page2Lines = [];
-
-    for (int i = 0; i < allLines.length; i++) {
-      if (i < p1MaxLines) {
-        page1Lines.add(allLines[i]);
-      } else if (i < (p1MaxLines + p2MaxLines)) {
-        page2Lines.add(allLines[i]);
-      }
+    String? stampBase64;
+    if (originalStampPdfBytes != null && originalStampPdfBytes.isNotEmpty) {
+      stampBase64 = base64Encode(originalStampPdfBytes);
     }
 
-    // صفحہ 1
-    pdf.addPage(
-      pw.Page(
-        pageFormat: const PdfPageFormat(legalWidth, legalHeight),
-        margin: pw.EdgeInsets.zero,
-        theme: pw.ThemeData.withFont(base: ttf),
-        build: (pw.Context context) {
-          return pw.Stack(
-            children: [
-              if (bgP1 != null)
-                pw.Positioned.fill(
-                  child: pw.Image(bgP1, fit: pw.BoxFit.fill),
-                ),
-              pw.Positioned(
-                top: topMargin,
-                bottom: bottomMargin,
-                left: sideMargin,
-                right: sideMargin,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: page1Lines.map((line) {
-                    if (line.isEmpty) return pw.SizedBox(height: 6);
-                    return pw.Text(
-                      line,
-                      textDirection: pw.TextDirection.rtl,
-                      textAlign: pw.TextAlign.right,
-                      style: pw.TextStyle(
-                        font: ttf,
-                        fontSize: fontSize,
-                        lineSpacing: 1.5,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    // صفحہ 2
-    if (page2Lines.isNotEmpty) {
-      pdf.addPage(
-        pw.Page(
-          pageFormat: const PdfPageFormat(legalWidth, legalHeight),
-          margin: pw.EdgeInsets.zero,
-          theme: pw.ThemeData.withFont(base: ttf),
-          build: (pw.Context context) {
-            return pw.Stack(
-              children: [
-                if (bgP2 != null)
-                  pw.Positioned.fill(
-                    child: pw.Image(bgP2, fit: pw.BoxFit.fill),
-                  ),
-                pw.Positioned(
-                  top: subsequentTopMargin,
-                  bottom: bottomMargin,
-                  left: sideMargin,
-                  right: sideMargin,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                    children: page2Lines.map((line) {
-                      if (line.isEmpty) return pw.SizedBox(height: 6);
-                      return pw.Text(
-                        line,
-                        textDirection: pw.TextDirection.rtl,
-                        textAlign: pw.TextAlign.right,
-                        style: pw.TextStyle(
-                          font: ttf,
-                          fontSize: fontSize,
-                          lineSpacing: 1.5,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+    try {
+      final url = Uri.parse('$serverBaseUrl/generate-pdf');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({
+          'body_html': htmlBuffer.toString(),
+          'font_size': fontSize,
+          'line_height': lineHeight,
+          'paper_size': paperSize,
+          'top_margin': topMargin,
+          'subsequent_top_margin': subsequentTopMargin,
+          'bottom_margin': bottomMargin,
+          'side_margin': sideMargin,
+          'stamp_pdf_base64': stampBase64,
+        }),
       );
-    }
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Nayab_Agreement_${DateTime.now().millisecondsSinceEpoch}.pdf',
-    );
+      if (response.statusCode == 200) {
+        final pdfBytes = response.bodyBytes;
+        await Printing.layoutPdf(
+          onLayout: (_) async => pdfBytes,
+          name: 'Nayab_Agreement_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        );
+      } else {
+        throw Exception('سرور کی طرف سے خرابی: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('پی ڈی ایف سروس رابطہ خامی: $e');
+      rethrow;
+    }
   }
 }

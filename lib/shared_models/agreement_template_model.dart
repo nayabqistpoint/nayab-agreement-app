@@ -4,11 +4,12 @@ class AgreementTemplateModel {
   final String content;
   final String paperSize;
   final bool isEStamp;
-  final double topMargin; // صفحہ نمبر 1 کا ٹاپ مارجن (مونوگرام)
-  final double subsequentTopMargin; // صفحہ 2 اور آگے کے صفحات کا ٹاپ مارجن
+  final double topMargin;
+  final double subsequentTopMargin;
   final double bottomMargin;
   final double sideMargin;
   final List<String> fields;
+  final String? base64Pdf; // ہائیو میں اسٹامپ محفوظ رکھنے کے لیے
   final bool isSynced;
   final String updatedAt;
   final String createdAt;
@@ -18,13 +19,14 @@ class AgreementTemplateModel {
     required this.id,
     required this.title,
     required this.content,
-    this.paperSize = 'A4',
-    this.isEStamp = false,
-    this.topMargin = 220.0,
-    this.subsequentTopMargin = 45.0,
-    this.bottomMargin = 75.0,
-    this.sideMargin = 35.0,
+    this.paperSize = 'Legal',
+    this.isEStamp = true,
+    this.topMargin = 320.0,
+    this.subsequentTopMargin = 65.0,
+    this.bottomMargin = 270.0,
+    this.sideMargin = 40.0,
     required this.fields,
+    this.base64Pdf,
     this.isSynced = false,
     required this.updatedAt,
     required this.createdAt,
@@ -43,6 +45,7 @@ class AgreementTemplateModel {
       'bottomMargin': bottomMargin,
       'sideMargin': sideMargin,
       'fields': fields,
+      'base64Pdf': base64Pdf,
       'isSynced': isSynced,
       'updatedAt': updatedAt,
       'createdAt': createdAt,
@@ -55,13 +58,14 @@ class AgreementTemplateModel {
       id: map['id']?.toString() ?? '',
       title: map['title']?.toString() ?? '',
       content: map['content']?.toString() ?? '',
-      paperSize: map['paperSize']?.toString() ?? 'A4',
-      isEStamp: map['isEStamp'] as bool? ?? false,
-      topMargin: (map['topMargin'] as num?)?.toDouble() ?? 220.0,
-      subsequentTopMargin: (map['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0,
-      bottomMargin: (map['bottomMargin'] as num?)?.toDouble() ?? 75.0,
-      sideMargin: (map['sideMargin'] as num?)?.toDouble() ?? 35.0,
+      paperSize: map['paperSize']?.toString() ?? 'Legal',
+      isEStamp: map['isEStamp'] as bool? ?? true,
+      topMargin: (map['topMargin'] as num?)?.toDouble() ?? 320.0,
+      subsequentTopMargin: (map['subsequentTopMargin'] as num?)?.toDouble() ?? 65.0,
+      bottomMargin: (map['bottomMargin'] as num?)?.toDouble() ?? 270.0,
+      sideMargin: (map['sideMargin'] as num?)?.toDouble() ?? 40.0,
       fields: List<String>.from(map['fields'] ?? []),
+      base64Pdf: map['base64Pdf']?.toString(),
       isSynced: map['isSynced'] as bool? ?? false,
       updatedAt: map['updatedAt']?.toString() ?? '',
       createdAt: map['createdAt']?.toString() ?? '',

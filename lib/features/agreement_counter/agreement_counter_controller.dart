@@ -11,12 +11,13 @@ import '../../shared_services/template_service.dart';
 class AgreementCounterController extends ChangeNotifier {
   String selectedTemplateTitle = '';
   String templateContent = '';
-  String paperSize = 'A4';
-  bool isEStamp = false;
-  double topMargin = 220.0;
-  double subsequentTopMargin = 45.0;
-  double bottomMargin = 75.0;
-  double sideMargin = 35.0;
+  String paperSize = 'Legal';
+  bool isEStamp = true;
+  double topMargin = 320.0;
+  double subsequentTopMargin = 65.0;
+  double bottomMargin = 270.0;
+  double sideMargin = 40.0;
+  double fontSize = 13.5;
 
   List<String> requiredFields = [];
   Map<String, String> currentFieldValues = {};
@@ -32,18 +33,48 @@ class AgreementCounterController extends ChangeNotifier {
     return TemplateService.defaultPresets.keys.toList();
   }
 
+  void setFontSize(double size) {
+    fontSize = size.clamp(10.0, 20.0);
+    _autoSaveToHive();
+    notifyListeners();
+  }
+
+  void setTopMargin(double val) {
+    topMargin = val.clamp(100.0, 700.0);
+    _autoSaveToHive();
+    notifyListeners();
+  }
+
+  void setBottomMargin(double val) {
+    bottomMargin = val.clamp(50.0, 500.0);
+    _autoSaveToHive();
+    notifyListeners();
+  }
+
+  void setSideMargin(double val) {
+    sideMargin = val.clamp(15.0, 150.0);
+    _autoSaveToHive();
+    notifyListeners();
+  }
+
+  void setSubsequentTopMargin(double val) {
+    subsequentTopMargin = val.clamp(30.0, 400.0);
+    _autoSaveToHive();
+    notifyListeners();
+  }
+
   void switchTemplate(String title) {
     final hiveTemplates = AgreementStorageHandlerService.getAllTemplates();
     if (hiveTemplates.containsKey(title)) {
       final t = hiveTemplates[title]!;
       selectedTemplateTitle = title;
       templateContent = t['content']?.toString() ?? '';
-      paperSize = t['paperSize']?.toString() ?? 'A4';
-      isEStamp = t['isEStamp'] as bool? ?? false;
-      topMargin = (t['topMargin'] as num?)?.toDouble() ?? 220.0;
-      subsequentTopMargin = (t['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0;
-      bottomMargin = (t['bottomMargin'] as num?)?.toDouble() ?? 75.0;
-      sideMargin = (t['sideMargin'] as num?)?.toDouble() ?? 35.0;
+      paperSize = t['paperSize']?.toString() ?? 'Legal';
+      isEStamp = t['isEStamp'] as bool? ?? true;
+      topMargin = (t['topMargin'] as num?)?.toDouble() ?? 320.0;
+      subsequentTopMargin = (t['subsequentTopMargin'] as num?)?.toDouble() ?? 65.0;
+      bottomMargin = (t['bottomMargin'] as num?)?.toDouble() ?? 270.0;
+      sideMargin = (t['sideMargin'] as num?)?.toDouble() ?? 40.0;
       _initFields();
     } else if (TemplateService.defaultPresets.containsKey(title)) {
       selectedTemplateTitle = title;
@@ -73,30 +104,26 @@ class AgreementCounterController extends ChangeNotifier {
   Future<void> loadDraftFromHive() async {
     final hiveTemplates = AgreementStorageHandlerService.getAllTemplates();
     final draft = AgreementStorageHandlerService.getCurrentDraft();
-
     if (draft != null) {
       selectedTemplateTitle = draft['templateId']?.toString() ?? '';
-
-      // اگر ٹیمپلیٹ اسٹوڈیو میں ایڈٹ ہوا ہے تو تازہ ترین ترتیبات Hive ٹیمپلیٹ سے اٹھائیں
       if (hiveTemplates.containsKey(selectedTemplateTitle)) {
         final t = hiveTemplates[selectedTemplateTitle]!;
         templateContent = t['content']?.toString() ?? '';
-        paperSize = t['paperSize']?.toString() ?? 'A4';
-        isEStamp = t['isEStamp'] as bool? ?? false;
-        topMargin = (t['topMargin'] as num?)?.toDouble() ?? 220.0;
-        subsequentTopMargin = (t['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0;
-        bottomMargin = (t['bottomMargin'] as num?)?.toDouble() ?? 75.0;
-        sideMargin = (t['sideMargin'] as num?)?.toDouble() ?? 35.0;
+        paperSize = t['paperSize']?.toString() ?? 'Legal';
+        isEStamp = t['isEStamp'] as bool? ?? true;
+        topMargin = (t['topMargin'] as num?)?.toDouble() ?? 320.0;
+        subsequentTopMargin = (t['subsequentTopMargin'] as num?)?.toDouble() ?? 65.0;
+        bottomMargin = (t['bottomMargin'] as num?)?.toDouble() ?? 270.0;
+        sideMargin = (t['sideMargin'] as num?)?.toDouble() ?? 40.0;
       } else {
         templateContent = draft['templateText']?.toString() ?? '';
-        paperSize = draft['paperSize']?.toString() ?? 'A4';
-        isEStamp = draft['isEStamp'] as bool? ?? false;
-        topMargin = (draft['topMargin'] as num?)?.toDouble() ?? 220.0;
-        subsequentTopMargin = (draft['subsequentTopMargin'] as num?)?.toDouble() ?? 45.0;
-        bottomMargin = (draft['bottomMargin'] as num?)?.toDouble() ?? 75.0;
-        sideMargin = (draft['sideMargin'] as num?)?.toDouble() ?? 35.0;
+        paperSize = draft['paperSize']?.toString() ?? 'Legal';
+        isEStamp = draft['isEStamp'] as bool? ?? true;
+        topMargin = (draft['topMargin'] as num?)?.toDouble() ?? 320.0;
+        subsequentTopMargin = (draft['subsequentTopMargin'] as num?)?.toDouble() ?? 65.0;
+        bottomMargin = (draft['bottomMargin'] as num?)?.toDouble() ?? 270.0;
+        sideMargin = (draft['sideMargin'] as num?)?.toDouble() ?? 40.0;
       }
-
       qrSourceData = Map<String, dynamic>.from(draft['qrSourceData'] ?? {});
       currentFieldValues = Map<String, String>.from(
         (draft['fieldValues'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {},
@@ -169,6 +196,7 @@ class AgreementCounterController extends ChangeNotifier {
     await PdfRenderService.generateAndPrintAgreement(
       rawContent: templateContent,
       fieldValues: currentFieldValues,
+      fontSize: fontSize,
       paperSize: paperSize,
       isEStamp: isEStamp,
       topMargin: topMargin,
