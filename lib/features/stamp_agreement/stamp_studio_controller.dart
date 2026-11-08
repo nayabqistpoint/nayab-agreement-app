@@ -12,11 +12,7 @@ class StampStudioController extends ChangeNotifier {
   final TextEditingController bodyController = TextEditingController();
 
   String paperSize = 'Legal';
-  double topMargin = 320.0;
-  double subsequentTopMargin = 65.0;
-  double bottomMargin = 270.0;
-  double sideMargin = 40.0;
-  double fontSize = 13.5;
+  double topMargin = 320.0, subsequentTopMargin = 65.0, bottomMargin = 270.0, sideMargin = 40.0, fontSize = 13.5;
 
   Uint8List? stampPdfBytes;
   List<Uint8List?> cachedStampPages = [];
@@ -52,6 +48,9 @@ class StampStudioController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addCustomTag(String tag) { if (tag.trim().isNotEmpty && !pinnedTags.contains(tag.trim())) { pinnedTags.add(tag.trim()); notifyListeners(); } }
+  void removeTag(String tag) { pinnedTags.remove(tag); notifyListeners(); }
+
   void setPaperSize(String size) {
     paperSize = size;
     final isA4 = size == 'A4';
@@ -86,37 +85,22 @@ class StampStudioController extends ChangeNotifier {
   }
 
   void normalizeBodyText() {
-    bodyController.text = StampTextFormatService.normalizeParagraphs(bodyController.text);
+    StampTextFormatService.normalizeParagraphs(bodyController);
     notifyListeners();
   }
 
-  List<String> paginateText() {
-    return AgreementPaginationService.paginate(
-      fullText: bodyController.text,
-      fontSize: fontSize,
-      p1TopMargin: topMargin,
-      subsequentTopMargin: subsequentTopMargin,
-      bottomMargin: bottomMargin,
-      sideMargin: sideMargin,
-      paperSize: paperSize,
-    );
-  }
+  List<String> paginateText() => AgreementPaginationService.paginate(
+    fullText: bodyController.text, fontSize: fontSize, p1TopMargin: topMargin,
+    subsequentTopMargin: subsequentTopMargin, bottomMargin: bottomMargin, sideMargin: sideMargin, paperSize: paperSize,
+  );
 
   Future<bool> saveTemplate() async {
     if (titleController.text.trim().isEmpty) return false;
     final b64 = stampPdfBytes != null ? base64Encode(stampPdfBytes!) : null;
     final payload = StampPayloadBuilder.build(
-      title: titleController.text.trim(),
-      content: bodyController.text,
-      paperSize: paperSize,
-      topMargin: topMargin,
-      subsequentTopMargin: subsequentTopMargin,
-      bottomMargin: bottomMargin,
-      sideMargin: sideMargin,
-      fontSize: fontSize,
-      base64Pdf: b64,
-      stampFileName: loadedPdfFileName,
-      pages: paginateText(),
+      title: titleController.text.trim(), content: bodyController.text, paperSize: paperSize,
+      topMargin: topMargin, subsequentTopMargin: subsequentTopMargin, bottomMargin: bottomMargin,
+      sideMargin: sideMargin, fontSize: fontSize, base64Pdf: b64, stampFileName: loadedPdfFileName, pages: paginateText(),
     );
     await StampStorageHandlerService.saveTemplate(payload);
     return true;

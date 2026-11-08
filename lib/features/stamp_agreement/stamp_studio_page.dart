@@ -18,8 +18,6 @@ class StampStudioPage extends StatefulWidget {
 
 class _StampStudioPageState extends State<StampStudioPage> {
   late final StampStudioController _controller;
-  final TransformationController _zoomController = TransformationController();
-  bool _isZoomFit = false;
 
   @override
   void initState() {
@@ -33,21 +31,8 @@ class _StampStudioPageState extends State<StampStudioPage> {
 
   @override
   void dispose() {
-    _zoomController.dispose();
     _controller.dispose();
     super.dispose();
-  }
-
-  void _toggleZoom() {
-    setState(() {
-      _isZoomFit = !_isZoomFit;
-      final m = Matrix4.identity();
-      if (_isZoomFit) {
-        m.setEntry(0, 0, 0.65);
-        m.setEntry(1, 1, 0.65);
-      }
-      _zoomController.value = m;
-    });
   }
 
   @override
@@ -58,9 +43,7 @@ class _StampStudioPageState extends State<StampStudioPage> {
         backgroundColor: const Color(0xFFD4D4D4),
         appBar: StampStudioAppBarUi(
           paperSize: _controller.paperSize,
-          isZoomFit: _isZoomFit,
           onPaperSizeChanged: (s) => _controller.setPaperSize(s),
-          onToggleZoom: _toggleZoom,
           onSave: () async {
             final ok = await _controller.saveTemplate();
             if (!context.mounted) return;
@@ -95,11 +78,16 @@ class _StampStudioPageState extends State<StampStudioPage> {
                 StampTextFormatService.insertFormatting(_controller.bodyController, f);
                 setState(() {});
               },
-              onInsertSpacer: (p) {
-                StampTextFormatService.insertSpacer(_controller.bodyController, p);
+              onInsertForcedSpace: () {
+                StampTextFormatService.insertForcedSpace(_controller.bodyController);
+                setState(() {});
+              },
+              onInsertEmptyTag: () {
+                StampTextFormatService.insertEmptyTag(_controller.bodyController);
                 setState(() {});
               },
               onShowAddCustomTag: () => StampCustomTagDialogUi.show(context, (t) {
+                _controller.addCustomTag(t);
                 StampTextFormatService.insertTag(_controller.bodyController, t);
                 setState(() {});
               }),
@@ -107,11 +95,19 @@ class _StampStudioPageState extends State<StampStudioPage> {
                 StampTextFormatService.insertTag(_controller.bodyController, t);
                 setState(() {});
               },
+              onReorderTags: (oldIndex, newIndex) {
+                setState(() {
+                  final item = _controller.pinnedTags.removeAt(oldIndex);
+                  _controller.pinnedTags.insert(newIndex, item);
+                });
+              },
+              onDeleteTag: (t) {
+                setState(() => _controller.removeTag(t));
+              },
             ),
             Expanded(
               child: StampCanvasViewportUi(
                 controller: _controller,
-                zoomController: _zoomController,
                 onStateChange: () => setState(() {}),
               ),
             ),
