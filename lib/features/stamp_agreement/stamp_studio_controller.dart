@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../shared_services/agreement_pagination_service.dart';
+import '../../core/utils/paper_pagination_helper.dart';
 import 'services/stamp_file_service.dart';
 import 'services/stamp_payload_builder.dart';
 import 'services/stamp_storage_handler_service.dart';

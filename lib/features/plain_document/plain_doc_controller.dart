@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../shared_services/agreement_pagination_service.dart';
+import '../../core/utils/paper_pagination_helper.dart';
 import 'services/plain_doc_payload_builder.dart';
 import 'services/plain_doc_storage_handler_service.dart';
 

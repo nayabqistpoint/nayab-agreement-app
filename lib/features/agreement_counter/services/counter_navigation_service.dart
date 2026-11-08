@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/document_template_model.dart';
-import '../../../shared_services/agreement_storage_handler_service.dart';
 import '../../customer_directory/customer_directory_page.dart';
 import '../../form_filler/form_filler_studio_page.dart';
 import '../../plain_document/plain_doc_studio_page.dart';
 import '../../stamp_agreement/stamp_studio_page.dart';
+import 'counter_storage_handler_service.dart';
 
 class CounterNavigationService {
   static Future<bool?> openEditor(BuildContext context, String templateTitle) async {
-    final all = AgreementStorageHandlerService.getAllTemplates();
+    final all = CounterStorageHandlerService.getAllTemplates();
     Widget target = StampStudioPage(initialTitle: templateTitle);
 
     if (all.containsKey(templateTitle)) {

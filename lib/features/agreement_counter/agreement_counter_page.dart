@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/qr_scanner.dart';
 import '../agreement_bucket_view/bucket_view_page.dart';
+import '../customer_directory/customer_directory_page.dart';
 import '../form_filler/form_filler_studio_page.dart';
 import '../plain_document/plain_doc_studio_page.dart';
 import '../stamp_agreement/stamp_studio_page.dart';
 import 'agreement_counter_controller.dart';
 import 'components/counter_app_bar_ui.dart';
-import 'components/counter_bucket_summary.dart';
+import 'components/counter_bucket_badge_ui.dart';
 import 'components/counter_canvas_viewer_ui.dart';
 import 'components/counter_module_tabs_ui.dart';
 import 'components/counter_print_action_ui.dart';
@@ -15,7 +18,6 @@ import 'components/counter_scanner_bar_ui.dart';
 import 'components/counter_template_selector_ui.dart';
 import 'services/counter_navigation_service.dart';
 import 'services/counter_render_service.dart';
-import 'services/counter_storage_handler_service.dart';
 
 class AgreementCounterPage extends StatefulWidget {
   const AgreementCounterPage({super.key});
@@ -25,111 +27,110 @@ class AgreementCounterPage extends StatefulWidget {
 }
 
 class _AgreementCounterPageState extends State<AgreementCounterPage> {
-  late final AgreementCounterController _controller;
-  final List<GlobalKey> _boundaryKeys = [];
+  late final AgreementCounterController _c;
+  final List<GlobalKey> _canvasKeys = [];
 
   @override
   void initState() {
     super.initState();
-    _controller = AgreementCounterController();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
-    _controller.init();
+    _c = AgreementCounterController();
+    _c.addListener(() => mounted ? setState(() {}) : null);
+    _c.init();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _c.dispose();
     super.dispose();
   }
 
-  Future<void> _handleStudioReturn(Future<bool?> navAction) async {
-    final res = await navAction;
-    if (res == true) {
-      _controller.loadTemplates();
-      _controller.refreshStampPages();
+  void _syncKeys(int count) {
+    if (_canvasKeys.length != count) {
+      _canvasKeys
+        ..clear()
+        ..addAll(List.generate(count, (_) => GlobalKey()));
+    }
+  }
+
+  Future<void> _scan(String key, String title) async {
+    final res = await QrScanner.scan(context, title: title);
+    if (res != null && res.trim().isNotEmpty) {
+      _c.currentFieldValues[key] = res.trim();
+      _c.persistState();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final pages = _c.getPages();
+    _syncKeys(pages.length);
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: CounterAppBarUi(
-          onOpenCustomerDirectory: () => CounterNavigationService.openCustomerDirectory(context),
-          onReset: () => _controller.loadDraft(),
+          onOpenCustomerDirectory: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerDirectoryPage())),
+          onReset: _c.init,
         ),
-        body: ValueListenableBuilder(
-          valueListenable: CounterStorageHandlerService.listenToDraft(),
-          builder: (context, box, child) {
-            final pages = _controller.getPages();
-            while (_boundaryKeys.length < pages.length) {
-              _boundaryKeys.add(GlobalKey());
-            }
-            if (_boundaryKeys.length > pages.length) {
-              _boundaryKeys.removeRange(pages.length, _boundaryKeys.length);
-            }
-
-            return Padding(
-              padding: const EdgeInsets.all(12.0),
+        body: Column(
+          children: [
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.only(bottom: 6),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  CounterScannerBarUi(onScanProduct: () {}, onScanCnic: () {}),
-                  const SizedBox(height: 8),
+                  CounterScannerBarUi(
+                    onScanProduct: () => _scan('IMEI نمبر', 'پروڈکٹ QR اسکین'),
+                    onScanCnic: () => _scan('شناختی کارڈ', 'شناختی کارڈ اسکین'),
+                  ),
                   CounterModuleTabsUi(
-                    onOpenStampStudio: () => _handleStudioReturn(CounterNavigationService.openStudio(context, const StampStudioPage(initialTitle: ''))),
-                    onOpenPlainDocStudio: () => _handleStudioReturn(CounterNavigationService.openStudio(context, const PlainDocStudioPage(initialTitle: ''))),
-                    onOpenFormFillerStudio: () => _handleStudioReturn(CounterNavigationService.openStudio(context, const FormFillerStudioPage(initialTitle: ''))),
+                    onOpenStampStudio: () => CounterNavigationService.openStudio(context, const StampStudioPage()).then((_) => _c.init()),
+                    onOpenPlainDocStudio: () => CounterNavigationService.openStudio(context, const PlainDocStudioPage()).then((_) => _c.init()),
+                    onOpenFormFillerStudio: () => CounterNavigationService.openStudio(context, const FormFillerStudioPage()).then((_) => _c.init()),
                   ),
-                  const SizedBox(height: 8),
                   CounterTemplateSelectorUi(
-                    selectedTitle: _controller.selectedTemplateTitle,
-                    availableTemplates: _controller.availableTemplates,
-                    onTemplateChanged: (t) => _controller.switchTemplate(t),
-                    onEditTemplate: () => _handleStudioReturn(CounterNavigationService.openEditor(context, _controller.selectedTemplateTitle)),
+                    selectedTitle: _c.selectedTemplateTitle,
+                    availableTemplates: _c.availableTemplates,
+                    onTemplateChanged: _c.switchTemplate,
+                    onOpenEditor: () => CounterNavigationService.openEditor(context, _c.selectedTemplateTitle).then((v) => v == true ? _c.init() : null),
                   ),
-                  const SizedBox(height: 8),
-                  CounterBucketSummary(
-                    totalFields: _controller.requiredFields.length,
-                    filledFields: _controller.currentFieldValues.length,
-                    onViewDetails: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BucketViewPage())),
-                    onResetBucket: () => _controller.loadDraft(),
+                  CounterBucketBadgeUi(
+                    filledCount: _c.currentFieldValues.length,
+                    totalCount: _c.requiredFields.length,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BucketViewPage())).then((_) => _c.loadDraft()),
                   ),
-                  const SizedBox(height: 8),
                   CounterQuickToolbar(
-                    currentMode: _controller.currentDocMode,
-                    stampFileName: _controller.selectedStampFileName,
-                    fontSize: _controller.fontSize,
+                    currentMode: _c.currentDocMode,
+                    fontSize: _c.fontSize,
+                    onFontSizeChanged: _c.setFontSize,
+                    onPickCustomerStamp: _c.handlePickStamp,
+                    stampFileName: _c.selectedStampFileName,
                     totalPages: pages.length,
-                    onPickCustomerStamp: () => _controller.handlePickStamp(),
-                    onFontSizeChanged: (s) => _controller.setFontSize(s),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: CounterCanvasViewerUi(
-                      isLoading: _controller.isRenderingStamp,
-                      pages: pages,
-                      cachedStampPages: _controller.cachedStampPages,
-                      pageBoundaryKeys: _boundaryKeys,
-                      topMargin: _controller.topMargin,
-                      subsequentTopMargin: _controller.subsequentTopMargin,
-                      bottomMargin: _controller.bottomMargin,
-                      sideMargin: _controller.sideMargin,
-                      fontSize: _controller.fontSize,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  CounterPrintActionUi(
-                    onPrint: () => CounterRenderService.printDocument(_boundaryKeys, _controller.selectedTemplateTitle),
-                    onCopyText: () {},
                   ),
                 ],
               ),
-            );
-          },
+            ),
+            const Divider(height: 1, color: Colors.black12),
+            Expanded(
+              child: CounterCanvasViewerUi(
+                pages: pages,
+                pageBoundaryKeys: _canvasKeys,
+                cachedStampPages: _c.cachedStampPages,
+                isLoading: _c.isRenderingStamp,
+                fontSize: _c.fontSize,
+                topMargin: _c.topMargin,
+                subsequentTopMargin: _c.subsequentTopMargin,
+                bottomMargin: _c.bottomMargin,
+                sideMargin: _c.sideMargin,
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: CounterPrintActionUi(
+          onPrint: () => CounterRenderService.printDocument(_canvasKeys, _c.selectedTemplateTitle),
+          onCopyText: () => Clipboard.setData(ClipboardData(text: pages.join('\n\n'))),
         ),
       ),
     );

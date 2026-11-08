@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../core/models/document_template_model.dart';
-import '../../shared_services/agreement_pagination_service.dart';
-import '../../shared_services/agreement_storage_handler_service.dart';
+import '../../core/utils/paper_pagination_helper.dart';
 import 'services/counter_payload_builder.dart';
 import 'services/counter_render_service.dart';
 import 'services/counter_storage_handler_service.dart';
@@ -34,7 +33,7 @@ class AgreementCounterController extends ChangeNotifier {
   }
 
   void loadTemplates() {
-    final all = AgreementStorageHandlerService.getAllTemplates();
+    final all = CounterStorageHandlerService.getAllTemplates();
     availableTemplates = all.keys.toList();
     if (availableTemplates.isNotEmpty && selectedTemplateTitle.isEmpty) {
       switchTemplate(availableTemplates.first);
@@ -52,7 +51,7 @@ class AgreementCounterController extends ChangeNotifier {
 
   void switchTemplate(String title) {
     selectedTemplateTitle = title;
-    final all = AgreementStorageHandlerService.getAllTemplates();
+    final all = CounterStorageHandlerService.getAllTemplates();
     if (all.containsKey(title)) {
       final doc = DocumentTemplateModel.fromMap(all[title]!);
       currentDocMode = doc.mode;

@@ -1,5 +1,5 @@
 import '../../../core/models/document_template_model.dart';
-import '../../../shared_services/template_service.dart';
+import '../../../core/utils/tag_extraction_helper.dart';
 
 class PlainDocPayloadBuilder {
   static Map<String, dynamic> build({

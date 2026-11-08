@@ -1,41 +1,78 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
-import '../../shared_models/customer_profile_model.dart';
-import '../../shared_services/agreement_storage_handler_service.dart';
-import '../../shared_services/payload_builders/agreement_payload_builder.dart';
+import '../../core/models/customer_profile_model.dart';
 
 class CustomerDirectoryController extends ChangeNotifier {
-  List<CustomerProfileModel> profiles = [];
-  String searchQuery = '';
+  final TextEditingController searchController = TextEditingController();
+  List<CustomerProfileModel> allCustomers = [];
+  List<CustomerProfileModel> filteredCustomers = [];
+  bool isLoading = false;
 
-  void loadProfiles() {
-    final box = HiveBoxManager.getBox(BoxNames.customerProfilesBox);
-    profiles = box.values
-        .whereType()
-        .map((m) => CustomerProfileModel.fromMap(Map<String, dynamic>.from(m)))
-        .where((p) => !p.isDeleted)
-        .toList();
+  List<CustomerProfileModel> get filteredProfiles => filteredCustomers;
+
+  void init() {
+    loadCustomers();
+    searchController.addListener(_onSearchChanged);
+  }
+
+  void loadProfiles() => loadCustomers();
+
+  void updateSearch(String query) {
+    searchController.text = query;
+  }
+
+  void loadCustomers() {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final box = HiveBoxManager.getBox(BoxNames.customersBox);
+      final List<CustomerProfileModel> loaded = [];
+
+      for (var key in box.keys) {
+        final raw = box.get(key);
+        if (raw is Map) {
+          final profile = CustomerProfileModel.fromMap(Map<String, dynamic>.from(raw));
+          if (!profile.isDeleted) {
+            loaded.add(profile);
+          }
+        }
+      }
+
+      allCustomers = loaded;
+      _applyFilter();
+    } catch (e) {
+      debugPrint('Error loading customers: $e');
+    }
+
+    isLoading = false;
     notifyListeners();
   }
 
-  List<CustomerProfileModel> get filteredProfiles {
-    if (searchQuery.trim().isEmpty) return profiles;
-    return profiles.where((p) {
-      return p.fullName.contains(searchQuery) ||
-          p.cnic.contains(searchQuery) ||
-          p.phone.contains(searchQuery);
-    }).toList();
-  }
-
-  void updateSearch(String q) {
-    searchQuery = q;
+  void _onSearchChanged() {
+    _applyFilter();
     notifyListeners();
   }
 
-  Future<void> saveProfile(CustomerProfileModel profile) async {
-    final payload = AgreementPayloadBuilder.buildProfilePayload(profile);
-    await AgreementStorageHandlerService.saveCustomerProfile(payload);
-    loadProfiles();
+  void _applyFilter() {
+    final query = searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      filteredCustomers = List.from(allCustomers);
+    } else {
+      filteredCustomers = allCustomers.where((c) {
+        final nameMatch = c.fullName.toLowerCase().contains(query);
+        final cnicMatch = c.cnic.replaceAll('-', '').contains(query.replaceAll('-', ''));
+        final phoneMatch = c.phone.contains(query);
+        return nameMatch || cnicMatch || phoneMatch;
+      }).toList();
+    }
+  }
+
+  @override
+  void dispose() {
+    searchController.removeListener(_onSearchChanged);
+    searchController.dispose();
+    super.dispose();
   }
 }
