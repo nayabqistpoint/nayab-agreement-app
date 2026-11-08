@@ -10,16 +10,21 @@ import '../../core/database/hive_box_manager.dart';
 import '../../core/models/document_template_model.dart';
 import '../../shared_services/agreement_pagination_service.dart';
 import '../../shared_services/agreement_storage_handler_service.dart';
-import '../../shared_services/native_pdf_capture_service.dart';
+
+// ماڈیول 1: پنجاب ای-اسٹامپ
+import '../stamp_agreement/components/stamp_counter_preview.dart';
+import '../stamp_agreement/stamp_pdf_capture_service.dart';
+import '../stamp_agreement/stamp_studio_page.dart';
+
+// ماڈیول 2 اور 3: سادہ دستاویز اور فارم فلر
+import '../plain_document/plain_doc_studio_page.dart';
+import '../form_filler/form_filler_studio_page.dart';
 
 import '../agreement_bucket_view/bucket_view_page.dart';
 import '../customer_directory/customer_directory_page.dart';
-import '../template_studio/args/template_studio_args.dart';
-import '../template_studio/template_studio_page.dart';
 
 import 'agreement_counter_controller.dart';
 import 'components/counter_bucket_summary.dart';
-import 'components/counter_paper_preview.dart';
 import 'components/counter_print_action_ui.dart';
 import 'components/counter_quick_toolbar.dart';
 import 'components/counter_scanner_bar_ui.dart';
@@ -175,6 +180,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
       subsequentTopMargin: _controller.subsequentTopMargin,
       bottomMargin: _controller.bottomMargin,
       sideMargin: _controller.sideMargin,
+      paperSize: _controller.paperSize,
     );
   }
 
@@ -186,18 +192,16 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     try {
       final docName = _controller.selectedTemplateTitle.isNotEmpty
           ? _controller.selectedTemplateTitle
-          : 'معاہدہ_نایاب_قسط_پوائنٹ';
+          : 'دستاویز_نایاب_قسط_پوائنٹ';
 
-      final pdfBytes = await NativePdfCaptureService.generatePdfFromBoundaries(
+      final pdfBytes = await StampPdfCaptureService.generateStampPdf(
         pageKeys: _pageBoundaryKeys,
-        paperSize: _controller.paperSize,
         docTitle: docName,
       );
 
       if (mounted) {
         setState(() => _isGeneratingPdf = false);
-        await NativePdfCaptureService.previewAndSavePdf(
-          context: context,
+        await StampPdfCaptureService.printOrSavePdf(
           pdfBytes: pdfBytes,
           fileName: '$docName.pdf',
         );
@@ -212,25 +216,22 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     }
   }
 
-  void _openTemplateStudio() async {
-    final res = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TemplateStudioPage(
-          args: TemplateStudioArgs(
-            templateTitle: _controller.selectedTemplateTitle,
-            templateContent: _controller.templateContent,
-            paperSize: _controller.paperSize,
-            isEStamp: _controller.isEStamp,
-            topMargin: _controller.topMargin,
-            subsequentTopMargin: _controller.subsequentTopMargin,
-            bottomMargin: _controller.bottomMargin,
-            sideMargin: _controller.sideMargin,
-          ),
-        ),
-      ),
-    );
+  // سمارٹ روٹنگ: منتخب ٹیمپلیٹ کے موڈ کے مطابق خودکار اسٹوڈیو کھولنا
+  void _editCurrentTemplate() async {
+    final title = _controller.selectedTemplateTitle;
+    final all = AgreementStorageHandlerService.getAllTemplates();
+    Widget targetPage = StampStudioPage(initialTitle: title);
 
+    if (all.containsKey(title)) {
+      final doc = DocumentTemplateModel.fromMap(all[title]!);
+      if (doc.mode == DocumentMode.plainDocument) {
+        targetPage = PlainDocStudioPage(initialTitle: title);
+      } else if (doc.mode == DocumentMode.formFiller) {
+        targetPage = FormFillerStudioPage(initialTitle: title);
+      }
+    }
+
+    final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => targetPage));
     if (res == true) {
       _controller.loadDraftFromHive();
       _handleTemplateSwitched();
@@ -251,38 +252,59 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
-          title: const Text('نایاب قسط پوائنٹ - کاؤنٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-          centerTitle: true,
+          title: const Text('نایاب قسط پوائنٹ - کاؤنٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19)),
+          centerTitle: false,
           backgroundColor: AppColors.primaryEmerald,
           foregroundColor: Colors.white,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.people_outline, size: 24),
-              tooltip: 'کسٹمر ڈائریکٹری',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CustomerDirectoryPage()),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 24),
-              tooltip: 'نیا معاہدہ / ٹیمپلیٹ بنائیں',
+            // ماڈیول 1: ای-اسٹامپ نیا بنانے کا بٹن
+            TextButton.icon(
               onPressed: () async {
-                final res = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TemplateStudioPage()),
-                );
+                final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const StampStudioPage(initialTitle: '')));
                 if (res == true) {
                   _controller.loadDraftFromHive();
                   _handleTemplateSwitched();
                 }
               },
+              icon: const Icon(Icons.description, color: Colors.white, size: 16),
+              label: const Text('ای-اسٹامپ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+            // ماڈیول 2: سادہ رسید / A4 نیا بنانے کا بٹن
+            TextButton.icon(
+              onPressed: () async {
+                final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const PlainDocStudioPage(initialTitle: '')));
+                if (res == true) {
+                  _controller.loadDraftFromHive();
+                  _handleTemplateSwitched();
+                }
+              },
+              icon: const Icon(Icons.receipt_long, color: Colors.white, size: 16),
+              label: const Text('سادہ رسید', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+            // ماڈیول 3: اسکول فارم فلر کا بٹن
+            TextButton.icon(
+              onPressed: () async {
+                final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const FormFillerStudioPage(initialTitle: '')));
+                if (res == true) {
+                  _controller.loadDraftFromHive();
+                  _handleTemplateSwitched();
+                }
+              },
+              icon: const Icon(Icons.edit_document, color: Colors.white, size: 16),
+              label: const Text('فارم فلر', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+            const VerticalDivider(color: Colors.white30, indent: 12, endIndent: 12),
+            IconButton(
+              icon: const Icon(Icons.people_outline, size: 22),
+              tooltip: 'کسٹمر ڈائریکٹری',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerDirectoryPage())),
             ),
             IconButton(
-              icon: const Icon(Icons.refresh, size: 24),
+              icon: const Icon(Icons.refresh, size: 22),
               tooltip: 'فارم نیا کریں',
               onPressed: () => _controller.resetCounter(context),
             ),
+            const SizedBox(width: 4),
           ],
         ),
         body: ValueListenableBuilder(
@@ -311,7 +333,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     selectedTitle: _controller.selectedTemplateTitle,
                     availableTemplates: _controller.availableTemplates,
                     onTemplateChanged: (t) => _controller.switchTemplate(t),
-                    onEditTemplate: _openTemplateStudio,
+                    onEditTemplate: _editCurrentTemplate,
                   ),
                   const SizedBox(height: 8),
 
@@ -319,10 +341,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     totalFields: _controller.totalFieldsCount,
                     filledFields: _controller.filledFieldsCount,
                     onViewDetails: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BucketViewPage()),
-                      );
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const BucketViewPage()));
                       _controller.loadDraftFromHive();
                     },
                     onResetBucket: () => _controller.resetCounter(context),
@@ -375,13 +394,13 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                                       return Column(
                                         children: [
                                           Text(
-                                            isP1 ? "— صفحہ نمبر 1 (اصل قانونی لے آؤٹ) —" : "— صفحہ نمبر ${index + 1} (بقیہ شرائط) —",
+                                            isP1 ? "— صفحہ نمبر 1 (اصل لے آؤٹ) —" : "— صفحہ نمبر ${index + 1} (بقیہ شرائط) —",
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
                                           ),
                                           const SizedBox(height: 6),
                                           RepaintBoundary(
                                             key: _pageBoundaryKeys[index],
-                                            child: CounterPaperPreview(
+                                            child: StampCounterPreview(
                                               topMargin: topM,
                                               bottomMargin: _controller.bottomMargin,
                                               sideMargin: _controller.sideMargin,
@@ -389,8 +408,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                                               bgImage: bgImg,
                                               isFirstPage: isP1,
                                               fontSize: _controller.fontSize,
-                                              mode: _currentDocMode,
-                                              bucketValues: _controller.currentFieldValues,
                                             ),
                                           ),
                                           const SizedBox(height: 24),
