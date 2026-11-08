@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import '../../core/models/document_template_model.dart';
 import '../../core/models/overlay_box_model.dart';
+import '../../shared_services/agreement_pagination_service.dart';
 import '../../shared_services/agreement_storage_handler_service.dart';
 import '../../shared_services/template_service.dart';
 
@@ -137,7 +138,7 @@ class TemplateStudioController extends ChangeNotifier {
     notifyListeners();
     List<Uint8List?> pages = [];
     try {
-      await for (final page in Printing.raster(bytes, dpi: 110)) {
+      await for (final page in Printing.raster(bytes, dpi: 300)) {
         pages.add(await page.toPng());
       }
     } catch (_) {}
@@ -204,57 +205,14 @@ class TemplateStudioController extends ChangeNotifier {
   }
 
   List<String> paginateText() {
-    final fullText = bodyController.text;
-    if (fullText.trim().isEmpty) return [""];
-
-    const double totalPoints = 1008.0;
-    final double lineH = fontSize * 1.95;
-
-    final double p1H = (totalPoints - topMargin - bottomMargin).clamp(100.0, totalPoints);
-    final int p1MaxLines = (p1H / lineH).floor();
-
-    final double subH = (totalPoints - subsequentTopMargin - bottomMargin).clamp(100.0, totalPoints);
-    final int subMaxLines = (subH / lineH).floor();
-
-    final double availableWidth = 612.0 - (sideMargin * 2);
-    final int charsPerLine = (availableWidth / (fontSize * 0.44)).floor().clamp(65, 110);
-
-    final rawLines = fullText.split('\n');
-    List<String> visualLines = [];
-
-    for (var r in rawLines) {
-      if (r.trim().isEmpty) {
-        visualLines.add("");
-        continue;
-      }
-      final words = r.split(' ');
-      String current = "";
-      for (var w in words) {
-        if ((current + w).length > charsPerLine) {
-          visualLines.add(current.trim());
-          current = "$w ";
-        } else {
-          current += "$w ";
-        }
-      }
-      if (current.isNotEmpty) visualLines.add(current.trim());
-    }
-
-    List<String> pages = [];
-    int lineIndex = 0;
-
-    int linesForP1 = visualLines.length > p1MaxLines ? p1MaxLines : visualLines.length;
-    pages.add(visualLines.sublist(0, linesForP1).join('\n'));
-    lineIndex = linesForP1;
-
-    while (lineIndex < visualLines.length) {
-      int remaining = visualLines.length - lineIndex;
-      int take = remaining > subMaxLines ? subMaxLines : remaining;
-      pages.add(visualLines.sublist(lineIndex, lineIndex + take).join('\n'));
-      lineIndex += take;
-    }
-
-    return pages;
+    return AgreementPaginationService.paginate(
+      fullText: bodyController.text,
+      fontSize: fontSize,
+      p1TopMargin: topMargin,
+      subsequentTopMargin: subsequentTopMargin,
+      bottomMargin: bottomMargin,
+      sideMargin: sideMargin,
+    );
   }
 
   Future<bool> saveTemplate() async {
@@ -265,6 +223,8 @@ class TemplateStudioController extends ChangeNotifier {
     if (stampPdfBytes != null) {
       b64 = base64Encode(stampPdfBytes!);
     }
+
+    final currentPages = paginateText();
 
     final doc = DocumentTemplateModel(
       id: title,
@@ -281,6 +241,7 @@ class TemplateStudioController extends ChangeNotifier {
       stampFileName: loadedPdfFileName,
       floatingBoxes: floatingBoxes,
       fields: TemplateService.extractFields(bodyController.text),
+      pages: currentPages,
     );
 
     await AgreementStorageHandlerService.saveTemplate(doc.toMap());

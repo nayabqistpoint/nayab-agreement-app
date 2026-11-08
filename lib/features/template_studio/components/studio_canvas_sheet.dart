@@ -18,6 +18,7 @@ class StudioCanvasSheet extends StatelessWidget {
   final DocumentMode mode;
   final List<OverlayBoxModel> floatingBoxes;
   final TextEditingController? bodyController;
+  final Function(String)? onTextChanged;
   final Function(double) onTopDrag;
   final Function(double) onBottomDrag;
   final Function(double) onSideDrag;
@@ -40,6 +41,7 @@ class StudioCanvasSheet extends StatelessWidget {
     required this.mode,
     required this.floatingBoxes,
     this.bodyController,
+    this.onTextChanged,
     required this.onTopDrag,
     required this.onBottomDrag,
     required this.onSideDrag,
@@ -78,9 +80,17 @@ class StudioCanvasSheet extends StatelessWidget {
               ],
             ),
             child: Stack(
+              clipBehavior: Clip.hardEdge,
               children: [
+                // پس منظر اسٹامپ
                 if (bgImage != null)
-                  Positioned.fill(child: Image.memory(bgImage!, fit: BoxFit.fill))
+                  Positioned.fill(
+                    child: Image.memory(
+                      bgImage!,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  )
                 else
                   Center(
                     child: Opacity(
@@ -88,29 +98,29 @@ class StudioCanvasSheet extends StatelessWidget {
                       child: Text(
                         mode == DocumentMode.stampOverlay
                             ? (isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "اضافی سادہ ورق")
-                            : "سادہ کاغذ (A4 / Legal)",
+                            : "سادہ دستاویزی کاغذ (A4)",
                         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
 
-                // اوپر اور نیچے کی بلائنڈ محفوظ حدیں
+                // محفوظ بلائنڈ باؤنڈریز
                 Positioned(
                   top: 0,
                   left: 0,
                   right: 0,
                   height: scaledTop,
-                  child: Container(color: Colors.black.withAlpha(10)),
+                  child: Container(color: Colors.black.withAlpha(12)),
                 ),
                 Positioned(
                   bottom: 0,
                   left: 0,
                   right: 0,
                   height: scaledBottom,
-                  child: Container(color: Colors.black.withAlpha(10)),
+                  child: Container(color: Colors.black.withAlpha(12)),
                 ),
 
-                // ریڈ باکس: ای-اسٹامپ اور سادہ A4 دونوں میں فعال
+                // ریڈ باکس: سکرولر کے بغیر براہِ راست لکھائی والا کینوس
                 if (mode != DocumentMode.formFiller)
                   Positioned(
                     top: scaledTop,
@@ -120,40 +130,47 @@ class StudioCanvasSheet extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.red.shade700, width: 2.0),
-                        color: Colors.white.withAlpha(160),
+                        color: Colors.white.withAlpha(165),
                       ),
                       child: Stack(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
                             child: isFirstPage && bodyController != null
                                 ? TextField(
                                     controller: bodyController,
                                     maxLines: null,
-                                    expands: true,
+                                    // سکرولر کو جڑ سے اکھاڑ دیا گیا ہے
+                                    scrollPhysics: const NeverScrollableScrollPhysics(),
                                     textAlign: TextAlign.justify,
                                     textDirection: TextDirection.rtl,
                                     style: TextStyle(
                                       fontFamily: 'JameelNoori',
-                                      fontSize: fontSize,
+                                      fontSize: fontSize * 0.95,
                                       height: 1.85,
                                       fontWeight: FontWeight.w600,
                                       color: const Color(0xFF111111),
                                     ),
                                     decoration: const InputDecoration(
-                                      hintText: 'یہاں براہِ راست کلک کر کے معاہدہ ٹائپ کریں...',
                                       border: InputBorder.none,
                                       isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      hintText: 'یہاں ریڈ باکس میں براہِ راست کلک کر کے معاہدہ لکھیں...',
                                     ),
+                                    onChanged: (val) {
+                                      if (onTextChanged != null) onTextChanged!(val);
+                                    },
                                   )
-                                : SingleChildScrollView(
+                                : SizedBox(
+                                    width: double.infinity,
+                                    height: double.infinity,
                                     child: Text(
                                       textContent,
                                       textAlign: TextAlign.justify,
                                       textDirection: TextDirection.rtl,
                                       style: TextStyle(
                                         fontFamily: 'JameelNoori',
-                                        fontSize: fontSize,
+                                        fontSize: fontSize * 0.95,
                                         height: 1.85,
                                         fontWeight: FontWeight.w600,
                                         color: const Color(0xFF111111),
@@ -172,7 +189,7 @@ class StudioCanvasSheet extends StatelessWidget {
                               behavior: HitTestBehavior.translucent,
                               onVerticalDragUpdate: (d) => onTopDrag(d.delta.dy),
                               child: Container(
-                                color: Colors.red.withAlpha(85),
+                                color: Colors.red.withAlpha(90),
                                 alignment: Alignment.center,
                                 child: const Icon(Icons.drag_handle, size: 12, color: Colors.white),
                               ),
@@ -189,7 +206,7 @@ class StudioCanvasSheet extends StatelessWidget {
                               behavior: HitTestBehavior.translucent,
                               onVerticalDragUpdate: (d) => onBottomDrag(d.delta.dy),
                               child: Container(
-                                color: Colors.red.withAlpha(85),
+                                color: Colors.red.withAlpha(90),
                                 alignment: Alignment.center,
                                 child: const Icon(Icons.drag_handle, size: 12, color: Colors.white),
                               ),
@@ -205,7 +222,7 @@ class StudioCanvasSheet extends StatelessWidget {
                             child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
                               onHorizontalDragUpdate: (d) => onSideDrag(d.delta.dx),
-                              child: Container(color: Colors.red.withAlpha(50)),
+                              child: Container(color: Colors.red.withAlpha(60)),
                             ),
                           ),
                           Positioned(
@@ -216,7 +233,7 @@ class StudioCanvasSheet extends StatelessWidget {
                             child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
                               onHorizontalDragUpdate: (d) => onSideDrag(-d.delta.dx),
-                              child: Container(color: Colors.red.withAlpha(50)),
+                              child: Container(color: Colors.red.withAlpha(60)),
                             ),
                           ),
                         ],
@@ -224,7 +241,7 @@ class StudioCanvasSheet extends StatelessWidget {
                     ),
                   ),
 
-                // فارم فلر موڈ میں فلوٹنگ باکسز
+                // فارم فلر
                 if (mode == DocumentMode.formFiller)
                   ...floatingBoxes.map(
                     (b) => StudioFloatingField(

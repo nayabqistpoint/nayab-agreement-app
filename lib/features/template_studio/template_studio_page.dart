@@ -62,6 +62,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
     } else {
       _controller.insertTag(tag == 'B' ? 'بولڈ' : 'انڈر_لائن');
     }
+    setState(() {});
   }
 
   void _insertFixedSpacer(int points) {
@@ -73,6 +74,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
     } else {
       _controller.bodyController.text += tag;
     }
+    setState(() {});
   }
 
   void _showAddCustomTagDialog() {
@@ -87,7 +89,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
             controller: _customTagController,
             autofocus: true,
             decoration: const InputDecoration(
-              hintText: 'مثلاً: گواہ کا نام، بقایا اقساط وغیرہ',
+              hintText: 'مثلاً: گواہ کا نام، بقایا رقم وغیرہ',
               border: OutlineInputBorder(),
               isDense: true,
             ),
@@ -139,7 +141,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
       child: Scaffold(
         backgroundColor: const Color(0xFFD4D4D4),
         appBar: AppBar(
-          title: const Text('معاہدہ اسٹوڈیو - مکمل ٹیکسٹ و ڈیزائن ایڈیٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          title: const Text('معاہدہ اسٹوڈیو - براہِ راست کینوس ایڈیٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           backgroundColor: AppColors.primaryEmerald,
           foregroundColor: Colors.white,
           actions: [
@@ -159,7 +161,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
         ),
         body: Column(
           children: [
-            // ٹاپ ٹول بار 1: بنیادی سیٹنگز
+            // ٹاپ ٹول بار 1: بنیادی آپشنز
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               color: Colors.white,
@@ -253,7 +255,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
               ),
             ),
 
-            // ٹاپ ٹول بار 2: تحریر کے ٹولز، اسپیسرز اور ٹیگز
+            // ٹاپ ٹول بار 2: بولڈ، انڈر لائن، اسپیسرز اور ٹیگز
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               color: Colors.grey.shade200,
@@ -273,14 +275,14 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                     ),
                     const SizedBox(width: 6),
                     ElevatedButton.icon(
-                      onPressed: () => _insertFixedSpacer(72), // 1 inch = 72 pt
+                      onPressed: () => _insertFixedSpacer(72),
                       icon: const Icon(Icons.space_bar, size: 14),
                       label: const Text('1 انچ خالی جگہ', style: TextStyle(fontSize: 11)),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87),
                     ),
                     const SizedBox(width: 4),
                     ElevatedButton.icon(
-                      onPressed: () => _insertFixedSpacer(36), // 0.5 inch = 36 pt
+                      onPressed: () => _insertFixedSpacer(36),
                       icon: const Icon(Icons.space_bar, size: 14),
                       label: const Text('آدھا انچ جگہ', style: TextStyle(fontSize: 11)),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87),
@@ -308,7 +310,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
               ),
             ),
 
-            // کینوس ایریا
+            // کینوس ایریا: سیدھا ریڈ باکس کے اندر لکھائی
             Expanded(
               child: _controller.isLoadingPdf
                   ? const Center(child: CircularProgressIndicator())
@@ -343,14 +345,17 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                                       scaledSide: scaledSide,
                                       bgImage: bgImg,
                                       pageLabel: isP1
-                                          ? "صفحہ نمبر 1 (اصل لے آؤٹ)"
-                                          : "صفحہ نمبر ${index + 1} (بقیہ تحریر)",
+                                          ? "صفحہ نمبر 1 (اصل قانونی لے آؤٹ)"
+                                          : "صفحہ نمبر ${index + 1} (بقیہ شرائط)",
                                       isFirstPage: isP1,
                                       textContent: pages.isNotEmpty ? pages[index] : "",
                                       fontSize: _controller.fontSize,
                                       mode: _controller.currentMode,
                                       floatingBoxes: _controller.floatingBoxes,
                                       bodyController: isP1 ? _controller.bodyController : null,
+                                      onTextChanged: (val) {
+                                        setState(() {});
+                                      },
                                       onTopDrag: (delta) {
                                         if (isP1) {
                                           _controller.setTopMargin(_controller.topMargin + (delta / scale));

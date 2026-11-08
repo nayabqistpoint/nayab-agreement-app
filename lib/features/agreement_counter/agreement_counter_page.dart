@@ -3,15 +3,20 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
 import '../../core/models/document_template_model.dart';
+import '../../shared_services/agreement_pagination_service.dart';
 import '../../shared_services/agreement_storage_handler_service.dart';
+import '../../shared_services/native_pdf_capture_service.dart';
+
 import '../agreement_bucket_view/bucket_view_page.dart';
 import '../customer_directory/customer_directory_page.dart';
 import '../template_studio/args/template_studio_args.dart';
 import '../template_studio/template_studio_page.dart';
+
 import 'agreement_counter_controller.dart';
 import 'components/counter_bucket_summary.dart';
 import 'components/counter_paper_preview.dart';
@@ -31,8 +36,12 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   late final AgreementCounterController _controller;
   List<Uint8List?> _cachedStampPages = [];
   bool _isRenderingStamp = false;
+  bool _isGeneratingPdf = false;
   String? _lastLoadedTemplate;
   DocumentMode _currentDocMode = DocumentMode.stampOverlay;
+  List<String> _lockedStudioPages = [];
+
+  final List<GlobalKey> _pageBoundaryKeys = [];
 
   @override
   void initState() {
@@ -50,12 +59,12 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     if (mounted) setState(() {});
   }
 
-  // زیرو اسٹیٹ: جب نیا ٹیمپلیٹ منتخب ہو تو پچھلی تفصیلات صاف کر کے تازہ لوڈ کرنا
   Future<void> _handleTemplateSwitched() async {
     final title = _controller.selectedTemplateTitle;
     if (title.isEmpty) {
       setState(() {
         _cachedStampPages.clear();
+        _lockedStudioPages.clear();
         _currentDocMode = DocumentMode.stampOverlay;
       });
       return;
@@ -65,8 +74,8 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     if (all.containsKey(title)) {
       final doc = DocumentTemplateModel.fromMap(all[title]!);
       _currentDocMode = doc.mode;
+      _lockedStudioPages = List<String>.from(doc.pages);
 
-      // اگر موڈ سادہ دستاویزی کاغذ ہے تو پرانا اسٹامپ فوراً ختم
       if (doc.mode == DocumentMode.plainDocument) {
         setState(() {
           _controller.selectedStampPdfBytes = null;
@@ -76,7 +85,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
         return;
       }
 
-      // اگر ای-اسٹامپ یا فارم فلر ہے تو محفوظ شدہ PDF بائٹس لائیں
       if (doc.base64Pdf != null && doc.base64Pdf!.isNotEmpty) {
         try {
           final bytes = base64Decode(doc.base64Pdf!);
@@ -97,7 +105,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     setState(() => _isRenderingStamp = true);
     try {
       List<Uint8List?> pages = [];
-      await for (final page in Printing.raster(pdfBytes, dpi: 110)) {
+      await for (final page in Printing.raster(pdfBytes, dpi: 300)) {
         pages.add(await page.toPng());
       }
       if (mounted) {
@@ -119,17 +127,26 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     );
     if (result != null && result.files.single.bytes != null) {
       final bytes = result.files.single.bytes!;
+      final fileName = result.files.single.name;
+
       setState(() {
         _controller.selectedStampPdfBytes = bytes;
-        _controller.selectedStampFileName = result.files.single.name;
+        _controller.selectedStampFileName = fileName;
       });
+
+      try {
+        final box = HiveBoxManager.getBox(BoxNames.agreementDraftBox);
+        box.put('selectedStampFileName', fileName);
+        box.put('selectedStampPdfBytes', bytes);
+      } catch (_) {}
+
       await _renderStampPdfToCache(bytes);
     }
   }
 
-  String _buildProcessedAgreementText() {
-    String raw = _controller.templateContent;
-    if (raw.isEmpty) return '';
+  String _replaceTagsInText(String text) {
+    if (text.isEmpty) return '';
+    String raw = text;
     raw = raw.replaceAll('**', '').replaceAll('*', '');
     raw = raw.replaceAll('[center]', '').replaceAll('[/center]', '');
     raw = raw.replaceAll(RegExp(r'^#+\s*', multiLine: true), '');
@@ -145,65 +162,79 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     return raw.trim();
   }
 
-  List<String> _paginateText(String fullText) {
-    if (fullText.isEmpty) return [""];
-
-    final paragraphs = fullText.split(RegExp(r'\n\s*\n'));
-    List<String> cleanedParas = [];
-    for (var p in paragraphs) {
-      var lines = p.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty);
-      cleanedParas.add(lines.join(' '));
+  List<String> _getFinalPages() {
+    if (_lockedStudioPages.isNotEmpty) {
+      return _lockedStudioPages.map((pageText) => _replaceTagsInText(pageText)).toList();
     }
-    final normalized = cleanedParas.join('\n\n');
 
-    const double totalPoints = 1008.0;
-    final double lineH = _controller.fontSize * 1.95;
+    final processed = _replaceTagsInText(_controller.templateContent);
+    return AgreementPaginationService.paginate(
+      fullText: processed,
+      fontSize: _controller.fontSize,
+      p1TopMargin: _controller.topMargin,
+      subsequentTopMargin: _controller.subsequentTopMargin,
+      bottomMargin: _controller.bottomMargin,
+      sideMargin: _controller.sideMargin,
+    );
+  }
 
-    final double p1H = (totalPoints - _controller.topMargin - _controller.bottomMargin).clamp(100.0, totalPoints);
-    final int p1MaxLines = (p1H / lineH).floor();
+  Future<void> _generateDirectNativePdf() async {
+    if (_pageBoundaryKeys.isEmpty) return;
 
-    final double subH = (totalPoints - _controller.subsequentTopMargin - _controller.bottomMargin).clamp(100.0, totalPoints);
-    final int subMaxLines = (subH / lineH).floor();
+    setState(() => _isGeneratingPdf = true);
 
-    final double availableWidth = 612.0 - (_controller.sideMargin * 2);
-    final int charsPerLine = (availableWidth / (_controller.fontSize * 0.44)).floor().clamp(65, 110);
+    try {
+      final docName = _controller.selectedTemplateTitle.isNotEmpty
+          ? _controller.selectedTemplateTitle
+          : 'معاہدہ_نایاب_قسط_پوائنٹ';
 
-    final rawLines = normalized.split('\n');
-    List<String> visualLines = [];
+      final pdfBytes = await NativePdfCaptureService.generatePdfFromBoundaries(
+        pageKeys: _pageBoundaryKeys,
+        paperSize: _controller.paperSize,
+        docTitle: docName,
+      );
 
-    for (var r in rawLines) {
-      if (r.trim().isEmpty) {
-        visualLines.add("");
-        continue;
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+        await NativePdfCaptureService.previewAndSavePdf(
+          context: context,
+          pdfBytes: pdfBytes,
+          fileName: '$docName.pdf',
+        );
       }
-      final words = r.split(' ');
-      String current = "";
-      for (var w in words) {
-        if ((current + w).length > charsPerLine) {
-          visualLines.add(current.trim());
-          current = "$w ";
-        } else {
-          current += "$w ";
-        }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('پی ڈی ایف بنانے میں خرابی: $e'), backgroundColor: Colors.red),
+        );
       }
-      if (current.isNotEmpty) visualLines.add(current.trim());
     }
+  }
 
-    List<String> pages = [];
-    int lineIndex = 0;
+  void _openTemplateStudio() async {
+    final res = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TemplateStudioPage(
+          args: TemplateStudioArgs(
+            templateTitle: _controller.selectedTemplateTitle,
+            templateContent: _controller.templateContent,
+            paperSize: _controller.paperSize,
+            isEStamp: _controller.isEStamp,
+            topMargin: _controller.topMargin,
+            subsequentTopMargin: _controller.subsequentTopMargin,
+            bottomMargin: _controller.bottomMargin,
+            sideMargin: _controller.sideMargin,
+          ),
+        ),
+      ),
+    );
 
-    int linesForP1 = visualLines.length > p1MaxLines ? p1MaxLines : visualLines.length;
-    pages.add(visualLines.sublist(0, linesForP1).join('\n'));
-    lineIndex = linesForP1;
-
-    while (lineIndex < visualLines.length) {
-      int remaining = visualLines.length - lineIndex;
-      int take = remaining > subMaxLines ? subMaxLines : remaining;
-      pages.add(visualLines.sublist(lineIndex, lineIndex + take).join('\n'));
-      lineIndex += take;
+    if (res == true) {
+      _controller.loadDraftFromHive();
+      _handleTemplateSwitched();
     }
-
-    return pages;
   }
 
   @override
@@ -235,7 +266,7 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
             ),
             IconButton(
               icon: const Icon(Icons.add_circle_outline, size: 24),
-              tooltip: 'نیا معاہدہ بنائیں',
+              tooltip: 'نیا معاہدہ / ٹیمپلیٹ بنائیں',
               onPressed: () async {
                 final res = await Navigator.push(
                   context,
@@ -257,8 +288,14 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
         body: ValueListenableBuilder(
           valueListenable: HiveBoxManager.listenToBox(BoxNames.agreementDraftBox),
           builder: (context, box, child) {
-            final processedText = _buildProcessedAgreementText();
-            final dynamicPages = _paginateText(processedText);
+            final finalPages = _getFinalPages();
+
+            while (_pageBoundaryKeys.length < finalPages.length) {
+              _pageBoundaryKeys.add(GlobalKey());
+            }
+            if (_pageBoundaryKeys.length > finalPages.length) {
+              _pageBoundaryKeys.removeRange(finalPages.length, _pageBoundaryKeys.length);
+            }
 
             return Padding(
               padding: const EdgeInsets.all(12.0),
@@ -274,33 +311,10 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     selectedTitle: _controller.selectedTemplateTitle,
                     availableTemplates: _controller.availableTemplates,
                     onTemplateChanged: (t) => _controller.switchTemplate(t),
-                    onEditTemplate: () async {
-                      final res = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TemplateStudioPage(
-                            args: TemplateStudioArgs(
-                              templateTitle: _controller.selectedTemplateTitle,
-                              templateContent: _controller.templateContent,
-                              paperSize: _controller.paperSize,
-                              isEStamp: _controller.isEStamp,
-                              topMargin: _controller.topMargin,
-                              subsequentTopMargin: _controller.subsequentTopMargin,
-                              bottomMargin: _controller.bottomMargin,
-                              sideMargin: _controller.sideMargin,
-                            ),
-                          ),
-                        ),
-                      );
-                      if (res == true) {
-                        _controller.loadDraftFromHive();
-                        _handleTemplateSwitched();
-                      }
-                    },
+                    onEditTemplate: _openTemplateStudio,
                   ),
                   const SizedBox(height: 8),
 
-                  // بکٹ کا لائیو خلاصہ
                   CounterBucketSummary(
                     totalFields: _controller.totalFieldsCount,
                     filledFields: _controller.filledFieldsCount,
@@ -315,18 +329,16 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                   ),
                   const SizedBox(height: 8),
 
-                  // ٹول بار مع فونٹ سائز و گاہک کا اسٹامپ
                   CounterQuickToolbar(
                     currentMode: _currentDocMode,
                     stampFileName: _controller.selectedStampFileName,
                     fontSize: _controller.fontSize,
-                    totalPages: dynamicPages.length,
+                    totalPages: finalPages.length,
                     onPickCustomerStamp: _pickCustomerStampPdf,
                     onFontSizeChanged: (s) => _controller.setFontSize(s),
                   ),
                   const SizedBox(height: 8),
 
-                  // کینوس: لائیو ملٹی پیج رینڈرنگ
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -335,13 +347,27 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: _isRenderingStamp
-                            ? const Center(child: CircularProgressIndicator())
+                        child: _isRenderingStamp || _isGeneratingPdf
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const CircularProgressIndicator(),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      _isGeneratingPdf
+                                          ? 'سچی ایچ ڈی کوالٹی کی PDF تیار ہو رہی ہے...'
+                                          : 'اسٹامپ لوڈ ہو رہا ہے...',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              )
                             : SingleChildScrollView(
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 child: Center(
                                   child: Column(
-                                    children: List.generate(dynamicPages.length, (index) {
+                                    children: List.generate(finalPages.length, (index) {
                                       final isP1 = (index == 0);
                                       final topM = isP1 ? _controller.topMargin : _controller.subsequentTopMargin;
                                       final bgImg = (index < _cachedStampPages.length) ? _cachedStampPages[index] : null;
@@ -349,29 +375,23 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                                       return Column(
                                         children: [
                                           Text(
-                                            isP1 ? "— صفحہ نمبر 1 (اصل لے آؤٹ) —" : "— صفحہ نمبر ${index + 1} (بقیہ شرائط) —",
+                                            isP1 ? "— صفحہ نمبر 1 (اصل قانونی لے آؤٹ) —" : "— صفحہ نمبر ${index + 1} (بقیہ شرائط) —",
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
                                           ),
                                           const SizedBox(height: 6),
-                                          CounterPaperPreview(
-                                            topMargin: topM,
-                                            bottomMargin: _controller.bottomMargin,
-                                            sideMargin: _controller.sideMargin,
-                                            textContent: dynamicPages[index],
-                                            bgImage: bgImg,
-                                            isFirstPage: isP1,
-                                            fontSize: _controller.fontSize,
-                                            mode: _currentDocMode,
-                                            bucketValues: _controller.currentFieldValues,
-                                            onTopDrag: (delta) {
-                                              if (isP1) {
-                                                _controller.setTopMargin(_controller.topMargin + (delta * (1008.0 / 593.0)));
-                                              } else {
-                                                _controller.setSubsequentTopMargin(_controller.subsequentTopMargin + (delta * (1008.0 / 593.0)));
-                                              }
-                                            },
-                                            onBottomDrag: (delta) => _controller.setBottomMargin(_controller.bottomMargin - (delta * (1008.0 / 593.0))),
-                                            onSideDrag: (delta) => _controller.setSideMargin(_controller.sideMargin - (delta * (1008.0 / 593.0))),
+                                          RepaintBoundary(
+                                            key: _pageBoundaryKeys[index],
+                                            child: CounterPaperPreview(
+                                              topMargin: topM,
+                                              bottomMargin: _controller.bottomMargin,
+                                              sideMargin: _controller.sideMargin,
+                                              textContent: finalPages[index],
+                                              bgImage: bgImg,
+                                              isFirstPage: isP1,
+                                              fontSize: _controller.fontSize,
+                                              mode: _currentDocMode,
+                                              bucketValues: _controller.currentFieldValues,
+                                            ),
                                           ),
                                           const SizedBox(height: 24),
                                         ],
@@ -385,9 +405,8 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                   ),
                   const SizedBox(height: 8),
 
-                  // پرنٹ اور کاپی ایکشن بار
                   CounterPrintActionUi(
-                    onPrint: () => _controller.printAgreement(context),
+                    onPrint: _generateDirectNativePdf,
                     onCopyText: () => _controller.copyAgreementText(context),
                   ),
                 ],

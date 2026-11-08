@@ -1,9 +1,9 @@
 import 'overlay_box_model.dart';
 
 enum DocumentMode {
-  plainDocument, // سادہ A4 خط، رسید یا انوائس
-  stampOverlay,   // پنجاب ای-اسٹامپ اوورلے
-  formFiller,    // اسکول فارم یا سرکاری پرفارما
+  stampOverlay,
+  plainDocument,
+  formFiller,
 }
 
 class DocumentTemplateModel {
@@ -11,7 +11,7 @@ class DocumentTemplateModel {
   final String title;
   final String content;
   final DocumentMode mode;
-  final String paperSize; // 'A4' یا 'Legal'
+  final String paperSize;
   final double topMargin;
   final double subsequentTopMargin;
   final double bottomMargin;
@@ -21,22 +21,24 @@ class DocumentTemplateModel {
   final String? stampFileName;
   final List<OverlayBoxModel> floatingBoxes;
   final List<String> fields;
+  final List<String> pages; // فائنل شدہ صفحات کی لسٹ
 
-  const DocumentTemplateModel({
+  DocumentTemplateModel({
     required this.id,
     required this.title,
     required this.content,
-    this.mode = DocumentMode.stampOverlay,
-    this.paperSize = 'Legal',
-    this.topMargin = 320.0,
-    this.subsequentTopMargin = 65.0,
-    this.bottomMargin = 270.0,
-    this.sideMargin = 40.0,
-    this.fontSize = 13.5,
+    required this.mode,
+    required this.paperSize,
+    required this.topMargin,
+    required this.subsequentTopMargin,
+    required this.bottomMargin,
+    required this.sideMargin,
+    required this.fontSize,
     this.base64Pdf,
     this.stampFileName,
     this.floatingBoxes = const [],
     this.fields = const [],
+    this.pages = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -55,31 +57,36 @@ class DocumentTemplateModel {
       'stampFileName': stampFileName,
       'floatingBoxes': floatingBoxes.map((b) => b.toMap()).toList(),
       'fields': fields,
+      'pages': pages,
     };
   }
 
-  factory DocumentTemplateModel.fromMap(Map<String, dynamic> map) {
-    DocumentMode mode = DocumentMode.stampOverlay;
-    if (map['mode'] != null) {
-      mode = DocumentMode.values.firstWhere(
-        (e) => e.name == map['mode'].toString(),
-        orElse: () => DocumentMode.stampOverlay,
-      );
-    } else {
-      final isEStamp = map['isEStamp'] as bool? ?? true;
-      mode = isEStamp ? DocumentMode.stampOverlay : DocumentMode.plainDocument;
+  factory DocumentTemplateModel.fromMap(Map<dynamic, dynamic> map) {
+    DocumentMode parsedMode = DocumentMode.stampOverlay;
+    final modeStr = map['mode']?.toString();
+    if (modeStr == DocumentMode.plainDocument.name) {
+      parsedMode = DocumentMode.plainDocument;
+    } else if (modeStr == DocumentMode.formFiller.name) {
+      parsedMode = DocumentMode.formFiller;
     }
 
-    final rawBoxes = map['floatingBoxes'] as List<dynamic>? ?? [];
-    final boxes = rawBoxes
-        .map((e) => OverlayBoxModel.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
+    List<OverlayBoxModel> boxes = [];
+    if (map['floatingBoxes'] != null && map['floatingBoxes'] is List) {
+      boxes = (map['floatingBoxes'] as List)
+          .map((b) => OverlayBoxModel.fromMap(Map<String, dynamic>.from(b)))
+          .toList();
+    }
+
+    List<String> parsedPages = [];
+    if (map['pages'] != null && map['pages'] is List) {
+      parsedPages = List<String>.from(map['pages'].map((e) => e.toString()));
+    }
 
     return DocumentTemplateModel(
       id: map['id']?.toString() ?? '',
       title: map['title']?.toString() ?? '',
       content: map['content']?.toString() ?? '',
-      mode: mode,
+      mode: parsedMode,
       paperSize: map['paperSize']?.toString() ?? 'Legal',
       topMargin: (map['topMargin'] as num?)?.toDouble() ?? 320.0,
       subsequentTopMargin: (map['subsequentTopMargin'] as num?)?.toDouble() ?? 65.0,
@@ -89,7 +96,8 @@ class DocumentTemplateModel {
       base64Pdf: map['base64Pdf']?.toString(),
       stampFileName: map['stampFileName']?.toString(),
       floatingBoxes: boxes,
-      fields: (map['fields'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      fields: map['fields'] != null ? List<String>.from(map['fields']) : [],
+      pages: parsedPages,
     );
   }
 }
