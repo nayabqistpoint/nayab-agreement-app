@@ -14,7 +14,7 @@ class TemplateStudioController extends ChangeNotifier {
   final TextEditingController bodyController = TextEditingController();
 
   DocumentMode currentMode = DocumentMode.stampOverlay;
-  String paperSize = 'Legal';
+  String paperSize = 'Legal'; // ڈیفالٹ لیگل
 
   double topMargin = 320.0;
   double subsequentTopMargin = 65.0;
@@ -52,7 +52,7 @@ class TemplateStudioController extends ChangeNotifier {
       titleController.text = doc.title;
       bodyController.text = doc.content;
       currentMode = doc.mode;
-      paperSize = doc.paperSize;
+      paperSize = doc.paperSize.isNotEmpty ? doc.paperSize : (doc.mode == DocumentMode.stampOverlay ? 'Legal' : 'A4');
       topMargin = doc.topMargin;
       subsequentTopMargin = doc.subsequentTopMargin;
       bottomMargin = doc.bottomMargin;
@@ -72,13 +72,25 @@ class TemplateStudioController extends ChangeNotifier {
     }
   }
 
+  // یوزر کے ہاتھ میں پیپر سائز کا واضح سوئچ
+  void setPaperSize(String size) {
+    paperSize = size;
+    if (size == 'A4' && currentMode == DocumentMode.plainDocument) {
+      topMargin = 45.0;
+      subsequentTopMargin = 45.0;
+      bottomMargin = 45.0;
+      sideMargin = 35.0;
+    }
+    notifyListeners();
+  }
+
   void setMode(DocumentMode mode) {
     currentMode = mode;
     if (mode == DocumentMode.plainDocument) {
       paperSize = 'A4';
       topMargin = 45.0;
       subsequentTopMargin = 45.0;
-      bottomMargin = 40.0;
+      bottomMargin = 45.0;
       sideMargin = 35.0;
       stampPdfBytes = null;
       cachedStampPages.clear();
@@ -99,7 +111,7 @@ class TemplateStudioController extends ChangeNotifier {
   }
 
   void setTopMargin(double val) {
-    topMargin = val.clamp(100.0, 700.0);
+    topMargin = val.clamp(40.0, 700.0);
     notifyListeners();
   }
 
@@ -109,7 +121,7 @@ class TemplateStudioController extends ChangeNotifier {
   }
 
   void setBottomMargin(double val) {
-    bottomMargin = val.clamp(50.0, 500.0);
+    bottomMargin = val.clamp(40.0, 500.0);
     notifyListeners();
   }
 
@@ -212,6 +224,7 @@ class TemplateStudioController extends ChangeNotifier {
       subsequentTopMargin: subsequentTopMargin,
       bottomMargin: bottomMargin,
       sideMargin: sideMargin,
+      paperSize: paperSize,
     );
   }
 
@@ -231,7 +244,7 @@ class TemplateStudioController extends ChangeNotifier {
       title: title,
       content: bodyController.text.trim(),
       mode: currentMode,
-      paperSize: paperSize,
+      paperSize: paperSize, // واضح طور پر A4 یا Legal محفوظ ہوگا
       topMargin: topMargin,
       subsequentTopMargin: subsequentTopMargin,
       bottomMargin: bottomMargin,

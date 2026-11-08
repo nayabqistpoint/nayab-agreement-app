@@ -130,9 +130,12 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isA4 = _controller.paperSize.toUpperCase() == 'A4';
     const double sheetW = 390.0;
-    const double sheetH = 642.0;
-    const double scale = sheetH / 1008.0;
+    // لیگل کے لیے 642 اور A4 کے لیے 552
+    final double sheetH = isA4 ? 552.0 : 642.0;
+    final double totalHeightPoints = isA4 ? 842.0 : 1008.0;
+    final double scale = sheetH / totalHeightPoints;
 
     final pages = _controller.paginateText();
 
@@ -141,10 +144,60 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
       child: Scaffold(
         backgroundColor: const Color(0xFFD4D4D4),
         appBar: AppBar(
-          title: const Text('معاہدہ اسٹوڈیو - براہِ راست کینوس ایڈیٹر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          title: const Text('معاہدہ اسٹوڈیو', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           backgroundColor: AppColors.primaryEmerald,
           foregroundColor: Colors.white,
           actions: [
+            // AppBar کے اندر واضح پیپر سوئچر بٹن
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white60),
+              ),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: () => _controller.setPaperSize('Legal'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: !isA4 ? Colors.white : Colors.transparent,
+                        borderRadius: const BorderRadius.only(topRight: Radius.circular(5), bottomRight: Radius.circular(5)),
+                      ),
+                      child: Text(
+                        'Legal (اسٹامپ)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: !isA4 ? AppColors.primaryEmerald : Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _controller.setPaperSize('A4'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isA4 ? Colors.white : Colors.transparent,
+                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(5), bottomLeft: Radius.circular(5)),
+                      ),
+                      child: Text(
+                        'A4 (سادہ)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isA4 ? AppColors.primaryEmerald : Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
             IconButton(
               icon: Icon(_isZoomFit ? Icons.zoom_in : Icons.zoom_out_map),
               tooltip: _isZoomFit ? 'اصل سائز' : 'پورا صفحہ سکرین پر لائیں',
@@ -161,7 +214,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
         ),
         body: Column(
           children: [
-            // ٹاپ ٹول بار 1: بنیادی آپشنز
+            // ٹول بار 1: دستاویز موڈ اور بنیادی سیٹنگز
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               color: Colors.white,
@@ -170,7 +223,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 150,
+                      width: 140,
                       child: TextField(
                         controller: _controller.titleController,
                         textAlign: TextAlign.right,
@@ -183,28 +236,39 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    DropdownButton<DocumentMode>(
-                      value: _controller.currentMode,
-                      underline: const SizedBox(),
-                      items: const [
-                        DropdownMenuItem(value: DocumentMode.stampOverlay, child: Text('پنجاب ای-اسٹامپ (لیگل)')),
-                        DropdownMenuItem(value: DocumentMode.plainDocument, child: Text('سادہ دستاویزی کاغذ (A4)')),
-                        DropdownMenuItem(value: DocumentMode.formFiller, child: Text('فارم فلر (اسکول فارمز)')),
-                      ],
-                      onChanged: (m) {
-                        if (m != null) _controller.setMode(m);
-                      },
+
+                    // دستاویز کی قسم (صاف ستھری لسٹ)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: DropdownButton<DocumentMode>(
+                        value: _controller.currentMode,
+                        underline: const SizedBox(),
+                        items: const [
+                          DropdownMenuItem(value: DocumentMode.stampOverlay, child: Text('پنجاب ای-اسٹامپ')),
+                          DropdownMenuItem(value: DocumentMode.plainDocument, child: Text('سادہ کاغذ / رسید')),
+                          DropdownMenuItem(value: DocumentMode.formFiller, child: Text('اسکول فارم فلر')),
+                        ],
+                        onChanged: (m) {
+                          if (m != null) _controller.setMode(m);
+                        },
+                      ),
                     ),
                     const SizedBox(width: 8),
+
                     if (_controller.currentMode != DocumentMode.plainDocument) ...[
                       ElevatedButton.icon(
                         onPressed: () => _controller.pickPdf(),
                         icon: const Icon(Icons.upload_file, size: 15),
-                        label: Text(_controller.loadedPdfFileName ?? 'PDF فارم چنیں', style: const TextStyle(fontSize: 12)),
+                        label: Text(_controller.loadedPdfFileName ?? 'اسٹامپ پی ڈی ایف چنیں', style: const TextStyle(fontSize: 12)),
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.brown.shade700, foregroundColor: Colors.white),
                       ),
                       const SizedBox(width: 8),
                     ],
+
                     ElevatedButton.icon(
                       onPressed: () => _controller.normalizeParagraphs(),
                       icon: const Icon(Icons.format_align_justify, size: 15),
@@ -212,6 +276,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.teal.shade700, foregroundColor: Colors.white),
                     ),
                     const SizedBox(width: 8),
+
                     // فونٹ سائز
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -235,6 +300,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
+
                     InkWell(
                       onTap: () => _showMarginModal(context),
                       child: Container(
@@ -255,7 +321,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
               ),
             ),
 
-            // ٹاپ ٹول بار 2: بولڈ، انڈر لائن، اسپیسرز اور ٹیگز
+            // ٹول بار 2: فارمیٹنگ، اسپیسرز اور کسٹم ٹیگز
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               color: Colors.grey.shade200,
@@ -277,7 +343,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                     ElevatedButton.icon(
                       onPressed: () => _insertFixedSpacer(72),
                       icon: const Icon(Icons.space_bar, size: 14),
-                      label: const Text('1 انچ خالی جگہ', style: TextStyle(fontSize: 11)),
+                      label: const Text('1 انچ جگہ', style: TextStyle(fontSize: 11)),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87),
                     ),
                     const SizedBox(width: 4),
@@ -310,7 +376,7 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
               ),
             ),
 
-            // کینوس ایریا: سیدھا ریڈ باکس کے اندر لکھائی
+            // کینوس ایریا
             Expanded(
               child: _controller.isLoadingPdf
                   ? const Center(child: CircularProgressIndicator())
@@ -345,8 +411,8 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
                                       scaledSide: scaledSide,
                                       bgImage: bgImg,
                                       pageLabel: isP1
-                                          ? "صفحہ نمبر 1 (اصل قانونی لے آؤٹ)"
-                                          : "صفحہ نمبر ${index + 1} (بقیہ شرائط)",
+                                          ? "صفحہ نمبر 1 (${_controller.paperSize})"
+                                          : "صفحہ نمبر ${index + 1} (${_controller.paperSize})",
                                       isFirstPage: isP1,
                                       textContent: pages.isNotEmpty ? pages[index] : "",
                                       fontSize: _controller.fontSize,
@@ -399,19 +465,19 @@ class _TemplateStudioPageState extends State<TemplateStudioPage> {
               children: [
                 const Text('مارجن پوائنٹس کی ترتیب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 10),
-                Text('مونوگرام محفوظ حد: ${_controller.topMargin.toInt()} pt'),
+                Text('اوپر کا مارجن: ${_controller.topMargin.toInt()} pt'),
                 Slider(
                   value: _controller.topMargin,
-                  min: 40,
+                  min: 30,
                   max: 700,
                   onChanged: (v) {
                     setMState(() => _controller.setTopMargin(v));
                   },
                 ),
-                Text('کیو آر کوڈ محفوظ حد: ${_controller.bottomMargin.toInt()} pt'),
+                Text('نیچے کا مارجن: ${_controller.bottomMargin.toInt()} pt'),
                 Slider(
                   value: _controller.bottomMargin,
-                  min: 40,
+                  min: 30,
                   max: 500,
                   onChanged: (v) {
                     setMState(() => _controller.setBottomMargin(v));
