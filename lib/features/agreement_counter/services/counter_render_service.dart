@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
-import '../../stamp_agreement/stamp_pdf_capture_service.dart';
+import '../../stamp_agreement/services/stamp_pdf_capture_service.dart';
 
 class CounterRenderService {
   static Future<List<Uint8List?>> renderPdfPages(Uint8List? pdfBytes) async {
