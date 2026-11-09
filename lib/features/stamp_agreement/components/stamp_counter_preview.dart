@@ -26,7 +26,6 @@ class StampCounterPreview extends StatelessWidget {
     const double sheetWidth = 390.0;
     const double sheetHeight = 642.0;
     const double scale = sheetHeight / 1008.0;
-
     final scaledTop = topMargin * scale;
     final scaledBot = bottomMargin * scale;
     final scaledSide = (sideMargin * scale).clamp(8.0, 45.0);
@@ -50,7 +49,6 @@ class StampCounterPreview extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // پس منظر اسٹامپ
           if (bgImage != null)
             Positioned.fill(
               child: Image.memory(
@@ -69,8 +67,6 @@ class StampCounterPreview extends StatelessWidget {
                 ),
               ),
             ),
-
-          // پرنٹ تحریر (بغیر کسی ریڈ بارڈر کے)
           Positioned(
             top: scaledTop,
             left: scaledSide,

@@ -6,6 +6,10 @@ import 'components/stamp_header_toolbar_ui.dart';
 import 'components/stamp_margin_sheet_ui.dart';
 import 'components/stamp_studio_app_bar_ui.dart';
 import 'components/stamp_tags_toolbar_ui.dart';
+import 'services/stamp_alignment_service.dart';
+import 'services/stamp_paragraph_service.dart';
+import 'services/stamp_tag_service.dart';
+import 'services/stamp_text_format_service.dart';
 import 'stamp_studio_controller.dart';
 
 class StampStudioPage extends StatefulWidget {
@@ -35,6 +39,10 @@ class _StampStudioPageState extends State<StampStudioPage> {
     super.dispose();
   }
 
+  void _syncSelection() {
+    _controller.bodyController.selection = _controller.effectiveSelection;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -47,9 +55,7 @@ class _StampStudioPageState extends State<StampStudioPage> {
           onSave: () async {
             final ok = await _controller.saveTemplate();
             if (!context.mounted) return;
-            if (ok) {
-              Navigator.pop(context, true);
-            }
+            if (ok) Navigator.pop(context, true);
           },
         ),
         body: Column(
@@ -61,36 +67,83 @@ class _StampStudioPageState extends State<StampStudioPage> {
               topMargin: _controller.topMargin,
               bottomMargin: _controller.bottomMargin,
               sideMargin: _controller.sideMargin,
-              onPickPdf: _controller.pickPdf,
-              onNormalizeParagraphs: _controller.normalizeBodyText,
-              onFontSizeChanged: _controller.setFontSize,
+              onPickPdf: () async {
+                final ok = await _controller.pdfService.pickAndLoadPdf();
+                if (ok) _controller.notify();
+              },
+              onNormalizeParagraphs: () {
+                StampTextFormatService.normalizeParagraphs(_controller.bodyController);
+                _controller.notify();
+              },
+              onFontSizeChanged: _controller.updateFontSize,
               onShowMargins: () => StampMarginSheetUi.show(
                 context: context,
                 top: _controller.topMargin,
                 bottom: _controller.bottomMargin,
                 side: _controller.sideMargin,
-                onTop: _controller.setTopMargin,
-                onBottom: _controller.setBottomMargin,
-                onSide: _controller.setSideMargin,
+                onTop: (v) => _controller.updateMargins(top: v),
+                onBottom: (v) => _controller.updateMargins(bottom: v),
+                onSide: (v) => _controller.updateMargins(side: v),
               ),
             ),
             StampEditingToolbarUi(
-              onAlignRight: () => _controller.alignSelectedLine(TextAlign.right),
-              onAlignCenter: () => _controller.alignSelectedLine(TextAlign.center),
-              onAlignLeft: () => _controller.alignSelectedLine(TextAlign.left),
-              onInsertBullet: _controller.toggleBullet,
+              onAlignRight: () {
+                _syncSelection();
+                StampAlignmentService.alignLine(_controller.bodyController, TextAlign.right);
+                _controller.notify();
+              },
+              onAlignCenter: () {
+                _syncSelection();
+                StampAlignmentService.alignLine(_controller.bodyController, TextAlign.center);
+                _controller.notify();
+              },
+              onAlignLeft: () {
+                _syncSelection();
+                StampAlignmentService.alignLine(_controller.bodyController, TextAlign.left);
+                _controller.notify();
+              },
+              onInsertBullet: () {
+                _syncSelection();
+                StampParagraphService.toggleBullet(_controller.bodyController);
+                _controller.notify();
+              },
             ),
             StampTagsToolbarUi(
               pinnedTags: _controller.pinnedTags,
-              onBold: () => _controller.applyFormatToSelection('b'),
-              onUnderline: () => _controller.applyFormatToSelection('u'),
-              onInsertEmSpace: _controller.insertEmSpace,
-              onInsertEmptyTag: _controller.insertEmptyTag,
-              onInsertTag: _controller.insertTagAtCursor,
-              onDeleteTag: _controller.removeTag,
+              onBold: () {
+                _syncSelection();
+                StampTextFormatService.insertFormatting(_controller.bodyController, 'b');
+                _controller.notify();
+              },
+              onUnderline: () {
+                _syncSelection();
+                StampTextFormatService.insertFormatting(_controller.bodyController, 'u');
+                _controller.notify();
+              },
+              onInsertEmSpace: () {
+                _syncSelection();
+                StampAlignmentService.insertEmSpace(_controller.bodyController);
+                _controller.notify();
+              },
+              onInsertEmptyTag: () {
+                _syncSelection();
+                StampTextFormatService.insertEmptyTag(_controller.bodyController);
+                _controller.notify();
+              },
+              onInsertTag: (t) {
+                _syncSelection();
+                StampTextFormatService.insertTag(_controller.bodyController, t);
+                _controller.notify();
+              },
+              onDeleteTag: (t) {
+                StampTagService.removeTag(_controller.pinnedTags, t);
+                _controller.notify();
+              },
               onShowAddCustomTag: () => StampCustomTagDialogUi.show(context, (t) {
-                _controller.addCustomTag(t);
-                _controller.insertTagAtCursor(t);
+                StampTagService.addTag(_controller.pinnedTags, t);
+                _syncSelection();
+                StampTextFormatService.insertTag(_controller.bodyController, t);
+                _controller.notify();
               }),
             ),
             Expanded(

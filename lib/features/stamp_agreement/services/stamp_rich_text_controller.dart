@@ -1,37 +1,6 @@
-// lib/features/stamp_agreement/services/stamp_rich_text_controller.dart
 import 'package:flutter/material.dart';
-
-class StampSpanStyle {
-  int start;
-  int end;
-  bool isBold;
-  bool isUnderline;
-  double? fontSize;
-
-  StampSpanStyle({
-    required this.start,
-    required this.end,
-    this.isBold = false,
-    this.isUnderline = false,
-    this.fontSize,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'start': start,
-        'end': end,
-        'isBold': isBold,
-        'isUnderline': isUnderline,
-        'fontSize': fontSize,
-      };
-
-  factory StampSpanStyle.fromJson(Map<String, dynamic> json) => StampSpanStyle(
-        start: json['start'] as int,
-        end: json['end'] as int,
-        isBold: json['isBold'] as bool? ?? false,
-        isUnderline: json['isUnderline'] as bool? ?? false,
-        fontSize: (json['fontSize'] as num?)?.toDouble(),
-      );
-}
+import '../models/stamp_span_style_model.dart';
+import 'stamp_span_parser_service.dart';
 
 class StampRichTextController extends TextEditingController {
   double defaultFontSize;
@@ -47,44 +16,19 @@ class StampRichTextController extends TextEditingController {
     _previousText = text;
   }
 
-  void setAlignment(TextAlign newAlign) {
-    textAlign = newAlign;
-    notifyListeners();
-  }
-
   @override
   set value(TextEditingValue newValue) {
     final oldText = _previousText;
     final newText = newValue.text;
     if (oldText != newText && formattingSpans.isNotEmpty) {
-      _adjustSpansOnTextChange(oldText, newText);
+      StampSpanParserService.adjustSpansOnTextChange(
+        spans: formattingSpans,
+        oldText: oldText,
+        newText: newText,
+      );
     }
     _previousText = newText;
     super.value = newValue;
-  }
-
-  void _adjustSpansOnTextChange(String oldText, String newText) {
-    int diffIndex = 0;
-    final minLen = oldText.length < newText.length ? oldText.length : newText.length;
-    while (diffIndex < minLen && oldText[diffIndex] == newText[diffIndex]) {
-      diffIndex++;
-    }
-    final diffLength = newText.length - oldText.length;
-
-    for (int i = formattingSpans.length - 1; i >= 0; i--) {
-      final s = formattingSpans[i];
-      if (diffIndex <= s.start) {
-        s.start += diffLength;
-        s.end += diffLength;
-      } else if (diffIndex > s.start && diffIndex <= s.end) {
-        s.end += diffLength;
-      }
-      if (s.start < 0) s.start = 0;
-      if (s.end > newText.length) s.end = newText.length;
-      if (s.start >= s.end) {
-        formattingSpans.removeAt(i);
-      }
-    }
   }
 
   double getSelectedFontSize(int start, int end) {
@@ -105,12 +49,6 @@ class StampRichTextController extends TextEditingController {
   void applyUnderlineToRange(int start, int end) {
     if (start >= end) return;
     _toggleOrApplyStyle(start, end, toggleUnderline: true);
-    notifyListeners();
-  }
-
-  void applyFontSizeToRange(int start, int end, double size) {
-    if (start >= end) return;
-    _toggleOrApplyStyle(start, end, targetFontSize: size);
     notifyListeners();
   }
 
@@ -170,83 +108,10 @@ class StampRichTextController extends TextEditingController {
           height: 1.85,
         );
 
-    final rawText = text;
-    if (rawText.isEmpty) return TextSpan(style: baseStyle, text: '');
-
-    final tagRegex = RegExp(r'\{\{.*?\}\}');
-    final alignRegex = RegExp(r'^\[(C|L|R)\]', multiLine: true);
-
-    final Set<int> boundaries = {0, rawText.length};
-    for (final s in formattingSpans) {
-      if (s.start >= 0 && s.start <= rawText.length) boundaries.add(s.start);
-      if (s.end >= 0 && s.end <= rawText.length) boundaries.add(s.end);
-    }
-    for (final m in tagRegex.allMatches(rawText)) {
-      boundaries.add(m.start);
-      boundaries.add(m.end);
-    }
-    for (final m in alignRegex.allMatches(rawText)) {
-      boundaries.add(m.start);
-      boundaries.add(m.end);
-    }
-
-    final List<int> sortedBoundaries = boundaries.toList()..sort();
-    final List<InlineSpan> spans = [];
-
-    for (int i = 0; i < sortedBoundaries.length - 1; i++) {
-      final segStart = sortedBoundaries[i];
-      final segEnd = sortedBoundaries[i + 1];
-      if (segStart >= segEnd) continue;
-
-      final segText = rawText.substring(segStart, segEnd);
-      var segStyle = baseStyle;
-
-      if (segText == '[C]' || segText == '[L]' || segText == '[R]') {
-        spans.add(TextSpan(
-          text: segText,
-          style: baseStyle.copyWith(
-            fontSize: 0.01,
-            color: Colors.transparent,
-            letterSpacing: -1.0,
-          ),
-        ));
-        continue;
-      }
-
-      for (final s in formattingSpans) {
-        if (segStart >= s.start && segEnd <= s.end) {
-          if (s.isBold) {
-            segStyle = segStyle.copyWith(
-              fontWeight: FontWeight.w900,
-              shadows: const [
-                Shadow(color: Color(0xFF111111), offset: Offset(0.3, 0)),
-                Shadow(color: Color(0xFF111111), offset: Offset(-0.3, 0)),
-              ],
-            );
-          }
-          if (s.isUnderline) {
-            segStyle = segStyle.copyWith(
-              decoration: TextDecoration.underline,
-              decorationThickness: 1.5,
-            );
-          }
-          if (s.fontSize != null) {
-            segStyle = segStyle.copyWith(fontSize: s.fontSize);
-          }
-        }
-      }
-
-      if (segText.startsWith('{{') && segText.endsWith('}}')) {
-        segStyle = segStyle.copyWith(
-          color: Colors.blue.shade900,
-          fontWeight: FontWeight.bold,
-          backgroundColor: Colors.blue.shade50,
-        );
-      }
-
-      spans.add(TextSpan(text: segText, style: segStyle));
-    }
-
-    return TextSpan(style: baseStyle, children: spans);
+    return StampSpanParserService.buildFormattedTextSpan(
+      rawText: text,
+      baseStyle: baseStyle,
+      formattingSpans: formattingSpans,
+    );
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'stamp_paragraph_service.dart';
 
 class StampAlignmentService {
-  /// ایم-اسپیس داخل کرنا
   static void insertEmSpace(TextEditingController controller) {
     final sel = controller.selection;
     final int start = sel.start.clamp(0, controller.text.length);
@@ -18,7 +17,6 @@ class StampAlignmentService {
     );
   }
 
-  /// منتخب سطر کو سینٹر، لیفٹ یا رائٹ الائن کرنا
   static void alignLine(TextEditingController controller, TextAlign alignment) {
     final sel = controller.selection;
     final int cursorPos = sel.start < 0 ? controller.text.length : sel.start;
@@ -27,7 +25,6 @@ class StampAlignmentService {
     final lineInfo = StampParagraphService.getLineAtCursor(text, cursorPos);
     var line = lineInfo.currentLine;
 
-    // پچھلی تمام اسپیسز اور ٹیگز کو صاف کریں
     line = line.replaceFirst(RegExp(r'^[\u2003\s]+'), '');
     line = line.replaceAll(RegExp(r'^\[(C|L|R)\]'), '');
 

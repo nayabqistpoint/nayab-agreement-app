@@ -43,17 +43,20 @@ class StampTextFormatService {
     }
   }
 
-  static void insertForcedSpace(TextEditingController controller, [FocusNode? focusNode]) {
-    insertAtCursor(controller, '\u00A0\u00A0\u00A0\u00A0', focusNode: focusNode);
-  }
-
   static void insertTag(TextEditingController controller, String tag, [FocusNode? focusNode]) {
     final clean = tag.replaceAll('{{', '').replaceAll('}}', '').trim();
     insertAtCursor(controller, '{{$clean}} ', focusNode: focusNode);
   }
 
+  /// خالی ٹیگ کشادہ جگہ کے ساتھ اور کرسر خود بخود عین درمیان میں
   static void insertEmptyTag(TextEditingController controller, [FocusNode? focusNode]) {
-    insertAtCursor(controller, '{{}}', cursorOffsetInside: 2, focusNode: focusNode);
+    const template = '{{   }}'; // اندر 3 سپیسز کی کشادگی
+    insertAtCursor(
+      controller,
+      template,
+      cursorOffsetInside: 3, // کرسر کو دونوں بریکٹس کے عین بیچ میں ٹھہرائے گا
+      focusNode: focusNode,
+    );
   }
 
   static void insertFormatting(TextEditingController controller, String format, [FocusNode? focusNode]) {
@@ -81,39 +84,17 @@ class StampTextFormatService {
     }
   }
 
-  static void applyFontSizeToSelection(TextEditingController controller, double size, [FocusNode? focusNode]) {
-    final selection = controller.selection;
-    if (!selection.isValid || selection.isCollapsed) return;
-
-    int start = selection.start;
-    int end = selection.end;
-    if (start > end) {
-      final temp = start;
-      start = end;
-      end = temp;
-    }
-
-    if (controller is StampRichTextController) {
-      final currentSize = controller.getSelectedFontSize(start, end);
-      final double delta = (size - currentSize).toDouble();
-      controller.incrementFontSizeInRange(start, end, delta);
-    }
-
-    if (focusNode != null && !focusNode.hasFocus) {
-      focusNode.requestFocus();
-    }
-  }
-
-  static void insertSpacer(TextEditingController controller, [int? points, FocusNode? focusNode]) {
-    insertForcedSpace(controller, focusNode);
-  }
-
+  /// سطریں ہموار کریں: غیر ضروری اینٹرز، پوشیدہ بریکس اور کاپی پیسٹ کی خرابیاں ختم کر کے مسلسل متن بنانا
   static void normalizeParagraphs(TextEditingController controller) {
     final text = controller.text;
-    if (text.isEmpty) return;
+    if (text.trim().isEmpty) return;
 
-    final normalized = text
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+    // تمام اضافی لائن بریکس، پوشیدہ کیرج ریٹرنز اور ٹیبز کو ختم کر کے سطروں کو جوڑنا
+    String normalized = text
+        .replaceAll('\r\n', ' ')
+        .replaceAll('\r', ' ')
+        .replaceAll('\n', ' ')
+        .replaceAll(RegExp(r'[ \t]{2,}'), ' ') // اضافی درمیانی خالی جگہیں ایک کرنا
         .trim();
 
     controller.value = TextEditingValue(

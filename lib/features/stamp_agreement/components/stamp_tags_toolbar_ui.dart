@@ -1,8 +1,7 @@
-// lib/features/stamp_agreement/components/stamp_tags_toolbar_ui.dart
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
-class StampTagsToolbarUi extends StatelessWidget {
+class StampTagsToolbarUi extends StatefulWidget {
   final List<String> pinnedTags;
   final VoidCallback onBold;
   final VoidCallback onUnderline;
@@ -24,6 +23,11 @@ class StampTagsToolbarUi extends StatelessWidget {
     required this.onDeleteTag,
   });
 
+  @override
+  State<StampTagsToolbarUi> createState() => _StampTagsToolbarUiState();
+}
+
+class _StampTagsToolbarUiState extends State<StampTagsToolbarUi> {
   Widget _buildFormatBtn({
     required String text,
     required VoidCallback onTap,
@@ -100,9 +104,9 @@ class StampTagsToolbarUi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white, // رنگ کو باکس ڈیکوریشن کے اندر منتقل کر دیا گیا ہے
+        color: Colors.white,
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade300, width: 1),
         ),
@@ -111,79 +115,111 @@ class StampTagsToolbarUi extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // رو نمبر 1: فارمیٹنگ، ٹیب اسپیس اور خالی ٹیگ
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFormatBtn(text: 'B', onTap: onBold, bold: true),
+                _buildFormatBtn(text: 'B', onTap: widget.onBold, bold: true),
                 const SizedBox(width: 6),
-                _buildFormatBtn(text: 'U', onTap: onUnderline, underline: true),
+                _buildFormatBtn(text: 'U', onTap: widget.onUnderline, underline: true),
                 const SizedBox(width: 8),
                 Container(height: 20, width: 1, color: Colors.grey.shade300),
                 const SizedBox(width: 8),
                 _buildActionBtn(
                   icon: Icons.space_bar,
                   label: 'اسپیس (Tab)',
-                  onTap: onInsertEmSpace,
+                  onTap: widget.onInsertEmSpace,
                 ),
                 const SizedBox(width: 6),
                 _buildActionBtn(
                   icon: Icons.data_object,
                   label: 'خالی ٹیگ {{ }}',
-                  onTap: onInsertEmptyTag,
+                  onTap: widget.onInsertEmptyTag,
                 ),
                 const SizedBox(width: 6),
                 _buildActionBtn(
                   icon: Icons.add,
                   label: 'نیا ٹیگ',
-                  onTap: onShowAddCustomTag,
+                  onTap: widget.onShowAddCustomTag,
                   isPrimary: true,
                 ),
               ],
             ),
           ),
           const SizedBox(height: 6),
-
-          // رو نمبر 2: محفوظ شدہ ٹیگز چپس
           SizedBox(
-            height: 36,
-            child: ListView.separated(
+            height: 38,
+            child: ReorderableListView(
               scrollDirection: Axis.horizontal,
-              itemCount: pinnedTags.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 6),
-              itemBuilder: (context, index) {
-                final t = pinnedTags[index];
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: () => onInsertTag(t),
-                        child: Text(
-                          t,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      InkWell(
-                        onTap: () => onDeleteTag(t),
-                        child: Icon(Icons.close, size: 13, color: Colors.red.shade600),
-                      ),
-                    ],
-                  ),
-                );
+              buildDefaultDragHandles: false,
+              onReorderItem: (int oldIndex, int newIndex) {
+                setState(() {
+                  final String item = widget.pinnedTags.removeAt(oldIndex);
+                  widget.pinnedTags.insert(newIndex, item);
+                });
               },
+              children: [
+                for (int index = 0; index < widget.pinnedTags.length; index++)
+                  ReorderableDelayedDragStartListener(
+                    key: ValueKey(widget.pinnedTags[index]),
+                    index: index,
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // پکڑ کر دائیں بائیں گھسیٹنے والا ہینڈل
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 2),
+                              child: Icon(
+                                Icons.drag_indicator,
+                                size: 16,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          // ٹیگ کا نام
+                          InkWell(
+                            onTap: () => widget.onInsertTag(widget.pinnedTags[index]),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              child: Text(
+                                widget.pinnedTags[index],
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // ٹیگ ہٹانے کا کراس بٹن
+                          InkWell(
+                            onTap: () => widget.onDeleteTag(widget.pinnedTags[index]),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2.0),
+                              child: Icon(
+                                Icons.close,
+                                size: 14,
+                                color: Colors.red.shade600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
