@@ -1,7 +1,6 @@
-// lib/features/stamp_agreement/components/stamp_canvas_viewport_ui.dart
 import 'package:flutter/material.dart';
 import '../stamp_studio_controller.dart';
-import 'stamp_canvas_sheet.dart';
+import 'stamp_canvas_sheet_ui.dart';
 
 class StampCanvasViewportUi extends StatelessWidget {
   final StampStudioController controller;
@@ -18,7 +17,6 @@ class StampCanvasViewportUi extends StatelessWidget {
     final isA4 = controller.paperSize == 'A4';
     final double sheetW = isA4 ? 595.0 : 612.0;
     final double sheetH = isA4 ? 842.0 : 1008.0;
-
     final pages = controller.paginateText();
 
     return Container(
@@ -38,7 +36,7 @@ class StampCanvasViewportUi extends StatelessWidget {
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 32.0),
-                child: StampCanvasSheet(
+                child: StampCanvasSheetUi(
                   sheetWidth: sheetW,
                   sheetHeight: sheetH,
                   scaledTop: currentTop,

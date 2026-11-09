@@ -1,9 +1,8 @@
-// lib/features/stamp_agreement/components/stamp_canvas_sheet.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/stamp_rich_text_controller.dart';
 
-class StampCanvasSheet extends StatelessWidget {
+class StampCanvasSheetUi extends StatelessWidget {
   final double sheetWidth;
   final double sheetHeight;
   final double scaledTop;
@@ -21,7 +20,7 @@ class StampCanvasSheet extends StatelessWidget {
   final Function(double) onBottomDrag;
   final Function(double) onSideDrag;
 
-  const StampCanvasSheet({
+  const StampCanvasSheetUi({
     super.key,
     required this.sheetWidth,
     required this.sheetHeight,
@@ -95,7 +94,6 @@ class StampCanvasSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-
               Positioned(
                 top: 0,
                 left: 0,
@@ -115,7 +113,6 @@ class StampCanvasSheet extends StatelessWidget {
                   ),
                 ),
               ),
-
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -135,7 +132,6 @@ class StampCanvasSheet extends StatelessWidget {
                   ),
                 ),
               ),
-
               Positioned(
                 top: scaledTop,
                 left: scaledSide,
@@ -184,7 +180,6 @@ class StampCanvasSheet extends StatelessWidget {
                         ),
                 ),
               ),
-
               Positioned(
                 top: scaledTop,
                 left: scaledSide,
@@ -209,7 +204,6 @@ class StampCanvasSheet extends StatelessWidget {
                 height: boxH,
                 child: IgnorePointer(child: Container(width: 1.5, color: Colors.blue.shade600)),
               ),
-
               Positioned(
                 top: scaledTop - 13,
                 right: scaledSide - 13,

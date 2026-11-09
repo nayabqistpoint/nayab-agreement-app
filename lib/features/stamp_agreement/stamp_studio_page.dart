@@ -43,11 +43,13 @@ class _StampStudioPageState extends State<StampStudioPage> {
         backgroundColor: const Color(0xFFD4D8DC),
         appBar: StampStudioAppBarUi(
           paperSize: _controller.paperSize,
-          onPaperSizeChanged: (s) => _controller.setPaperSize(s),
+          onPaperSizeChanged: _controller.setPaperSize,
           onSave: () async {
             final ok = await _controller.saveTemplate();
             if (!context.mounted) return;
-            if (ok) Navigator.pop(context, true);
+            if (ok) {
+              Navigator.pop(context, true);
+            }
           },
         ),
         body: Column(
@@ -59,39 +61,33 @@ class _StampStudioPageState extends State<StampStudioPage> {
               topMargin: _controller.topMargin,
               bottomMargin: _controller.bottomMargin,
               sideMargin: _controller.sideMargin,
-              onPickPdf: () => _controller.pickPdf(),
-              onNormalizeParagraphs: () => _controller.normalizeBodyText(),
-              onFontSizeChanged: (newSize) {
-                if (newSize > _controller.currentActiveFontSize) {
-                  _controller.increaseFontSize();
-                } else {
-                  _controller.decreaseFontSize();
-                }
-              },
+              onPickPdf: _controller.pickPdf,
+              onNormalizeParagraphs: _controller.normalizeBodyText,
+              onFontSizeChanged: _controller.setFontSize,
               onShowMargins: () => StampMarginSheetUi.show(
                 context: context,
                 top: _controller.topMargin,
                 bottom: _controller.bottomMargin,
                 side: _controller.sideMargin,
-                onTop: (v) => _controller.setTopMargin(v),
-                onBottom: (v) => _controller.setBottomMargin(v),
-                onSide: (v) => _controller.setSideMargin(v),
+                onTop: _controller.setTopMargin,
+                onBottom: _controller.setBottomMargin,
+                onSide: _controller.setSideMargin,
               ),
             ),
             StampEditingToolbarUi(
               onAlignRight: () => _controller.alignSelectedLine(TextAlign.right),
               onAlignCenter: () => _controller.alignSelectedLine(TextAlign.center),
               onAlignLeft: () => _controller.alignSelectedLine(TextAlign.left),
-              onInsertBullet: () => _controller.toggleBullet(),
+              onInsertBullet: _controller.toggleBullet,
             ),
             StampTagsToolbarUi(
               pinnedTags: _controller.pinnedTags,
               onBold: () => _controller.applyFormatToSelection('b'),
               onUnderline: () => _controller.applyFormatToSelection('u'),
-              onInsertEmSpace: () => _controller.insertEmSpace(),
-              onInsertEmptyTag: () => _controller.insertEmptyTag(),
-              onInsertTag: (t) => _controller.insertTagAtCursor(t),
-              onDeleteTag: (t) => _controller.removeTag(t),
+              onInsertEmSpace: _controller.insertEmSpace,
+              onInsertEmptyTag: _controller.insertEmptyTag,
+              onInsertTag: _controller.insertTagAtCursor,
+              onDeleteTag: _controller.removeTag,
               onShowAddCustomTag: () => StampCustomTagDialogUi.show(context, (t) {
                 _controller.addCustomTag(t);
                 _controller.insertTagAtCursor(t);

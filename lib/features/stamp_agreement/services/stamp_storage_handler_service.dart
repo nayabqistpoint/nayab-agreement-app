@@ -17,12 +17,15 @@ class StampStorageHandlerService {
     return null;
   }
 
+  /// ایٹامک پٹ بیچ (Atomic putBatch)
   static Future<void> saveTemplate(Map<String, dynamic> payload) async {
     try {
-      final box = HiveBoxManager.getBox(BoxNames.templatesBox);
       final id = payload['title'] ?? payload['id'];
       if (id != null) {
-        await box.put(id.toString(), payload);
+        await HiveBoxManager.putBatch(
+          boxName: BoxNames.templatesBox,
+          entries: {id.toString(): payload},
+        );
       }
     } catch (e) {
       debugPrint('StampStorageHandlerService save Error: $e');

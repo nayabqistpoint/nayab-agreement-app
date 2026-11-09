@@ -1,4 +1,5 @@
 import '../../../core/models/document_template_model.dart';
+import '../../../core/time/time_status_service.dart';
 import '../../../core/utils/tag_extraction_helper.dart';
 
 class StampPayloadBuilder {
@@ -15,6 +16,8 @@ class StampPayloadBuilder {
     required String? stampFileName,
     required List<String> pages,
   }) {
+    final now = TimeStatusService.nowUtcIso();
+
     final doc = DocumentTemplateModel(
       id: title,
       title: title,
@@ -31,6 +34,14 @@ class StampPayloadBuilder {
       fields: TemplateService.extractFields(content),
       pages: pages,
     );
-    return doc.toMap();
+
+    final map = doc.toMap();
+    // بلیو پرنٹ کے سنک فلیگز
+    map['isSynced'] = false;
+    map['updatedAt'] = now;
+    map['createdAt'] = now;
+    map['isDeleted'] = false;
+
+    return map;
   }
 }
