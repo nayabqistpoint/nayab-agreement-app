@@ -15,11 +15,14 @@ class StampFileService {
     return null;
   }
 
+  /// ای-اسٹامپ کے مونوگرام اور کیو آر کوڈ کو بغیر کسی بلر کے کرسٹل کلیئر رینڈر کرنا
   static Future<List<Uint8List?>> rasterizePdf(Uint8List bytes) async {
     List<Uint8List?> pages = [];
     try {
-      await for (final page in Printing.raster(bytes, dpi: 300)) {
-        pages.add(await page.toPng());
+      // 300 DPI پر مونوگرام کے باریک نشانات اور واٹر مارک محفوظ رہتے ہیں
+      await for (final page in Printing.raster(bytes, dpi: 300.0)) {
+        final pngBytes = await page.toPng();
+        pages.add(pngBytes);
       }
     } catch (_) {}
     return pages;

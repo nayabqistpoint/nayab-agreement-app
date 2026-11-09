@@ -28,6 +28,9 @@ class StampHeaderToolbarUi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // اشاریہ ختم: خالص مکمل گول اعداد (11, 12, 13, 14...)
+    final int currentSize = fontSize.round().clamp(10, 26);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       color: Colors.white,
@@ -82,18 +85,24 @@ class StampHeaderToolbarUi extends StatelessWidget {
               child: Row(
                 children: [
                   InkWell(
-                    onTap: () => onFontSizeChanged(fontSize - 0.5),
+                    onTap: () {
+                      final newSize = (currentSize - 1).clamp(10, 26).toDouble();
+                      onFontSizeChanged(newSize);
+                    },
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 4),
                       child: Icon(Icons.remove, size: 15, color: Colors.teal),
                     ),
                   ),
                   Text(
-                    '$fontSize pt',
+                    '$currentSize pt',
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                   InkWell(
-                    onTap: () => onFontSizeChanged(fontSize + 0.5),
+                    onTap: () {
+                      final newSize = (currentSize + 1).clamp(10, 26).toDouble();
+                      onFontSizeChanged(newSize);
+                    },
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 4),
                       child: Icon(Icons.add, size: 15, color: Colors.teal),

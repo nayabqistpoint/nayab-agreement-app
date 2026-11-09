@@ -1,3 +1,4 @@
+// lib/core/utils/paper_pagination_helper.dart
 import 'package:flutter/material.dart';
 
 class AgreementPaginationService {
@@ -13,113 +14,85 @@ class AgreementPaginationService {
     if (fullText.trim().isEmpty) return [""];
 
     final bool isA4 = paperSize.toUpperCase() == 'A4';
-    const double sheetWidth = 390.0;
-    final double sheetHeight = isA4 ? 552.0 : 642.0;
-    final double totalHeightPoints = isA4 ? 842.0 : 1008.0;
-    final double scale = sheetHeight / totalHeightPoints;
+    final double sheetWidth = isA4 ? 595.0 : 612.0;
+    final double sheetHeight = isA4 ? 842.0 : 1008.0;
 
-    final double boxW = (sheetWidth - ((sideMargin * scale).clamp(8.0, 45.0) * 2)).clamp(100.0, sheetWidth);
-    final double p1BoxH = (sheetHeight - (p1TopMargin * scale) - (bottomMargin * scale)).clamp(40.0, sheetHeight);
-    final double subBoxH = (sheetHeight - (subsequentTopMargin * scale) - (bottomMargin * scale)).clamp(40.0, sheetHeight);
+    final double boxW = (sheetWidth - (sideMargin * 2)).clamp(100.0, sheetWidth);
+    final double p1BoxH = (sheetHeight - p1TopMargin - bottomMargin).clamp(50.0, sheetHeight);
+    final double subBoxH = (sheetHeight - subsequentTopMargin - bottomMargin).clamp(50.0, sheetHeight);
 
     final baseStyle = TextStyle(
       fontFamily: 'JameelNoori',
-      fontSize: fontSize * 0.95,
-      height: 1.6,
+      fontSize: fontSize,
+      height: 1.85,
       fontWeight: FontWeight.w600,
     );
 
+    final paragraphs = fullText.split('\n');
     List<String> pages = [];
-    String remainingText = fullText.trim();
+    StringBuffer currentPageBuffer = StringBuffer();
+    double currentHeight = 0;
     bool isFirstPage = true;
 
-    while (remainingText.isNotEmpty) {
-      final double targetH = isFirstPage ? p1BoxH : subBoxH;
+    for (int i = 0; i < paragraphs.length; i++) {
+      final para = paragraphs[i];
+      final targetH = isFirstPage ? p1BoxH : subBoxH;
 
+      // پیراگراف کی اصل ہائٹ معلوم کریں
       final textPainter = TextPainter(
-        text: _parseStyledSpans(remainingText, baseStyle),
-        textAlign: TextAlign.justify,
+        text: _parseStyledSpans(para.isEmpty ? ' ' : para, baseStyle),
+        textAlign: TextAlign.right,
         textDirection: TextDirection.rtl,
       );
+      textPainter.layout(maxWidth: boxW - 14);
+      final paraH = textPainter.height;
 
-      textPainter.layout(maxWidth: boxW - 8);
-      final lines = textPainter.computeLineMetrics();
-
-      if (lines.isEmpty) {
-        pages.add(remainingText);
-        break;
-      }
-
-      double currentHeight = 0;
-      int fittedLinesCount = 0;
-
-      for (var line in lines) {
-        if (currentHeight + line.height <= targetH) {
-          currentHeight += line.height;
-          fittedLinesCount++;
-        } else {
-          break;
-        }
-      }
-
-      if (fittedLinesCount == 0) fittedLinesCount = 1;
-
-      if (fittedLinesCount >= lines.length) {
-        pages.add(remainingText);
-        break;
+      // اگر نیا پیراگراف موجودہ صفحے میں سما سکتا ہے
+      if (currentHeight + paraH <= targetH || currentPageBuffer.isEmpty) {
+        if (currentPageBuffer.isNotEmpty) currentPageBuffer.write('\n');
+        currentPageBuffer.write(para);
+        currentHeight += paraH;
       } else {
-        // آخری ممکنہ لائن کے اختتام کا درست تخمینہ
-        final pos = textPainter.getPositionForOffset(Offset(boxW - 10, currentHeight - 4));
-        int cutIndex = pos.offset;
-
-        if (cutIndex <= 0 || cutIndex >= remainingText.length) {
-          cutIndex = (remainingText.length * (fittedLinesCount / lines.length)).round();
-        }
-
-        // لفظ کو بیچ سے کٹنے سے بچانا
-        while (cutIndex > 0 && cutIndex < remainingText.length && remainingText[cutIndex] != ' ' && remainingText[cutIndex] != '\n') {
-          cutIndex--;
-        }
-
-        if (cutIndex <= 0) {
-          cutIndex = pos.offset.clamp(1, remainingText.length);
-        }
-
-        pages.add(remainingText.substring(0, cutIndex).trim());
-        remainingText = remainingText.substring(cutIndex).trim();
+        // صفحہ مکمل ہو گیا، نیا صفحہ شروع کریں
+        pages.add(currentPageBuffer.toString());
+        currentPageBuffer.clear();
+        currentPageBuffer.write(para);
+        currentHeight = paraH;
+        isFirstPage = false;
       }
+    }
 
-      isFirstPage = false;
+    if (currentPageBuffer.isNotEmpty) {
+      pages.add(currentPageBuffer.toString());
     }
 
     return pages.isEmpty ? [""] : pages;
   }
 
-  /// <b> اور <u> کے ٹیگز کو اصل ریچ اسٹائل میں تبدیل کرنے کا ہیلپر
   static TextSpan _parseStyledSpans(String text, TextStyle base) {
     final List<InlineSpan> spans = [];
-    final regex = RegExp(r'(<b>.*?<\/b>|<u>.*?<\/u>)', dotAll: true);
-    int lastMatchEnd = 0;
+    final tagRegex = RegExp(r'\{\{.*?\}\}');
+    int lastEnd = 0;
 
-    for (final match in regex.allMatches(text)) {
-      if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(text: text.substring(lastMatchEnd, match.start), style: base));
+    for (final match in tagRegex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, match.start), style: base));
       }
-      final matchedText = match.group(0)!;
-      if (matchedText.startsWith('<b>')) {
-        final content = matchedText.substring(3, matchedText.length - 4);
-        spans.add(TextSpan(text: content, style: base.copyWith(fontWeight: FontWeight.bold)));
-      } else if (matchedText.startsWith('<u>')) {
-        final content = matchedText.substring(3, matchedText.length - 4);
-        spans.add(TextSpan(text: content, style: base.copyWith(decoration: TextDecoration.underline)));
-      }
-      lastMatchEnd = match.end;
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: base.copyWith(
+            color: Colors.blue.shade900,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+      lastEnd = match.end;
     }
 
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastMatchEnd), style: base));
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd), style: base));
     }
-
     return TextSpan(children: spans);
   }
 }

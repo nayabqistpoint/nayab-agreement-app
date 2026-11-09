@@ -4,8 +4,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/qr_scanner.dart';
 import '../agreement_bucket_view/bucket_view_page.dart';
 import '../customer_directory/customer_directory_page.dart';
-import '../form_filler/form_filler_studio_page.dart';
-import '../plain_document/plain_doc_studio_page.dart';
 import '../stamp_agreement/stamp_studio_page.dart';
 import 'agreement_counter_controller.dart';
 import 'components/counter_app_bar_ui.dart';
@@ -70,7 +68,10 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: CounterAppBarUi(
-          onOpenCustomerDirectory: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerDirectoryPage())),
+          onOpenCustomerDirectory: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CustomerDirectoryPage()),
+          ),
           onReset: _c.init,
         ),
         body: Column(
@@ -86,20 +87,27 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     onScanCnic: () => _scan('شناختی کارڈ', 'شناختی کارڈ اسکین'),
                   ),
                   CounterModuleTabsUi(
-                    onOpenStampStudio: () => CounterNavigationService.openStudio(context, const StampStudioPage()).then((_) => _c.init()),
-                    onOpenPlainDocStudio: () => CounterNavigationService.openStudio(context, const PlainDocStudioPage()).then((_) => _c.init()),
-                    onOpenFormFillerStudio: () => CounterNavigationService.openStudio(context, const FormFillerStudioPage()).then((_) => _c.init()),
+                    onOpenStampStudio: () => CounterNavigationService.openStudio(
+                      context,
+                      const StampStudioPage(),
+                    ).then((_) => _c.init()),
                   ),
                   CounterTemplateSelectorUi(
                     selectedTitle: _c.selectedTemplateTitle,
                     availableTemplates: _c.availableTemplates,
                     onTemplateChanged: _c.switchTemplate,
-                    onOpenEditor: () => CounterNavigationService.openEditor(context, _c.selectedTemplateTitle).then((v) => v == true ? _c.init() : null),
+                    onOpenEditor: () => CounterNavigationService.openEditor(
+                      context,
+                      _c.selectedTemplateTitle,
+                    ).then((v) => v == true ? _c.init() : null),
                   ),
                   CounterBucketBadgeUi(
                     filledCount: _c.currentFieldValues.length,
                     totalCount: _c.requiredFields.length,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BucketViewPage())).then((_) => _c.loadDraft()),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const BucketViewPage()),
+                    ).then((_) => _c.loadDraft()),
                   ),
                   CounterQuickToolbar(
                     currentMode: _c.currentDocMode,
@@ -129,8 +137,13 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
           ],
         ),
         bottomNavigationBar: CounterPrintActionUi(
-          onPrint: () => CounterRenderService.printDocument(_canvasKeys, _c.selectedTemplateTitle),
-          onCopyText: () => Clipboard.setData(ClipboardData(text: pages.join('\n\n'))),
+          onPrint: () => CounterRenderService.printDocument(
+            _canvasKeys,
+            _c.selectedTemplateTitle,
+          ),
+          onCopyText: () => Clipboard.setData(
+            ClipboardData(text: pages.join('\n\n')),
+          ),
         ),
       ),
     );
