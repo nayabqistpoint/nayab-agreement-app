@@ -35,10 +35,24 @@ class AgreementCounterController extends ChangeNotifier {
   void loadTemplates() {
     final all = CounterStorageHandlerService.getAllTemplates();
     availableTemplates = all.keys.toList();
-    if (availableTemplates.isNotEmpty && selectedTemplateTitle.isEmpty) {
-      switchTemplate(availableTemplates.first);
+    if (availableTemplates.isNotEmpty) {
+      if (selectedTemplateTitle.isEmpty || !availableTemplates.contains(selectedTemplateTitle)) {
+        switchTemplate(availableTemplates.first);
+        return;
+      }
+    } else {
+      _clearSelection();
     }
     notifyListeners();
+  }
+
+  void _clearSelection() {
+    selectedTemplateTitle = '';
+    lockedStudioPages = [];
+    requiredFields = [];
+    selectedStampPdfBytes = null;
+    selectedStampFileName = null;
+    cachedStampPages = [];
   }
 
   void loadDraft() {
@@ -73,13 +87,41 @@ class AgreementCounterController extends ChangeNotifier {
         selectedStampPdfBytes = null;
         selectedStampFileName = null;
       }
+    } else {
+      _clearSelection();
     }
     refreshStampPages();
     persistState();
     notifyListeners();
   }
 
+  /// ٹیمپلیٹ کو ہائیو سے ڈیلیٹ کرنا اور رئیل ٹائم اسٹیٹ اپ ڈیٹ کرنا
+  Future<bool> deleteCurrentTemplate(String title) async {
+    final ok = await CounterStorageHandlerService.deleteTemplate(title);
+    if (ok) {
+      availableTemplates.remove(title);
+      if (selectedTemplateTitle == title) {
+        if (availableTemplates.isNotEmpty) {
+          switchTemplate(availableTemplates.first);
+        } else {
+          _clearSelection();
+          persistState();
+          notifyListeners();
+        }
+      } else {
+        notifyListeners();
+      }
+      return true;
+    }
+    return false;
+  }
+
   Future<void> refreshStampPages() async {
+    if (selectedStampPdfBytes == null) {
+      cachedStampPages = [];
+      notifyListeners();
+      return;
+    }
     isRenderingStamp = true;
     notifyListeners();
     cachedStampPages = await CounterRenderService.renderPdfPages(selectedStampPdfBytes);

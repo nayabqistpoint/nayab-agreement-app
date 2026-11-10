@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 
 class StampEditingToolbarUi extends StatelessWidget {
   final VoidCallback onAlignRight;
   final VoidCallback onAlignCenter;
   final VoidCallback onAlignLeft;
   final VoidCallback onInsertBullet;
+  final VoidCallback onToggleOverlayMode;
+  final bool isOverlayActive;
 
   const StampEditingToolbarUi({
     super.key,
@@ -12,6 +15,8 @@ class StampEditingToolbarUi extends StatelessWidget {
     required this.onAlignCenter,
     required this.onAlignLeft,
     required this.onInsertBullet,
+    required this.onToggleOverlayMode,
+    this.isOverlayActive = false,
   });
 
   Widget _buildButton({
@@ -86,6 +91,47 @@ class StampEditingToolbarUi extends StatelessWidget {
               tooltip: 'شرائط کیلئے سٹار بلٹ پوائنٹ (❖)',
               onTap: onInsertBullet,
               color: Colors.amber.shade900,
+            ),
+            const SizedBox(width: 8),
+            Container(height: 18, width: 1, color: Colors.grey.shade300),
+            const SizedBox(width: 8),
+            // اسٹار بٹن کے بالکل ساتھ آزاد اوورلے تحریر کا بٹن
+            Tooltip(
+              message: 'اسٹامپ مونوگرام یا کسی بھی جگہ آزاد تحریر لگائیں',
+              child: InkWell(
+                onTap: onToggleOverlayMode,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isOverlayActive ? AppColors.primaryEmerald : const Color(0xFFF0FDF4),
+                    border: Border.all(
+                      color: isOverlayActive ? AppColors.primaryEmerald : const Color(0xFF86EFAC),
+                      width: 1.2,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.text_fields,
+                        size: 15,
+                        color: isOverlayActive ? Colors.white : AppColors.primaryEmerald,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isOverlayActive ? 'کلک کر کے لگائیں' : 'اوورلے تحریر',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: isOverlayActive ? Colors.white : AppColors.primaryEmerald,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),

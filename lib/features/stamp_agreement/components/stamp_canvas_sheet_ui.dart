@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/stamp_rich_text_controller.dart';
+import '../stamp_studio_controller.dart';
 import 'canvas_parts/stamp_canvas_borders_ui.dart';
 import 'canvas_parts/stamp_safe_zone_overlay_ui.dart';
+import 'stamp_overlay_canvas_layer_ui.dart';
 
 class StampCanvasSheetUi extends StatelessWidget {
   final double sheetWidth;
@@ -21,6 +23,7 @@ class StampCanvasSheetUi extends StatelessWidget {
   final Function(double) onTopDrag;
   final Function(double) onBottomDrag;
   final Function(double) onSideDrag;
+  final StampStudioController controller;
 
   const StampCanvasSheetUi({
     super.key,
@@ -40,6 +43,7 @@ class StampCanvasSheetUi extends StatelessWidget {
     required this.onTopDrag,
     required this.onBottomDrag,
     required this.onSideDrag,
+    required this.controller,
   });
 
   @override
@@ -87,7 +91,7 @@ class StampCanvasSheetUi extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // بیک گراؤنڈ واٹر مارک یا پی ڈی ایف پیج
+                  // 1. بیک گراؤنڈ
                   if (bgImage != null)
                     Positioned.fill(
                       child: IgnorePointer(
@@ -107,14 +111,14 @@ class StampCanvasSheetUi extends StatelessWidget {
                       ),
                     ),
 
-                  // مونوگرام اور کیو آر کوڈ کے حاشیے
+                  // 2. محفوظ مونوگرام ایریا
                   StampSafeZoneOverlayUi(
                     topHeight: scaledTop,
                     bottomHeight: scaledBottom,
                     isFirstPage: isFirstPage,
                   ),
 
-                  // تحریری ایریا: پہلے صفحے پر لائیو ایڈیٹر اور اگلے صفحات پر صرف باقی بچا ہوا مخصوص متن
+                  // 3. تحریری ایریا
                   Positioned(
                     top: scaledTop,
                     left: scaledSide,
@@ -127,7 +131,7 @@ class StampCanvasSheetUi extends StatelessWidget {
                               controller: bodyController,
                               maxLines: null,
                               expands: true,
-                              scrollPhysics: const NeverScrollableScrollPhysics(), // اندرونی اسکرولر ختم، ٹیکسٹ باہر فلو کرے گا
+                              scrollPhysics: const NeverScrollableScrollPhysics(),
                               textAlign: TextAlign.right,
                               textDirection: TextDirection.rtl,
                               cursorColor: Colors.teal.shade800,
@@ -158,7 +162,7 @@ class StampCanvasSheetUi extends StatelessWidget {
                     ),
                   ),
 
-                  // چاروں اطراف کے سرخ ڈریگ بارڈرز
+                  // 4. مارجن ڈریگ بارڈرز
                   StampCanvasBordersUi(
                     top: scaledTop,
                     bottom: scaledBottom,
@@ -168,6 +172,32 @@ class StampCanvasSheetUi extends StatelessWidget {
                     onTopDrag: onTopDrag,
                     onBottomDrag: onBottomDrag,
                     onSideDrag: onSideDrag,
+                  ),
+
+                  // 5. آزاد اوورلے لیئر (خالی کلک پر ٹول بار بند، گرپ ہینڈل، اور بڑا ٹول بار)
+                  StampOverlayCanvasLayerUi(
+                    pageIndex: pageIndex,
+                    sheetWidth: sheetWidth,
+                    sheetHeight: sheetHeight,
+                    fields: controller.overlayFields,
+                    selectedFieldId: controller.selectedOverlayFieldId,
+                    toolbarScale: controller.currentToolbarScale,
+                    isPlacementActive: controller.isOverlayPlacementActive,
+                    onCanvasTap: (pos) => controller.addOverlayFieldAtPosition(pos.dx, pos.dy, pageIndex: pageIndex),
+                    onDismissSelection: () {
+                      controller.selectOverlayField(null);
+                      if (controller.isOverlayPlacementActive) {
+                        controller.toggleOverlayPlacementMode();
+                      }
+                    },
+                    onSelectField: controller.selectOverlayField,
+                    onDragField: controller.updateOverlayFieldPosition,
+                    onDeleteField: controller.removeOverlayField,
+                    onFontSizeChange: controller.updateOverlayFieldFontSize,
+                    onToggleBold: controller.toggleOverlayBold,
+                    onToggleUnderline: controller.toggleOverlayUnderline,
+                    onTextEdited: controller.updateOverlayFieldText,
+                    onAdjustToolbarScale: controller.adjustToolbarScale,
                   ),
                 ],
               ),

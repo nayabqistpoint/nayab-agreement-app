@@ -33,7 +33,7 @@ The content is organized as follows:
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Only files matching these patterns are included: lib/features/stamp_agreement
+- Only files matching these patterns are included: lib/features/pdf_editor
 - Files matching these patterns are excluded: **/*.g.dart, build/**, .dart_tool/**, android/**, ios/**, windows/**
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
@@ -47,1307 +47,184 @@ The content is organized as follows:
 <directory_structure>
 lib/
   features/
-    stamp_agreement/
+    pdf_editor/
       components/
-        stamp_canvas_sheet.dart
-        stamp_canvas_viewport_ui.dart
-        stamp_counter_preview.dart
-        stamp_custom_tag_dialog_ui.dart
-        stamp_editing_toolbar_ui.dart
-        stamp_header_toolbar_ui.dart
-        stamp_margin_sheet_ui.dart
-        stamp_studio_app_bar_ui.dart
-        stamp_tags_toolbar_ui.dart
+        pdf_draggable_box_ui.dart
+        pdf_editor_app_bar_ui.dart
+        pdf_editor_canvas_sheet_ui.dart
+        pdf_editor_tags_bar_ui.dart
       models/
-        document_line_model.dart
+        pdf_overlay_field_model.dart
       services/
-        stamp_alignment_service.dart
-        stamp_file_service.dart
-        stamp_paragraph_service.dart
-        stamp_payload_builder.dart
-        stamp_pdf_capture_service.dart
-        stamp_rich_text_controller.dart
-        stamp_selection_menu_builder.dart
-        stamp_storage_handler_service.dart
-        stamp_text_format_service.dart
-      stamp_studio_controller.dart
-      stamp_studio_page.dart
+        pdf_box_style_service.dart
+        pdf_editor_storage_service.dart
+        pdf_render_helper.dart
+        pdf_scanner_service.dart
+      pdf_editor_controller.dart
+      pdf_editor_page.dart
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
-<file path="lib/features/stamp_agreement/services/stamp_alignment_service.dart">
+<file path="lib/features/pdf_editor/components/pdf_draggable_box_ui.dart">
 import 'package:flutter/material.dart';
-import 'stamp_paragraph_service.dart';
-class StampAlignmentService {
-  static void insertEmSpace(TextEditingController controller) {
-    final sel = controller.selection;
-    final int start = sel.start.clamp(0, controller.text.length);
-    final int end = sel.end.clamp(0, controller.text.length);
-    const emSpace = '\u2003\u2003';
-    final currentText = controller.text;
-    final newText = currentText.replaceRange(start, end, emSpace);
-    controller.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: start + emSpace.length),
-    );
-  }
-  static void alignLine(TextEditingController controller, TextAlign alignment) {
-    final sel = controller.selection;
-    final int cursorPos = sel.start < 0 ? controller.text.length : sel.start;
-    final text = controller.text;
-    final lineInfo = StampParagraphService.getLineAtCursor(text, cursorPos);
-    var line = lineInfo.currentLine;
-    line = line.replaceFirst(RegExp(r'^[\u2003\s]+'), '');
-    line = line.replaceAll(RegExp(r'^\[(C|L|R)\]'), '');
-    String updatedLine;
-    if (alignment == TextAlign.center) {
-      updatedLine = '\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003$line';
-    } else if (alignment == TextAlign.left) {
-      updatedLine = '\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003$line';
-    } else {
-      updatedLine = line;
-    }
-    final newFullText = text.replaceRange(lineInfo.lineStart, lineInfo.lineEnd, updatedLine);
-    controller.value = TextEditingValue(
-      text: newFullText,
-      selection: TextSelection.collapsed(offset: lineInfo.lineStart + updatedLine.length),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_counter_preview.dart">
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
-class StampCounterPreview extends StatelessWidget {
-  final double topMargin;
-  final double bottomMargin;
-  final double sideMargin;
-  final String textContent;
-  final Uint8List? bgImage;
-  final bool isFirstPage;
-  final double fontSize;
-  const StampCounterPreview({
+import 'package:nayab_agreement_app/core/constants/app_colors.dart';
+import 'package:nayab_agreement_app/features/pdf_editor/models/pdf_overlay_field_model.dart';
+class PdfDraggableBoxUi extends StatefulWidget {
+  final PdfOverlayFieldModel field;
+  final bool isSelected;
+  final VoidCallback onSelect;
+  final Function(double dx, double dy) onDrag;
+  final Function(String newText)? onTextEdited;
+  const PdfDraggableBoxUi({
     super.key,
-    required this.topMargin,
-    required this.bottomMargin,
-    required this.sideMargin,
-    required this.textContent,
-    required this.bgImage,
-    required this.isFirstPage,
-    required this.fontSize,
+    required this.field,
+    required this.isSelected,
+    required this.onSelect,
+    required this.onDrag,
+    this.onTextEdited,
   });
   @override
-  Widget build(BuildContext context) {
-    const double sheetWidth = 390.0;
-    const double sheetHeight = 642.0;
-    const double scale = sheetHeight / 1008.0;
-    final scaledTop = topMargin * scale;
-    final scaledBot = bottomMargin * scale;
-    final scaledSide = (sideMargin * scale).clamp(8.0, 45.0);
-    final boxW = (sheetWidth - (scaledSide * 2)).clamp(100.0, sheetWidth);
-    final boxH = (sheetHeight - scaledTop - scaledBot).clamp(40.0, sheetHeight);
-    return Container(
-      width: sheetWidth,
-      height: sheetHeight,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            spreadRadius: 1,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          if (bgImage != null)
-            Positioned.fill(
-              child: Image.memory(
-                bgImage!,
-                fit: BoxFit.fill,
-                filterQuality: FilterQuality.high,
-              ),
-            )
-          else
-            Center(
-              child: Opacity(
-                opacity: 0.08,
-                child: Text(
-                  isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "اضافی سادہ ورق",
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          Positioned(
-            top: scaledTop,
-            left: scaledSide,
-            width: boxW,
-            height: boxH,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: double.infinity,
-                child: Text(
-                  textContent,
-                  textAlign: TextAlign.justify,
-                  textDirection: TextDirection.rtl,
-                  style: TextStyle(
-                    fontFamily: 'JameelNoori',
-                    fontSize: fontSize * 0.95,
-                    height: 1.85,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF111111),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<PdfDraggableBoxUi> createState() => _PdfDraggableBoxUiState();
 }
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_custom_tag_dialog_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-class StampCustomTagDialogUi extends StatefulWidget {
-  final Function(String) onTagCreated;
-  const StampCustomTagDialogUi({super.key, required this.onTagCreated});
-  static Future<void> show(BuildContext context, Function(String) onTagCreated) {
-    return showDialog(
-      context: context,
-      builder: (_) => StampCustomTagDialogUi(onTagCreated: onTagCreated),
-    );
+class _PdfDraggableBoxUiState extends State<PdfDraggableBoxUi> {
+  late final TextEditingController _editCtrl;
+  @override
+  void initState() {
+    super.initState();
+    _editCtrl = TextEditingController(text: _getEditableValue(widget.field.tag));
   }
   @override
-  State<StampCustomTagDialogUi> createState() => _StampCustomTagDialogUiState();
-}
-class _StampCustomTagDialogUiState extends State<StampCustomTagDialogUi> {
-  final TextEditingController _ctrl = TextEditingController();
+  void didUpdateWidget(covariant PdfDraggableBoxUi oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.field.tag != widget.field.tag) {
+      final currentExpected = _getEditableValue(widget.field.tag);
+      if (_editCtrl.text != currentExpected) {
+        _editCtrl.text = currentExpected;
+      }
+    }
+  }
   @override
   void dispose() {
-    _ctrl.dispose();
+    _editCtrl.dispose();
     super.dispose();
   }
+  String _getEditableValue(String raw) {
+    if (widget.field.isStaticText) return raw;
+    return raw.replaceAll('{{', '').replaceAll('}}', '').trim();
+  }
+  String _getDisplayText(String raw) {
+    if (widget.isSelected) {
+      return widget.field.isStaticText ? raw : '{{${raw.replaceAll('{{', '').replaceAll('}}', '').trim()}}}';
+    }
+    return raw.replaceAll('{{', '').replaceAll('}}', '').trim();
+  }
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: AlertDialog(
-        title: const Text('نیا کسٹم ٹیگ بنائیں', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: TextField(
-          controller: _ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'مثلاً: گواہ کا نام، بقایا رقم وغیرہ',
-            border: OutlineInputBorder(),
-            isDense: true,
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('منسوخ')),
-          ElevatedButton(
-            onPressed: () {
-              final val = _ctrl.text.trim();
-              if (val.isNotEmpty) widget.onTagCreated(val);
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryEmerald),
-            child: const Text('ٹیگ لگائیں', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+    final f = widget.field;
+    // نستعلیق فونٹ کے لیے حقیقی بولڈ اسٹائل
+    final textStyle = TextStyle(
+      fontFamily: f.fontType.isNotEmpty ? f.fontType : 'JameelNoori',
+      fontSize: f.fontSize,
+      fontWeight: f.isBold ? FontWeight.bold : FontWeight.normal,
+      decoration: f.isUnderline ? TextDecoration.underline : TextDecoration.none,
+      decorationThickness: f.isBold ? 2.5 : 1.2,
+      color: AppColors.primaryEmerald,
+      height: 1.8,
+      shadows: f.isBold
+          ? [
+              const Shadow(offset: Offset(0.3, 0), color: AppColors.primaryEmerald),
+              const Shadow(offset: Offset(-0.3, 0), color: AppColors.primaryEmerald),
+              const Shadow(offset: Offset(0, 0.3), color: AppColors.primaryEmerald),
+            ]
+          : null,
     );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_editing_toolbar_ui.dart">
-import 'package:flutter/material.dart';
-class StampEditingToolbarUi extends StatelessWidget {
-  final VoidCallback onAlignRight;
-  final VoidCallback onAlignCenter;
-  final VoidCallback onAlignLeft;
-  final VoidCallback onInsertBullet;
-  const StampEditingToolbarUi({
-    super.key,
-    required this.onAlignRight,
-    required this.onAlignCenter,
-    required this.onAlignLeft,
-    required this.onInsertBullet,
-  });
-  Widget _buildButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
+    return Positioned(
+      left: f.x,
+      top: f.y,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onSelect,
+        onPanUpdate: (details) => widget.onDrag(details.delta.dx, details.delta.dy),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(4),
+          constraints: const BoxConstraints(minWidth: 40, maxWidth: 450),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.isSelected ? 8 : 2,
+            vertical: widget.isSelected ? 4 : 1,
           ),
-          child: Icon(icon, size: 17, color: color ?? Colors.blueGrey.shade800),
-        ),
-      ),
-    );
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                'الائنمنٹ:',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54),
-              ),
-            ),
-            _buildButton(
-              icon: Icons.format_align_right,
-              tooltip: 'دائیں طرف (عام اردو)',
-              onTap: onAlignRight,
-            ),
-            _buildButton(
-              icon: Icons.format_align_center,
-              tooltip: 'درمیان میں (سینٹر)',
-              onTap: onAlignCenter,
-            ),
-            _buildButton(
-              icon: Icons.format_align_left,
-              tooltip: 'بائیں طرف (دستخط/تاریخ)',
-              onTap: onAlignLeft,
-            ),
-            const SizedBox(width: 8),
-            Container(height: 18, width: 1, color: Colors.grey.shade300),
-            const SizedBox(width: 8),
-            _buildButton(
-              icon: Icons.stars_rounded,
-              tooltip: 'شرائط کیلئے سٹار بلٹ پوائنٹ (❖)',
-              onTap: onInsertBullet,
-              color: Colors.amber.shade900,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_margin_sheet_ui.dart">
-import 'package:flutter/material.dart';
-class StampMarginSheetUi extends StatelessWidget {
-  final double topMargin;
-  final double bottomMargin;
-  final double sideMargin;
-  final Function(double) onTopChanged;
-  final Function(double) onBottomChanged;
-  final Function(double) onSideChanged;
-  const StampMarginSheetUi({
-    super.key,
-    required this.topMargin,
-    required this.bottomMargin,
-    required this.sideMargin,
-    required this.onTopChanged,
-    required this.onBottomChanged,
-    required this.onSideChanged,
-  });
-  static void show({
-    required BuildContext context,
-    required double top,
-    required double bottom,
-    required double side,
-    required Function(double) onTop,
-    required Function(double) onBottom,
-    required Function(double) onSide,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => StampMarginSheetUi(
-        topMargin: top,
-        bottomMargin: bottom,
-        sideMargin: side,
-        onTopChanged: onTop,
-        onBottomChanged: onBottom,
-        onSideChanged: onSide,
-      ),
-    );
-  }
-  @override
-  Widget build(BuildContext context) {
-    return StatefulBuilder(
-      builder: (ctx, setMState) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? AppColors.primaryEmerald.withAlpha(20)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: widget.isSelected
+                ? Border.all(color: AppColors.primaryEmerald, width: 1.8)
+                : Border.all(color: Colors.transparent, width: 1),
+          ),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text('اسٹامپ مارجن پوائنٹس', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 10),
-              Text('اوپر کا مارجن (مونوگرام حد): ${topMargin.toInt()} pt'),
-              Slider(
-                value: topMargin,
-                min: 40,
-                max: 700,
-                onChanged: (v) {
-                  onTopChanged(v);
-                  setMState(() {});
-                },
-              ),
-              Text('نیچے کا مارجن (کیو آر کوڈ حد): ${bottomMargin.toInt()} pt'),
-              Slider(
-                value: bottomMargin,
-                min: 40,
-                max: 500,
-                onChanged: (v) {
-                  onBottomChanged(v);
-                  setMState(() {});
-                },
-              ),
-              Text('دائیں بائیں حاشیہ: ${sideMargin.toInt()} pt'),
-              Slider(
-                value: sideMargin,
-                min: 15,
-                max: 150,
-                onChanged: (v) {
-                  onSideChanged(v);
-                  setMState(() {});
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/models/document_line_model.dart">
-import 'package:flutter/material.dart';
-class DocumentLine {
-  String text;
-  TextAlign alignment;
-  bool isBold;
-  bool isUnderline;
-  double fontSize;
-  DocumentLine({
-    required this.text,
-    this.alignment = TextAlign.right,
-    this.isBold = false,
-    this.isUnderline = false,
-    this.fontSize = 14.0,
-  });
-  Map<String, dynamic> toJson() => {
-        'text': text,
-        'alignment': alignment.index,
-        'isBold': isBold,
-        'isUnderline': isUnderline,
-        'fontSize': fontSize,
-      };
-  factory DocumentLine.fromJson(Map<String, dynamic> json) => DocumentLine(
-        text: json['text'] ?? '',
-        alignment: TextAlign.values[json['alignment'] ?? TextAlign.right.index],
-        isBold: json['isBold'] ?? false,
-        isUnderline: json['isUnderline'] ?? false,
-        fontSize: (json['fontSize'] as num?)?.toDouble() ?? 14.0,
-      );
-  DocumentLine copyWith({
-    String? text,
-    TextAlign? alignment,
-    bool? isBold,
-    bool? isUnderline,
-    double? fontSize,
-  }) {
-    return DocumentLine(
-      text: text ?? this.text,
-      alignment: alignment ?? this.alignment,
-      isBold: isBold ?? this.isBold,
-      isUnderline: isUnderline ?? this.isUnderline,
-      fontSize: fontSize ?? this.fontSize,
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/services/stamp_paragraph_service.dart">
-import 'package:flutter/material.dart';
-class StampParagraphService {
-  static ({int lineStart, int lineEnd, String currentLine}) getLineAtCursor(
-    String fullText,
-    int cursorPos,
-  ) {
-    if (fullText.isEmpty) {
-      return (lineStart: 0, lineEnd: 0, currentLine: '');
-    }
-    final safePos = cursorPos.clamp(0, fullText.length);
-    int start = fullText.lastIndexOf('\n', safePos > 0 ? safePos - 1 : 0);
-    start = (start == -1) ? 0 : start + 1;
-    int end = fullText.indexOf('\n', safePos);
-    end = (end == -1) ? fullText.length : end;
-    return (
-      lineStart: start,
-      lineEnd: end,
-      currentLine: fullText.substring(start, end),
-    );
-  }
-  static void toggleBullet(TextEditingController controller, {String bullet = '★ '}) {
-    final text = controller.text;
-    final sel = controller.selection;
-    final pos = sel.isValid ? sel.baseOffset : text.length;
-    final lineInfo = getLineAtCursor(text, pos);
-    final current = lineInfo.currentLine;
-    String updatedLine;
-    int cursorShift;
-    if (current.trimLeft().startsWith(bullet.trim())) {
-      updatedLine = current.replaceFirst(bullet, '');
-      cursorShift = -bullet.length;
-    } else {
-      updatedLine = '$bullet$current';
-      cursorShift = bullet.length;
-    }
-    final newFullText = text.replaceRange(lineInfo.lineStart, lineInfo.lineEnd, updatedLine);
-    final newPos = (pos + cursorShift).clamp(0, newFullText.length);
-    controller.value = TextEditingValue(
-      text: newFullText,
-      selection: TextSelection.collapsed(offset: newPos),
-    );
-  }
-  static void alignCurrentLine(TextEditingController controller, TextAlign alignment) {
-    final text = controller.text;
-    final sel = controller.selection;
-    final pos = sel.isValid ? sel.baseOffset : text.length;
-    final lineInfo = getLineAtCursor(text, pos);
-    var line = lineInfo.currentLine.trimLeft();
-    line = line.replaceAll(RegExp(r'^\[(C|L|R)\]'), '');
-    String prefix = '';
-    if (alignment == TextAlign.center) {
-      prefix = '[C]';
-    } else if (alignment == TextAlign.left) {
-      prefix = '[L]';
-    } else {
-      prefix = ''; // دائیں طرف کے لیے سادہ لائن
-    }
-    final updatedLine = '$prefix$line';
-    final newFullText = text.replaceRange(lineInfo.lineStart, lineInfo.lineEnd, updatedLine);
-    controller.value = TextEditingValue(
-      text: newFullText,
-      selection: TextSelection.collapsed(
-        offset: (lineInfo.lineStart + updatedLine.length).clamp(0, newFullText.length),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/services/stamp_pdf_capture_service.dart">
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-class StampPdfCaptureService {
-  static Future<Uint8List> generateStampPdf({
-    required List<GlobalKey> pageKeys,
-    required String docTitle,
-  }) async {
-    final pdfDocument = pw.Document(title: docTitle);
-    const PdfPageFormat format = PdfPageFormat.legal;
-    for (int i = 0; i < pageKeys.length; i++) {
-      final key = pageKeys[i];
-      final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) continue;
-      final ui.Image image = await boundary.toImage(pixelRatio: 4.0);
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) continue;
-      final Uint8List pngBytes = byteData.buffer.asUint8List();
-      final pw.MemoryImage pdfImage = pw.MemoryImage(pngBytes);
-      pdfDocument.addPage(
-        pw.Page(
-          pageFormat: format,
-          margin: pw.EdgeInsets.zero,
-          build: (pw.Context context) {
-            return pw.FullPage(
-              ignoreMargins: true,
-              child: pw.Image(pdfImage, fit: pw.BoxFit.fill),
-            );
-          },
-        ),
-      );
-    }
-    return await pdfDocument.save();
-  }
-  static Future<void> printOrSavePdf({
-    required Uint8List pdfBytes,
-    required String fileName,
-  }) async {
-    await Printing.layoutPdf(
-      name: fileName,
-      onLayout: (PdfPageFormat format) async => pdfBytes,
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/services/stamp_rich_text_controller.dart">
-import 'package:flutter/material.dart';
-class StampSpanStyle {
-  int start;
-  int end;
-  bool isBold;
-  bool isUnderline;
-  double? fontSize;
-  StampSpanStyle({
-    required this.start,
-    required this.end,
-    this.isBold = false,
-    this.isUnderline = false,
-    this.fontSize,
-  });
-  Map<String, dynamic> toJson() => {
-        'start': start,
-        'end': end,
-        'isBold': isBold,
-        'isUnderline': isUnderline,
-        'fontSize': fontSize,
-      };
-  factory StampSpanStyle.fromJson(Map<String, dynamic> json) => StampSpanStyle(
-        start: json['start'] as int,
-        end: json['end'] as int,
-        isBold: json['isBold'] as bool? ?? false,
-        isUnderline: json['isUnderline'] as bool? ?? false,
-        fontSize: (json['fontSize'] as num?)?.toDouble(),
-      );
-}
-class StampRichTextController extends TextEditingController {
-  double defaultFontSize;
-  TextAlign textAlign;
-  List<StampSpanStyle> formattingSpans = [];
-  String _previousText = '';
-  StampRichTextController({
-    super.text,
-    this.defaultFontSize = 14.0,
-    this.textAlign = TextAlign.right,
-  }) {
-    _previousText = text;
-  }
-  void setAlignment(TextAlign newAlign) {
-    textAlign = newAlign;
-    notifyListeners();
-  }
-  @override
-  set value(TextEditingValue newValue) {
-    final oldText = _previousText;
-    final newText = newValue.text;
-    if (oldText != newText && formattingSpans.isNotEmpty) {
-      _adjustSpansOnTextChange(oldText, newText);
-    }
-    _previousText = newText;
-    super.value = newValue;
-  }
-  void _adjustSpansOnTextChange(String oldText, String newText) {
-    int diffIndex = 0;
-    final minLen = oldText.length < newText.length ? oldText.length : newText.length;
-    while (diffIndex < minLen && oldText[diffIndex] == newText[diffIndex]) {
-      diffIndex++;
-    }
-    final diffLength = newText.length - oldText.length;
-    for (int i = formattingSpans.length - 1; i >= 0; i--) {
-      final s = formattingSpans[i];
-      if (diffIndex <= s.start) {
-        s.start += diffLength;
-        s.end += diffLength;
-      } else if (diffIndex > s.start && diffIndex <= s.end) {
-        s.end += diffLength;
-      }
-      if (s.start < 0) s.start = 0;
-      if (s.end > newText.length) s.end = newText.length;
-      if (s.start >= s.end) {
-        formattingSpans.removeAt(i);
-      }
-    }
-  }
-  double getSelectedFontSize(int start, int end) {
-    for (final s in formattingSpans) {
-      if (start >= s.start && end <= s.end && s.fontSize != null) {
-        return s.fontSize!;
-      }
-    }
-    return defaultFontSize;
-  }
-  void applyBoldToRange(int start, int end) {
-    if (start >= end) return;
-    _toggleOrApplyStyle(start, end, toggleBold: true);
-    notifyListeners();
-  }
-  void applyUnderlineToRange(int start, int end) {
-    if (start >= end) return;
-    _toggleOrApplyStyle(start, end, toggleUnderline: true);
-    notifyListeners();
-  }
-  void applyFontSizeToRange(int start, int end, double size) {
-    if (start >= end) return;
-    _toggleOrApplyStyle(start, end, targetFontSize: size);
-    notifyListeners();
-  }
-  void incrementFontSizeInRange(int start, int end, double delta) {
-    if (start >= end) return;
-    final currentSize = getSelectedFontSize(start, end);
-    final targetSize = (currentSize + delta).clamp(10.0, 36.0);
-    _toggleOrApplyStyle(start, end, targetFontSize: targetSize);
-    notifyListeners();
-  }
-  void _toggleOrApplyStyle(
-    int start,
-    int end, {
-    bool? toggleBold,
-    bool? toggleUnderline,
-    double? targetFontSize,
-  }) {
-    StampSpanStyle? found;
-    for (final s in formattingSpans) {
-      if (s.start == start && s.end == end) {
-        found = s;
-        break;
-      }
-    }
-    if (found != null) {
-      if (toggleBold == true) found.isBold = !found.isBold;
-      if (toggleUnderline == true) found.isUnderline = !found.isUnderline;
-      if (targetFontSize != null) found.fontSize = targetFontSize;
-    } else {
-      formattingSpans.add(StampSpanStyle(
-        start: start,
-        end: end,
-        isBold: toggleBold ?? false,
-        isUnderline: toggleUnderline ?? false,
-        fontSize: targetFontSize,
-      ));
-    }
-    formattingSpans.removeWhere(
-      (s) => !s.isBold && !s.isUnderline && s.fontSize == null,
-    );
-  }
-  @override
-  TextSpan buildTextSpan({
-    required BuildContext context,
-    TextStyle? style,
-    required bool withComposing,
-  }) {
-    final baseStyle = style ??
-        TextStyle(
-          fontFamily: 'JameelNoori',
-          fontSize: defaultFontSize,
-          color: const Color(0xFF111111),
-          height: 1.85,
-        );
-    final rawText = text;
-    if (rawText.isEmpty) return TextSpan(style: baseStyle, text: '');
-    final tagRegex = RegExp(r'\{\{.*?\}\}');
-    final alignRegex = RegExp(r'^\[(C|L|R)\]', multiLine: true);
-    final Set<int> boundaries = {0, rawText.length};
-    for (final s in formattingSpans) {
-      if (s.start >= 0 && s.start <= rawText.length) boundaries.add(s.start);
-      if (s.end >= 0 && s.end <= rawText.length) boundaries.add(s.end);
-    }
-    for (final m in tagRegex.allMatches(rawText)) {
-      boundaries.add(m.start);
-      boundaries.add(m.end);
-    }
-    for (final m in alignRegex.allMatches(rawText)) {
-      boundaries.add(m.start);
-      boundaries.add(m.end);
-    }
-    final List<int> sortedBoundaries = boundaries.toList()..sort();
-    final List<InlineSpan> spans = [];
-    for (int i = 0; i < sortedBoundaries.length - 1; i++) {
-      final segStart = sortedBoundaries[i];
-      final segEnd = sortedBoundaries[i + 1];
-      if (segStart >= segEnd) continue;
-      final segText = rawText.substring(segStart, segEnd);
-      var segStyle = baseStyle;
-      if (segText == '[C]' || segText == '[L]' || segText == '[R]') {
-        spans.add(TextSpan(
-          text: segText,
-          style: baseStyle.copyWith(
-            fontSize: 0.01,
-            color: Colors.transparent,
-            letterSpacing: -1.0,
-          ),
-        ));
-        continue;
-      }
-      for (final s in formattingSpans) {
-        if (segStart >= s.start && segEnd <= s.end) {
-          if (s.isBold) {
-            segStyle = segStyle.copyWith(
-              fontWeight: FontWeight.w900,
-              shadows: const [
-                Shadow(color: Color(0xFF111111), offset: Offset(0.3, 0)),
-                Shadow(color: Color(0xFF111111), offset: Offset(-0.3, 0)),
-              ],
-            );
-          }
-          if (s.isUnderline) {
-            segStyle = segStyle.copyWith(
-              decoration: TextDecoration.underline,
-              decorationThickness: 1.5,
-            );
-          }
-          if (s.fontSize != null) {
-            segStyle = segStyle.copyWith(fontSize: s.fontSize);
-          }
-        }
-      }
-      if (segText.startsWith('{{') && segText.endsWith('}}')) {
-        segStyle = segStyle.copyWith(
-          color: Colors.blue.shade900,
-          fontWeight: FontWeight.bold,
-          backgroundColor: Colors.blue.shade50,
-        );
-      }
-      spans.add(TextSpan(text: segText, style: segStyle));
-    }
-    return TextSpan(style: baseStyle, children: spans);
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/services/stamp_selection_menu_builder.dart">
-import 'package:flutter/material.dart';
-import 'stamp_rich_text_controller.dart';
-class StampSelectionMenuBuilder {
-  static Widget build({
-    required BuildContext context,
-    required EditableTextState editableTextState,
-    required TextEditingController controller,
-    required double baseFontSize,
-    required VoidCallback onModified,
-  }) {
-    final endpoints = editableTextState.renderEditable.getEndpointsForSelection(
-      controller.selection,
-    );
-    if (endpoints.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final midpoint = editableTextState.renderEditable.localToGlobal(
-      Offset(
-        (endpoints.first.point.dx + endpoints.last.point.dx) / 2,
-        endpoints.first.point.dy - 10,
-      ),
-    );
-    return Stack(
-      children: [
-        Positioned(
-          top: (midpoint.dy - 50).clamp(40.0, MediaQuery.of(context).size.height - 100),
-          left: (midpoint.dx - 110).clamp(10.0, MediaQuery.of(context).size.width - 240),
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(8),
-            color: const Color(0xFF1E293B),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _btn('بولڈ (B)', () {
-                    editableTextState.hideToolbar();
-                    if (controller is StampRichTextController) {
-                      final sel = controller.selection;
-                      if (sel.isValid && !sel.isCollapsed) {
-                        controller.applyBoldToRange(sel.start, sel.end);
-                      }
-                    }
-                    onModified();
-                  }),
-                  _divider(),
-                  _btn('انڈر لائن (U)', () {
-                    editableTextState.hideToolbar();
-                    if (controller is StampRichTextController) {
-                      final sel = controller.selection;
-                      if (sel.isValid && !sel.isCollapsed) {
-                        controller.applyUnderlineToRange(sel.start, sel.end);
-                      }
-                    }
-                    onModified();
-                  }),
-                  _divider(),
-                  _btn('بڑا (+)', () {
-                    editableTextState.hideToolbar();
-                    if (controller is StampRichTextController) {
-                      final sel = controller.selection;
-                      if (sel.isValid && !sel.isCollapsed) {
-                        controller.incrementFontSizeInRange(sel.start, sel.end, 2.0);
-                      }
-                    }
-                    onModified();
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-  static Widget _btn(String label, VoidCallback tap) => InkWell(
-        onTap: tap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ),
-      );
-  static Widget _divider() => Container(
-        height: 16,
-        width: 1,
-        color: Colors.white24,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-      );
-}
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_canvas_sheet.dart">
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import '../services/stamp_rich_text_controller.dart';
-class StampCanvasSheet extends StatelessWidget {
-  final double sheetWidth;
-  final double sheetHeight;
-  final double scaledTop;
-  final double scaledBottom;
-  final double scaledSide;
-  final Uint8List? bgImage;
-  final String pageLabel;
-  final bool isFirstPage;
-  final int pageIndex;
-  final String textContent;
-  final double fontSize;
-  final StampRichTextController bodyController;
-  final VoidCallback onModified;
-  final Function(double) onTopDrag;
-  final Function(double) onBottomDrag;
-  final Function(double) onSideDrag;
-  const StampCanvasSheet({
-    super.key,
-    required this.sheetWidth,
-    required this.sheetHeight,
-    required this.scaledTop,
-    required this.scaledBottom,
-    required this.scaledSide,
-    required this.bgImage,
-    required this.pageLabel,
-    required this.isFirstPage,
-    required this.pageIndex,
-    required this.textContent,
-    required this.fontSize,
-    required this.bodyController,
-    required this.onModified,
-    required this.onTopDrag,
-    required this.onBottomDrag,
-    required this.onSideDrag,
-  });
-  @override
-  Widget build(BuildContext context) {
-    final double boxW = (sheetWidth - (scaledSide * 2)).clamp(50.0, sheetWidth);
-    final double boxH = (sheetHeight - scaledTop - scaledBottom).clamp(40.0, sheetHeight);
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.blueGrey.shade800,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            pageLabel,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: sheetWidth,
-          height: sheetHeight,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: const [
-              BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
-            ],
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              if (bgImage != null)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Image.memory(
-                      bgImage!,
-                      fit: BoxFit.fill,
-                      filterQuality: FilterQuality.high,
+              if (widget.isSelected)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.drag_indicator, size: 18, color: AppColors.primaryEmerald),
+                ),
+              if (widget.isSelected)
+                Flexible(
+                  child: IntrinsicWidth(
+                    child: TextField(
+                      controller: _editCtrl,
+                      style: textStyle,
+                      textAlign: TextAlign.right,
+                      textDirection: TextDirection.rtl,
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 2),
+                        border: InputBorder.none,
+                        hintText: f.isStaticText ? 'یہاں تحریر لکھیں...' : 'ٹیگ کا نام لکھیں...',
+                        hintStyle: TextStyle(
+                          color: Colors.black38,
+                          fontSize: f.fontSize,
+                          fontFamily: 'JameelNoori',
+                        ),
+                      ),
+                      onChanged: (val) {
+                        widget.onTextEdited?.call(val);
+                      },
                     ),
                   ),
                 )
               else
-                Center(
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.05,
-                      child: Text(
-                        isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "اضافی سادہ ورق",
-                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
+                Text(
+                  _getDisplayText(f.tag).isEmpty
+                      ? (f.isStaticText ? 'خالی تحریر' : 'خالی ٹیگ')
+                      : _getDisplayText(f.tag),
+                  textDirection: TextDirection.rtl,
+                  style: _getDisplayText(f.tag).isEmpty
+                      ? textStyle.copyWith(color: Colors.black26, fontStyle: FontStyle.italic)
+                      : textStyle,
                 ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: scaledTop,
-                child: IgnorePointer(
-                  child: Container(
-                    color: Colors.amber.withAlpha(15),
-                    alignment: Alignment.center,
-                    child: Opacity(
-                      opacity: 0.35,
-                      child: Text(
-                        isFirstPage ? "حاشیہ برائے سرکاری مونوگرام و چالان" : "اوپری حاشیہ",
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: scaledBottom,
-                child: IgnorePointer(
-                  child: Container(
-                    color: Colors.amber.withAlpha(15),
-                    alignment: Alignment.center,
-                    child: Opacity(
-                      opacity: 0.35,
-                      child: Text(
-                        isFirstPage ? "حاشیہ برائے کیو آر کوڈ و ویریفیکیشن" : "نچلا حاشیہ",
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: scaledTop,
-                left: scaledSide,
-                width: boxW,
-                height: boxH,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
-                  child: isFirstPage
-                      ? TextField(
-                          controller: bodyController,
-                          maxLines: null,
-                          expands: true,
-                          textAlign: TextAlign.right,
-                          textDirection: TextDirection.rtl,
-                          cursorColor: Colors.teal.shade800,
-                          cursorWidth: 2.5,
-                          style: TextStyle(
-                            fontFamily: 'JameelNoori',
-                            fontSize: fontSize,
-                            height: 1.85,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF111111),
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                            hintText: 'یہاں تحریر لکھیں یا پیسٹ کریں...',
-                          ),
-                          onChanged: (_) => onModified(),
-                        )
-                      : SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: SelectableText(
-                            textContent,
-                            textAlign: TextAlign.right,
-                            textDirection: TextDirection.rtl,
-                            style: TextStyle(
-                              fontFamily: 'JameelNoori',
-                              fontSize: fontSize,
-                              height: 1.85,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF111111),
-                            ),
-                          ),
-                        ),
-                ),
-              ),
-              Positioned(
-                top: scaledTop,
-                left: scaledSide,
-                width: boxW,
-                child: IgnorePointer(child: Container(height: 1.5, color: Colors.blue.shade600)),
-              ),
-              Positioned(
-                bottom: scaledBottom,
-                left: scaledSide,
-                width: boxW,
-                child: IgnorePointer(child: Container(height: 1.5, color: Colors.blue.shade600)),
-              ),
-              Positioned(
-                top: scaledTop,
-                right: scaledSide,
-                height: boxH,
-                child: IgnorePointer(child: Container(width: 1.5, color: Colors.blue.shade600)),
-              ),
-              Positioned(
-                top: scaledTop,
-                left: scaledSide,
-                height: boxH,
-                child: IgnorePointer(child: Container(width: 1.5, color: Colors.blue.shade600)),
-              ),
-              Positioned(
-                top: scaledTop - 13,
-                right: scaledSide - 13,
-                child: _buildHandle((d) {
-                  onTopDrag(d.delta.dy);
-                  onSideDrag(d.delta.dx);
-                }),
-              ),
-              Positioned(
-                top: scaledTop - 13,
-                left: scaledSide - 13,
-                child: _buildHandle((d) {
-                  onTopDrag(d.delta.dy);
-                  onSideDrag(-d.delta.dx);
-                }),
-              ),
-              Positioned(
-                bottom: scaledBottom - 13,
-                right: scaledSide - 13,
-                child: _buildHandle((d) {
-                  onBottomDrag(d.delta.dy);
-                  onSideDrag(d.delta.dx);
-                }),
-              ),
-              Positioned(
-                bottom: scaledBottom - 13,
-                left: scaledSide - 13,
-                child: _buildHandle((d) {
-                  onBottomDrag(d.delta.dy);
-                  onSideDrag(-d.delta.dx);
-                }),
-              ),
             ],
           ),
         ),
-      ],
-    );
-  }
-  Widget _buildHandle(Function(DragUpdateDetails) onPan) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onPanUpdate: onPan,
-      child: Container(
-        width: 26,
-        height: 26,
-        decoration: BoxDecoration(
-          color: Colors.blue.shade700,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: const [
-            BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2)),
-          ],
-        ),
-        child: const Icon(Icons.open_with, size: 14, color: Colors.white),
       ),
     );
   }
 }
 </file>
 
-<file path="lib/features/stamp_agreement/components/stamp_header_toolbar_ui.dart">
-import 'package:flutter/material.dart';
-class StampHeaderToolbarUi extends StatelessWidget {
-  final TextEditingController titleController;
-  final String? loadedPdfFileName;
-  final double fontSize;
-  final double topMargin;
-  final double bottomMargin;
-  final double sideMargin;
-  final VoidCallback onPickPdf;
-  final VoidCallback onNormalizeParagraphs;
-  final Function(double) onFontSizeChanged;
-  final VoidCallback onShowMargins;
-  const StampHeaderToolbarUi({
-    super.key,
-    required this.titleController,
-    required this.loadedPdfFileName,
-    required this.fontSize,
-    required this.topMargin,
-    required this.bottomMargin,
-    required this.sideMargin,
-    required this.onPickPdf,
-    required this.onNormalizeParagraphs,
-    required this.onFontSizeChanged,
-    required this.onShowMargins,
-  });
-  @override
-  Widget build(BuildContext context) {
-    final int currentSize = fontSize.round().clamp(10, 26);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      color: Colors.white,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 160,
-              child: TextField(
-                controller: titleController,
-                textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                decoration: const InputDecoration(
-                  labelText: 'معاہدے کا عنوان',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: onPickPdf,
-              icon: const Icon(Icons.upload_file, size: 15),
-              label: Text(
-                loadedPdfFileName ?? 'ای-اسٹامپ PDF چنیں',
-                style: const TextStyle(fontSize: 12),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.brown.shade700,
-                foregroundColor: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: onNormalizeParagraphs,
-              icon: const Icon(Icons.format_align_justify, size: 15),
-              label: const Text('سطریں ہموار کریں', style: TextStyle(fontSize: 12)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade700,
-                foregroundColor: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade400),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: () {
-                      final newSize = (currentSize - 1).clamp(10, 26).toDouble();
-                      onFontSizeChanged(newSize);
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(Icons.remove, size: 15, color: Colors.teal),
-                    ),
-                  ),
-                  Text(
-                    '$currentSize pt',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      final newSize = (currentSize + 1).clamp(10, 26).toDouble();
-                      onFontSizeChanged(newSize);
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(Icons.add, size: 15, color: Colors.teal),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: onShowMargins,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'مارجنز: T:${topMargin.toInt()} B:${bottomMargin.toInt()} S:${sideMargin.toInt()}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_studio_app_bar_ui.dart">
+<file path="lib/features/pdf_editor/components/pdf_editor_app_bar_ui.dart">
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-class StampStudioAppBarUi extends StatelessWidget implements PreferredSizeWidget {
+class PdfEditorAppBarUi extends StatelessWidget implements PreferredSizeWidget {
   final String paperSize;
   final Function(String) onPaperSizeChanged;
   final VoidCallback onSave;
-  const StampStudioAppBarUi({
+  const PdfEditorAppBarUi({
     super.key,
     required this.paperSize,
     required this.onPaperSizeChanged,
@@ -1358,309 +235,408 @@ class StampStudioAppBarUi extends StatelessWidget implements PreferredSizeWidget
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AppColors.primaryEmerald,
-      foregroundColor: Colors.white,
-      elevation: 1,
-      titleSpacing: 10,
-      title: Row(
-        children: [
-          ElevatedButton.icon(
+      elevation: 0.5,
+      backgroundColor: Colors.white,
+      foregroundColor: const Color(0xFF1E293B),
+      title: const Text(
+        'پی ڈی ایف ٹیمپلیٹ اسٹوڈیو',
+        style: TextStyle(fontFamily: 'jameel', fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+      actions: [
+        DropdownButton<String>(
+          value: paperSize,
+          underline: const SizedBox(),
+          items: const [
+            DropdownMenuItem(value: 'A4', child: Text('A4 پیپر', style: TextStyle(fontWeight: FontWeight.bold))),
+            DropdownMenuItem(value: 'Legal', child: Text('Legal پیپر', style: TextStyle(fontWeight: FontWeight.bold))),
+          ],
+          onChanged: (val) {
+            if (val != null) onPaperSizeChanged(val);
+          },
+        ),
+        const SizedBox(width: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          child: ElevatedButton.icon(
             onPressed: onSave,
-            icon: const Icon(Icons.check, size: 16),
-            label: const Text(
-              'محفوظ کریں',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
+            icon: const Icon(Icons.check_circle_outline, size: 16),
+            label: const Text('محفوظ کریں', style: TextStyle(fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade800,
+              backgroundColor: AppColors.primaryEmerald,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
             ),
-          ),
-          const Spacer(),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.white38),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSizeOption('A4 (سادہ)', paperSize == 'A4'),
-                _buildSizeOption('لیگل (اسٹامپ)', paperSize == 'Legal'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  Widget _buildSizeOption(String label, bool isSelected) {
-    return InkWell(
-      onTap: () => onPaperSizeChanged(label.contains('A4') ? 'A4' : 'Legal'),
-      borderRadius: BorderRadius.circular(5),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppColors.primaryEmerald : Colors.white,
           ),
         ),
-      ),
+      ],
     );
   }
 }
 </file>
 
-<file path="lib/features/stamp_agreement/services/stamp_file_service.dart">
+<file path="lib/features/pdf_editor/components/pdf_editor_canvas_sheet_ui.dart">
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
-import 'package:printing/printing.dart';
-class StampFileService {
-  static Future<PlatformFile?> pickPdfFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      withData: true,
-    );
-    if (result != null && result.files.isNotEmpty) {
-      return result.files.single;
-    }
-    return null;
-  }
-  static Future<List<Uint8List?>> rasterizePdf(Uint8List bytes) async {
-    List<Uint8List?> pages = [];
-    try {
-      await for (final page in Printing.raster(bytes, dpi: 300.0)) {
-        final pngBytes = await page.toPng();
-        pages.add(pngBytes);
-      }
-    } catch (_) {}
-    return pages;
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_canvas_viewport_ui.dart">
 import 'package:flutter/material.dart';
-import '../stamp_studio_controller.dart';
-import 'stamp_canvas_sheet.dart';
-class StampCanvasViewportUi extends StatelessWidget {
-  final StampStudioController controller;
-  final VoidCallback onStateChange;
-  const StampCanvasViewportUi({
+import 'package:nayab_agreement_app/core/constants/app_colors.dart';
+import '../models/pdf_overlay_field_model.dart';
+import 'pdf_draggable_box_ui.dart';
+class PdfEditorCanvasSheetUi extends StatelessWidget {
+  final double sheetWidth;
+  final double sheetHeight;
+  final Uint8List? bgImage;
+  final List<PdfOverlayFieldModel> fields;
+  final String? selectedFieldId;
+  final double toolbarScale;
+  final Function(Offset localPosition) onCanvasTapWithPos;
+  final Function(String id) onSelectField;
+  final Function(String id, double dx, double dy) onDragField;
+  final Function(String id) onDeleteField;
+  final Function(String id, double newSize) onFontSizeChange;
+  final Function(String id) onToggleBold;
+  final Function(String id) onToggleUnderline;
+  final Function(String id, String newText) onTextEdited;
+  final Function(double delta) onAdjustToolbarScale;
+  const PdfEditorCanvasSheetUi({
     super.key,
-    required this.controller,
-    required this.onStateChange,
+    required this.sheetWidth,
+    required this.sheetHeight,
+    required this.bgImage,
+    required this.fields,
+    required this.selectedFieldId,
+    required this.toolbarScale,
+    required this.onCanvasTapWithPos,
+    required this.onSelectField,
+    required this.onDragField,
+    required this.onDeleteField,
+    required this.onFontSizeChange,
+    required this.onToggleBold,
+    required this.onToggleUnderline,
+    required this.onTextEdited,
+    required this.onAdjustToolbarScale,
   });
+  Widget _buildToolbarBtn({
+    required Widget child,
+    required VoidCallback onTap,
+    bool isActive = false,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primaryEmerald : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: child,
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
-    final isA4 = controller.paperSize == 'A4';
-    final double sheetW = isA4 ? 595.0 : 612.0;
-    final double sheetH = isA4 ? 842.0 : 1008.0;
-    final pages = controller.paginateText();
-    return Container(
-      color: const Color(0xFFDCDCDC),
-      width: double.infinity,
-      height: double.infinity,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 24.0),
-        child: Center(
-          child: Column(
-            children: List.generate(pages.length, (index) {
-              final isFirst = index == 0;
-              final currentTop = isFirst ? controller.topMargin : controller.subsequentTopMargin;
-              final bg = (index < controller.cachedStampPages.length)
-                  ? controller.cachedStampPages[index]
-                  : null;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 32.0),
-                child: StampCanvasSheet(
-                  sheetWidth: sheetW,
-                  sheetHeight: sheetH,
-                  scaledTop: currentTop,
-                  scaledBottom: controller.bottomMargin,
-                  scaledSide: controller.sideMargin,
-                  bgImage: bg,
-                  pageLabel: "صفحہ نمبر ${index + 1} از ${pages.length} (${controller.paperSize})",
-                  isFirstPage: isFirst,
-                  pageIndex: index,
-                  textContent: pages[index],
-                  fontSize: controller.fontSize,
-                  bodyController: controller.bodyController,
-                  onModified: onStateChange,
-                  onTopDrag: (dy) {
-                    if (isFirst) {
-                      controller.setTopMargin(controller.topMargin + dy);
-                    } else {
-                      controller.setSubsequentTopMargin(controller.subsequentTopMargin + dy);
-                    }
-                    onStateChange();
-                  },
-                  onBottomDrag: (dy) {
-                    controller.setBottomMargin(controller.bottomMargin - dy);
-                    onStateChange();
-                  },
-                  onSideDrag: (dx) {
-                    controller.setSideMargin(controller.sideMargin - dx);
-                    onStateChange();
-                  },
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/components/stamp_tags_toolbar_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-class StampTagsToolbarUi extends StatelessWidget {
-  final List<String> pinnedTags;
-  final VoidCallback onBold;
-  final VoidCallback onUnderline;
-  final VoidCallback onInsertEmSpace;
-  final VoidCallback onInsertEmptyTag;
-  final VoidCallback onShowAddCustomTag;
-  final Function(String) onInsertTag;
-  final Function(String) onDeleteTag;
-  const StampTagsToolbarUi({
-    super.key,
-    required this.pinnedTags,
-    required this.onBold,
-    required this.onUnderline,
-    required this.onInsertEmSpace,
-    required this.onInsertEmptyTag,
-    required this.onShowAddCustomTag,
-    required this.onInsertTag,
-    required this.onDeleteTag,
-  });
-  Widget _buildFormatBtn({
-    required String text,
-    required VoidCallback onTap,
-    bool bold = false,
-    bool underline = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
+    PdfOverlayFieldModel? selectedField;
+    if (selectedFieldId != null) {
+      final idx = fields.indexWhere((f) => f.id == selectedFieldId);
+      if (idx != -1) {
+        selectedField = fields[idx];
+      }
+    }
+    return FittedBox(
+      fit: BoxFit.contain,
       child: Container(
-        width: 34,
-        height: 32,
-        alignment: Alignment.center,
+        width: sheetWidth,
+        height: sheetHeight,
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(6),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: const [
+            BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
+          ],
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: bold ? FontWeight.w900 : FontWeight.bold,
-            decoration: underline ? TextDecoration.underline : null,
-            color: const Color(0xFF1E293B),
-          ),
-        ),
-      ),
-    );
-  }
-  Widget _buildActionBtn({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isPrimary = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: isPrimary ? AppColors.primaryEmerald : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isPrimary ? AppColors.primaryEmerald : Colors.grey.shade300,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Icon(
-              icon,
-              size: 15,
-              color: isPrimary ? Colors.white : const Color(0xFF1E293B),
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: isPrimary ? Colors.white : const Color(0xFF1E293B),
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (details) => onCanvasTapWithPos(details.localPosition),
+                child: bgImage != null
+                    ? Image.memory(bgImage!, fit: BoxFit.fill, filterQuality: FilterQuality.high)
+                    : Center(
+                        child: Opacity(
+                          opacity: 0.1,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.picture_as_pdf, size: 70),
+                              SizedBox(height: 8),
+                              Text(
+                                'اوپر سے اپنی رسید یا انوائس PDF اپلوڈ کریں',
+                                style: TextStyle(fontFamily: 'JameelNoori', fontSize: 24, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
               ),
             ),
+            ...fields.map((f) => PdfDraggableBoxUi(
+              field: f,
+              isSelected: f.id == selectedFieldId,
+              onSelect: () => onSelectField(f.id),
+              onDrag: (dx, dy) => onDragField(f.id, dx, dy),
+              onTextEdited: (newText) => onTextEdited(f.id, newText),
+            )),
+            if (selectedField != null)
+              Positioned(
+                left: selectedField.x.clamp(8.0, (sheetWidth - (280.0 * toolbarScale)).clamp(10.0, sheetWidth)),
+                top: (selectedField.y - (52.0 * toolbarScale)) < 5.0
+                    ? (selectedField.y + 45.0)
+                    : (selectedField.y - (52.0 * toolbarScale)),
+                child: Transform.scale(
+                  scale: toolbarScale,
+                  alignment: Alignment.bottomLeft,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 3)),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildToolbarBtn(
+                            onTap: () => onToggleBold(selectedField!.id),
+                            isActive: selectedField.isBold,
+                            child: const Text('B', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13.5)),
+                          ),
+                          const SizedBox(width: 2),
+                          _buildToolbarBtn(
+                            onTap: () => onToggleUnderline(selectedField!.id),
+                            isActive: selectedField.isUnderline,
+                            child: const Text('U', style: TextStyle(color: Colors.white, decoration: TextDecoration.underline, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(height: 16, width: 1, color: Colors.white30),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize - 1),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                              child: Icon(Icons.remove_circle_outline, size: 18, color: Colors.white),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              '${selectedField.fontSize.round()}',
+                              style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize + 1),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                              child: Icon(Icons.add_circle_outline, size: 18, color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(height: 16, width: 1, color: Colors.white30),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => onAdjustToolbarScale(toolbarScale > 1.2 ? -0.2 : 0.2),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                              child: Icon(
+                                toolbarScale > 1.2 ? Icons.zoom_out_map : Icons.zoom_in_map,
+                                size: 16,
+                                color: Colors.amberAccent,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(height: 16, width: 1, color: Colors.white30),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => onDeleteField(selectedField!.id),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                              child: Icon(Icons.delete_forever, size: 20, color: Colors.redAccent),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
+</file>
+
+<file path="lib/features/pdf_editor/components/pdf_editor_tags_bar_ui.dart">
+import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
+class PdfEditorTagsBarUi extends StatelessWidget {
+  final TextEditingController titleController;
+  final String? loadedFileName;
+  final VoidCallback onPickPdf;
+  final VoidCallback onScanCamera;
+  final List<String> availableTags;
+  final String? activePendingTag;
+  final bool isPendingStatic;
+  final Function(String) onSelectTagToStamp;
+  final Function(String) onDeleteTag;
+  final Function(int oldIndex, int newIndex) onReorderTags;
+  final VoidCallback onShowAddCustomTagDialog;
+  final VoidCallback onSelectStaticToStamp;
+  final VoidCallback onSelectEmptyTagToStamp;
+  const PdfEditorTagsBarUi({
+    super.key,
+    required this.titleController,
+    required this.loadedFileName,
+    required this.onPickPdf,
+    required this.onScanCamera,
+    required this.availableTags,
+    this.activePendingTag,
+    this.isPendingStatic = false,
+    required this.onSelectTagToStamp,
+    required this.onDeleteTag,
+    required this.onReorderTags,
+    required this.onShowAddCustomTagDialog,
+    required this.onSelectStaticToStamp,
+    required this.onSelectEmptyTagToStamp,
+  });
   @override
   Widget build(BuildContext context) {
     return Container(
+      color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          Row(
+            children: [
+              Expanded(
+                flex: 4,
+                child: TextField(
+                  controller: titleController,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  decoration: const InputDecoration(
+                    labelText: 'ٹیمپلیٹ کا عنوان',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                flex: 3,
+                child: ElevatedButton.icon(
+                  onPressed: onPickPdf,
+                  icon: const Icon(Icons.picture_as_pdf, size: 15),
+                  label: Text(
+                    loadedFileName ?? 'انوائس PDF',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueGrey.shade800,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: onScanCamera,
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryEmerald,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.document_scanner, size: 16, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'سکین',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFormatBtn(text: 'B', onTap: onBold, bold: true),
+                ElevatedButton.icon(
+                  onPressed: onSelectStaticToStamp,
+                  icon: const Icon(Icons.text_fields, size: 14),
+                  label: Text(
+                    isPendingStatic ? 'تحریر (کلک کریں)' : 'تحریر لکھیں',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isPendingStatic ? Colors.orange.shade800 : Colors.teal.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  ),
+                ),
                 const SizedBox(width: 6),
-                _buildFormatBtn(text: 'U', onTap: onUnderline, underline: true),
+                ElevatedButton.icon(
+                  onPressed: onSelectEmptyTagToStamp,
+                  icon: const Icon(Icons.data_object, size: 14),
+                  label: Text(
+                    activePendingTag == '__empty_tag__' ? 'خالی ٹیگ (کلک کریں)' : 'خالی ٹیگ {{ }}',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: activePendingTag == '__empty_tag__' ? Colors.orange.shade800 : Colors.indigo.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                ElevatedButton.icon(
+                  onPressed: onShowAddCustomTagDialog,
+                  icon: const Icon(Icons.add, size: 14),
+                  label: const Text('نیا ٹیگ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryEmerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Container(height: 20, width: 1, color: Colors.grey.shade300),
-                const SizedBox(width: 8),
-                _buildActionBtn(
-                  icon: Icons.space_bar,
-                  label: 'اسپیس (Tab)',
-                  onTap: onInsertEmSpace,
-                ),
                 const SizedBox(width: 6),
-                _buildActionBtn(
-                  icon: Icons.data_object,
-                  label: 'خالی ٹیگ {{ }}',
-                  onTap: onInsertEmptyTag,
-                ),
-                const SizedBox(width: 6),
-                _buildActionBtn(
-                  icon: Icons.add,
-                  label: 'نیا ٹیگ',
-                  onTap: onShowAddCustomTag,
-                  isPrimary: true,
+                const Text(
+                  'ٹیگ منتخب کریں:',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.blueGrey),
                 ),
               ],
             ),
@@ -1668,42 +644,70 @@ class StampTagsToolbarUi extends StatelessWidget {
           const SizedBox(height: 6),
           SizedBox(
             height: 36,
-            child: ListView.separated(
+            child: ReorderableListView(
               scrollDirection: Axis.horizontal,
-              itemCount: pinnedTags.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 6),
-              itemBuilder: (context, index) {
-                final t = pinnedTags[index];
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: () => onInsertTag(t),
-                        child: Text(
-                          t,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
+              buildDefaultDragHandles: false,
+              onReorderItem: onReorderTags,
+              children: [
+                for (int index = 0; index < availableTags.length; index++)
+                  ReorderableDelayedDragStartListener(
+                    key: ValueKey(availableTags[index]),
+                    index: index,
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: activePendingTag == availableTags[index]
+                            ? AppColors.primaryEmerald.withAlpha(40)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: activePendingTag == availableTags[index]
+                              ? AppColors.primaryEmerald
+                              : const Color(0xFFCBD5E1),
+                          width: activePendingTag == availableTags[index] ? 1.8 : 1.1,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      InkWell(
-                        onTap: () => onDeleteTag(t),
-                        child: Icon(Icons.close, size: 13, color: Colors.red.shade600),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 2),
+                              child: Icon(Icons.drag_indicator, size: 15, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          InkWell(
+                            onTap: () => onSelectTagToStamp(availableTags[index]),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                availableTags[index],
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: activePendingTag == availableTags[index]
+                                      ? AppColors.primaryEmerald
+                                      : const Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            onTap: () => onDeleteTag(availableTags[index]),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2.0),
+                              child: Icon(Icons.close, size: 13, color: Colors.red.shade600),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                );
-              },
+              ],
             ),
           ),
         ],
@@ -1713,543 +717,643 @@ class StampTagsToolbarUi extends StatelessWidget {
 }
 </file>
 
-<file path="lib/features/stamp_agreement/services/stamp_payload_builder.dart">
-import '../../../core/models/document_template_model.dart';
-import '../../../core/time/time_status_service.dart';
-import '../../../core/utils/tag_extraction_helper.dart';
-class StampPayloadBuilder {
-  static Map<String, dynamic> build({
-    required String title,
-    required String content,
-    required String paperSize,
-    required double topMargin,
-    required double subsequentTopMargin,
-    required double bottomMargin,
-    required double sideMargin,
-    required double fontSize,
-    required String? base64Pdf,
-    required String? stampFileName,
-    required List<String> pages,
-  }) {
-    final now = TimeStatusService.nowUtcIso();
-    final doc = DocumentTemplateModel(
-      id: title,
-      title: title,
-      content: content.trim(),
-      mode: DocumentMode.stampOverlay,
-      paperSize: paperSize,
-      topMargin: topMargin,
-      subsequentTopMargin: subsequentTopMargin,
-      bottomMargin: bottomMargin,
-      sideMargin: sideMargin,
-      fontSize: fontSize,
-      base64Pdf: base64Pdf,
-      stampFileName: stampFileName,
-      fields: TemplateService.extractFields(content),
-      pages: pages,
+<file path="lib/features/pdf_editor/models/pdf_overlay_field_model.dart">
+class PdfOverlayFieldModel {
+  final String id;
+  String tag;
+  double x;
+  double y;
+  double fontSize;
+  String fontType;
+  bool isBold;
+  bool isUnderline;
+  bool isStaticText;
+  PdfOverlayFieldModel({
+    required this.id,
+    required this.tag,
+    required this.x,
+    required this.y,
+    this.fontSize = 13.0,
+    this.fontType = 'JameelNoori',
+    this.isBold = false,
+    this.isUnderline = false,
+    this.isStaticText = false,
+  });
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'tag': tag,
+      'x': x,
+      'y': y,
+      'fontSize': fontSize,
+      'fontType': fontType,
+      'isBold': isBold,
+      'isUnderline': isUnderline,
+      'isStaticText': isStaticText,
+    };
+  }
+  factory PdfOverlayFieldModel.fromMap(Map<String, dynamic> map) {
+    return PdfOverlayFieldModel(
+      id: map['id']?.toString() ?? '',
+      tag: map['tag']?.toString() ?? '',
+      x: (map['x'] as num?)?.toDouble() ?? 50.0,
+      y: (map['y'] as num?)?.toDouble() ?? 50.0,
+      fontSize: (map['fontSize'] as num?)?.toDouble() ?? 13.0,
+      fontType: map['fontType']?.toString() ?? 'JameelNoori',
+      isBold: map['isBold'] as bool? ?? false,
+      isUnderline: map['isUnderline'] as bool? ?? false,
+      isStaticText: map['isStaticText'] as bool? ?? false,
     );
-    final map = doc.toMap();
-    map['isSynced'] = false;
-    map['updatedAt'] = now;
-    map['createdAt'] = now;
-    map['isDeleted'] = false;
-    return map;
   }
 }
 </file>
 
-<file path="lib/features/stamp_agreement/services/stamp_storage_handler_service.dart">
-import 'package:flutter/foundation.dart';
+<file path="lib/features/pdf_editor/services/pdf_box_style_service.dart">
+import '../models/pdf_overlay_field_model.dart';
+class PdfBoxStyleService {
+  static double lastFontSize = 13.0;
+  static bool lastIsBold = false;
+  static bool lastIsUnderline = false;
+  static String lastFontType = 'JameelNoori';
+  static double toolbarScale = 1.0;
+  static void rememberStyle({
+    double? fontSize,
+    bool? isBold,
+    bool? isUnderline,
+    String? fontType,
+    double? newToolbarScale,
+  }) {
+    if (fontSize != null) lastFontSize = fontSize;
+    if (isBold != null) lastIsBold = isBold;
+    if (isUnderline != null) lastIsUnderline = isUnderline;
+    if (fontType != null) lastFontType = fontType;
+    if (newToolbarScale != null) toolbarScale = newToolbarScale.clamp(0.8, 1.6);
+  }
+  static PdfOverlayFieldModel createField({
+    required String id,
+    required String tag,
+    required double x,
+    required double y,
+    bool isStaticText = false,
+  }) {
+    return PdfOverlayFieldModel(
+      id: id,
+      tag: tag,
+      x: x,
+      y: y,
+      fontSize: lastFontSize,
+      isBold: lastIsBold,
+      isUnderline: lastIsUnderline,
+      fontType: lastFontType,
+      isStaticText: isStaticText,
+    );
+  }
+  static void syncFromFields(List<PdfOverlayFieldModel> fields) {
+    if (fields.isNotEmpty) {
+      final last = fields.last;
+      lastFontSize = last.fontSize;
+      lastIsBold = last.isBold;
+      lastIsUnderline = last.isUnderline;
+      lastFontType = last.fontType;
+    }
+  }
+  static void resetToDefault() {
+    lastFontSize = 13.0;
+    lastIsBold = false;
+    lastIsUnderline = false;
+    lastFontType = 'JameelNoori';
+    toolbarScale = 1.0;
+  }
+}
+</file>
+
+<file path="lib/features/pdf_editor/services/pdf_editor_storage_service.dart">
+import 'dart:convert';
+import 'dart:typed_data';
 import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
 import '../../../core/models/document_template_model.dart';
-class StampStorageHandlerService {
-  static DocumentTemplateModel? fetchTemplate(String title) {
-    try {
-      final box = HiveBoxManager.getBox(BoxNames.templatesBox);
-      final raw = box.get(title);
-      if (raw is Map) {
-        return DocumentTemplateModel.fromMap(Map<String, dynamic>.from(raw));
-      }
-    } catch (e) {
-      debugPrint('StampStorageHandlerService fetch Error: $e');
+import '../../../core/models/overlay_box_model.dart';
+import '../models/pdf_overlay_field_model.dart';
+class PdfEditorStorageService {
+  static Future<void> saveTemplate({
+    required String title,
+    required String paperSize,
+    required Uint8List? pdfBytes,
+    required String? fileName,
+    required List<PdfOverlayFieldModel> fields,
+  }) async {
+    final box = HiveBoxManager.getBox(BoxNames.templatesBox);
+    final String? b64 = pdfBytes != null ? base64Encode(pdfBytes) : null;
+    final List<OverlayBoxModel> floatingBoxes = fields.map((f) {
+      return OverlayBoxModel(
+        id: f.id,
+        tag: f.tag,
+        x: f.x,
+        y: f.y,
+        width: 140.0,
+        height: 32.0,
+        fontSize: f.fontSize,
+      );
+    }).toList();
+    final List<String> extractedTags = fields.map((f) {
+      return f.tag.replaceAll('{{', '').replaceAll('}}', '').trim();
+    }).toSet().toList();
+    final docModel = DocumentTemplateModel(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: title.trim(),
+      content: '',
+      mode: DocumentMode.formFiller,
+      paperSize: paperSize,
+      topMargin: 0.0,
+      subsequentTopMargin: 0.0,
+      bottomMargin: 0.0,
+      sideMargin: 0.0,
+      fontSize: 13.5,
+      base64Pdf: b64,
+      stampFileName: fileName,
+      floatingBoxes: floatingBoxes,
+      fields: extractedTags,
+      pages: const [],
+    );
+    await box.put(title.trim(), docModel.toMap());
+  }
+  static Future<({
+    String title,
+    String paperSize,
+    String? fileName,
+    Uint8List? pdfBytes,
+    List<PdfOverlayFieldModel> fields,
+  })?> loadTemplate(String title) async {
+    final box = HiveBoxManager.getBox(BoxNames.templatesBox);
+    final raw = box.get(title.trim());
+    if (raw == null) return null;
+    final map = Map<String, dynamic>.from(raw is Map ? raw : {});
+    final doc = DocumentTemplateModel.fromMap(map);
+    Uint8List? bytes;
+    if (doc.base64Pdf != null && doc.base64Pdf!.isNotEmpty) {
+      try {
+        bytes = base64Decode(doc.base64Pdf!);
+      } catch (_) {}
     }
+    final fieldsList = doc.floatingBoxes.map((b) {
+      return PdfOverlayFieldModel(
+        id: b.id,
+        tag: b.tag,
+        x: b.x,
+        y: b.y,
+        fontSize: b.fontSize,
+      );
+    }).toList();
+    return (
+      title: doc.title,
+      paperSize: doc.paperSize,
+      fileName: doc.stampFileName,
+      pdfBytes: bytes,
+      fields: fieldsList,
+    );
+  }
+}
+</file>
+
+<file path="lib/features/pdf_editor/services/pdf_render_helper.dart">
+import 'dart:typed_data';
+import '../../stamp_agreement/services/stamp_file_service.dart';
+class PdfRenderHelper {
+  static Future<List<Uint8List>> renderPdfPages(Uint8List pdfBytes) async {
+    final List<Uint8List> validPages = [];
+    try {
+      final List<Uint8List?> pages = await StampFileService.rasterizePdf(pdfBytes);
+      for (final p in pages) {
+        if (p != null) {
+          validPages.add(p);
+        }
+      }
+    } catch (_) {}
+    return validPages;
+  }
+}
+</file>
+
+<file path="lib/features/pdf_editor/services/pdf_scanner_service.dart">
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
+class PdfScannerService {
+  static Future<Uint8List?> scanDocument() async {
+    if (kIsWeb) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        return result.files.first.bytes;
+      }
+      return null;
+    }
+    try {
+      final options = DocumentScannerOptions(
+        documentFormats: {DocumentFormat.jpeg},
+        mode: ScannerMode.filter,
+        pageLimit: 1,
+        isGalleryImport: true,
+      );
+      final scanner = DocumentScanner(options: options);
+      final DocumentScanningResult result = await scanner.scanDocument();
+      final images = result.images;
+      if (images != null && images.isNotEmpty) {
+        final imagePath = images.first;
+        final file = File(imagePath);
+        if (await file.exists()) {
+          return await file.readAsBytes();
+        }
+      }
+    } catch (_) {}
     return null;
   }
-  static Future<void> saveTemplate(Map<String, dynamic> payload) async {
-    try {
-      final id = payload['title'] ?? payload['id'];
-      if (id != null) {
-        await HiveBoxManager.putBatch(
-          boxName: BoxNames.templatesBox,
-          entries: {id.toString(): payload},
-        );
-      }
-    } catch (e) {
-      debugPrint('StampStorageHandlerService save Error: $e');
-    }
-  }
 }
 </file>
 
-<file path="lib/features/stamp_agreement/services/stamp_text_format_service.dart">
+<file path="lib/features/pdf_editor/pdf_editor_controller.dart">
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'stamp_rich_text_controller.dart';
-class StampTextFormatService {
-  static void insertAtCursor(
-    TextEditingController controller,
-    String textToInsert, {
-    int cursorOffsetInside = 0,
-    FocusNode? focusNode,
-  }) {
-    final text = controller.text;
-    final selection = controller.selection;
-    int start = selection.start;
-    int end = selection.end;
-    if (start < 0 || end < 0) {
-      start = text.length;
-      end = text.length;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'models/pdf_overlay_field_model.dart';
+import 'services/pdf_box_style_service.dart';
+import 'services/pdf_editor_storage_service.dart';
+import 'services/pdf_render_helper.dart';
+import 'services/pdf_scanner_service.dart';
+class PdfEditorController extends ChangeNotifier {
+  final TextEditingController titleController = TextEditingController();
+  String paperSize = 'A4';
+  String? loadedFileName;
+  Uint8List? pdfRawBytes;
+  List<Uint8List> renderedPages = [];
+  final List<PdfOverlayFieldModel> fields = [];
+  String? selectedFieldId;
+  String? pendingStampTag;
+  bool isPendingStatic = false;
+  double get currentToolbarScale => PdfBoxStyleService.toolbarScale;
+  final List<String> availableTags = [
+    '{{کسٹمر کا نام}}',
+    '{{شناختی کارڈ}}',
+    '{{موبائل نمبر}}',
+    '{{پتہ}}',
+    '{{فون ماڈل}}',
+    '{{کل رقم}}',
+    '{{پیشگی ادائیگی}}',
+    '{{ماہانہ قسط}}',
+    '{{تاریخ}}',
+    '{{گارنٹر نام}}',
+  ];
+  void setPaperSize(String size) {
+    paperSize = size;
+    notifyListeners();
+  }
+  void selectField(String? id) {
+    selectedFieldId = id;
+    notifyListeners();
+  }
+  void setPendingStamp(String tag, {bool isStatic = false}) {
+    if (pendingStampTag == tag && isPendingStatic == isStatic) {
+      pendingStampTag = null;
+    } else {
+      pendingStampTag = tag;
+      isPendingStatic = isStatic;
+      selectedFieldId = null;
     }
-    if (start > end) {
-      final temp = start;
-      start = end;
-      end = temp;
-    }
-    start = start.clamp(0, text.length);
-    end = end.clamp(0, text.length);
-    final newText = text.replaceRange(start, end, textToInsert);
-    final int newCursorPos = (cursorOffsetInside > 0)
-        ? (start + cursorOffsetInside)
-        : (start + textToInsert.length);
-    controller.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: newCursorPos.clamp(0, newText.length)),
+    notifyListeners();
+  }
+  void clearPendingStamp() {
+    pendingStampTag = null;
+    isPendingStatic = false;
+    notifyListeners();
+  }
+  void addFieldAtPosition(String tag, double x, double y, {bool isStatic = false}) {
+    final cleanTag = isStatic ? tag : (tag.isEmpty ? '' : '{{${tag.replaceAll('{{', '').replaceAll('}}', '').trim()}}}');
+    final newField = PdfBoxStyleService.createField(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      tag: cleanTag,
+      x: x.clamp(10.0, 500.0),
+      y: y.clamp(10.0, 750.0),
+      isStaticText: isStatic,
     );
-    if (focusNode != null && !focusNode.hasFocus) {
-      focusNode.requestFocus();
+    fields.add(newField);
+    selectedFieldId = newField.id;
+    pendingStampTag = null;
+    notifyListeners();
+  }
+  void adjustToolbarScale(double delta) {
+    final newScale = (PdfBoxStyleService.toolbarScale + delta).clamp(0.8, 1.6);
+    PdfBoxStyleService.rememberStyle(newToolbarScale: newScale);
+    notifyListeners();
+  }
+  void addCustomTag(String tagName) {
+    final clean = tagName.replaceAll('{{', '').replaceAll('}}', '').trim();
+    if (clean.isEmpty) return;
+    final fullTag = '{{$clean}}';
+    if (!availableTags.contains(fullTag)) {
+      availableTags.add(fullTag);
+      notifyListeners();
     }
   }
-  static void insertForcedSpace(TextEditingController controller, [FocusNode? focusNode]) {
-    insertAtCursor(controller, '\u00A0\u00A0\u00A0\u00A0', focusNode: focusNode);
+  void removeCustomTag(String tag) {
+    availableTags.remove(tag);
+    if (pendingStampTag == tag) pendingStampTag = null;
+    notifyListeners();
   }
-  static void insertTag(TextEditingController controller, String tag, [FocusNode? focusNode]) {
-    final clean = tag.replaceAll('{{', '').replaceAll('}}', '').trim();
-    insertAtCursor(controller, '{{$clean}} ', focusNode: focusNode);
+  void reorderTags(int oldIndex, int newIndex) {
+    final item = availableTags.removeAt(oldIndex);
+    availableTags.insert(newIndex, item);
+    notifyListeners();
   }
-  static void insertEmptyTag(TextEditingController controller, [FocusNode? focusNode]) {
-    insertAtCursor(controller, '{{}}', cursorOffsetInside: 2, focusNode: focusNode);
-  }
-  static void insertFormatting(TextEditingController controller, String format, [FocusNode? focusNode]) {
-    final selection = controller.selection;
-    if (!selection.isValid || selection.isCollapsed) return;
-    int start = selection.start;
-    int end = selection.end;
-    if (start > end) {
-      final temp = start;
-      start = end;
-      end = temp;
+  void updateFieldPosition(String id, double dx, double dy) {
+    final index = fields.indexWhere((f) => f.id == id);
+    if (index != -1) {
+      fields[index].x += dx;
+      fields[index].y += dy;
+      notifyListeners();
     }
-    if (controller is StampRichTextController) {
-      if (format.toLowerCase() == 'b') {
-        controller.applyBoldToRange(start, end);
-      } else if (format.toLowerCase() == 'u') {
-        controller.applyUnderlineToRange(start, end);
+  }
+  void updateFieldFontSize(String id, double newSize) {
+    final index = fields.indexWhere((f) => f.id == id);
+    if (index != -1) {
+      final clampedSize = newSize.clamp(9.0, 36.0);
+      fields[index].fontSize = clampedSize;
+      PdfBoxStyleService.rememberStyle(fontSize: clampedSize);
+      notifyListeners();
+    }
+  }
+  void toggleBold(String id) {
+    final index = fields.indexWhere((f) => f.id == id);
+    if (index != -1) {
+      final newState = !fields[index].isBold;
+      fields[index].isBold = newState;
+      PdfBoxStyleService.rememberStyle(isBold: newState);
+      notifyListeners();
+    }
+  }
+  void toggleUnderline(String id) {
+    final index = fields.indexWhere((f) => f.id == id);
+    if (index != -1) {
+      final newState = !fields[index].isUnderline;
+      fields[index].isUnderline = newState;
+      PdfBoxStyleService.rememberStyle(isUnderline: newState);
+      notifyListeners();
+    }
+  }
+  void updateFieldText(String id, String text) {
+    final index = fields.indexWhere((f) => f.id == id);
+    if (index != -1) {
+      fields[index].tag = text;
+      notifyListeners();
+    }
+  }
+  void removeField(String id) {
+    fields.removeWhere((f) => f.id == id);
+    if (selectedFieldId == id) selectedFieldId = null;
+    notifyListeners();
+  }
+  Future<void> pickPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+    if (result != null && result.files.isNotEmpty) {
+      final file = result.files.first;
+      if (file.bytes != null) {
+        pdfRawBytes = file.bytes;
+        loadedFileName = file.name;
+        renderedPages = await PdfRenderHelper.renderPdfPages(file.bytes!);
+        notifyListeners();
       }
     }
-    if (focusNode != null && !focusNode.hasFocus) {
-      focusNode.requestFocus();
+  }
+  Future<void> scanDocumentFromCamera() async {
+    final imageBytes = await PdfScannerService.scanDocument();
+    if (imageBytes != null) {
+      renderedPages = [imageBytes];
+      loadedFileName = 'کیمرہ سکین شدہ دستاویز (${DateTime.now().hour}:${DateTime.now().minute})';
+      final doc = pw.Document();
+      final pageFormat = paperSize == 'A4' ? PdfPageFormat.a4 : PdfPageFormat.legal;
+      doc.addPage(
+        pw.Page(
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => pw.FullPage(
+            ignoreMargins: true,
+            child: pw.Image(pw.MemoryImage(imageBytes), fit: pw.BoxFit.fill),
+          ),
+        ),
+      );
+      pdfRawBytes = await doc.save();
+      notifyListeners();
     }
   }
-  static void applyFontSizeToSelection(TextEditingController controller, double size, [FocusNode? focusNode]) {
-    final selection = controller.selection;
-    if (!selection.isValid || selection.isCollapsed) return;
-    int start = selection.start;
-    int end = selection.end;
-    if (start > end) {
-      final temp = start;
-      start = end;
-      end = temp;
-    }
-    if (controller is StampRichTextController) {
-      final currentSize = controller.getSelectedFontSize(start, end);
-      final double delta = (size - currentSize).toDouble();
-      controller.incrementFontSizeInRange(start, end, delta);
-    }
-    if (focusNode != null && !focusNode.hasFocus) {
-      focusNode.requestFocus();
-    }
-  }
-  static void insertSpacer(TextEditingController controller, [int? points, FocusNode? focusNode]) {
-    insertForcedSpace(controller, focusNode);
-  }
-  static void normalizeParagraphs(TextEditingController controller) {
-    final text = controller.text;
-    if (text.isEmpty) return;
-    final normalized = text
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-        .trim();
-    controller.value = TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
+  Future<bool> saveTemplate() async {
+    if (titleController.text.trim().isEmpty) return false;
+    await PdfEditorStorageService.saveTemplate(
+      title: titleController.text.trim(),
+      paperSize: paperSize,
+      pdfBytes: pdfRawBytes,
+      fileName: loadedFileName,
+      fields: fields,
     );
+    return true;
   }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/stamp_studio_page.dart">
-import 'package:flutter/material.dart';
-import 'components/stamp_canvas_viewport_ui.dart';
-import 'components/stamp_custom_tag_dialog_ui.dart';
-import 'components/stamp_editing_toolbar_ui.dart';
-import 'components/stamp_header_toolbar_ui.dart';
-import 'components/stamp_margin_sheet_ui.dart';
-import 'components/stamp_studio_app_bar_ui.dart';
-import 'components/stamp_tags_toolbar_ui.dart';
-import 'stamp_studio_controller.dart';
-class StampStudioPage extends StatefulWidget {
-  final String? initialTitle;
-  const StampStudioPage({super.key, this.initialTitle});
+  Future<void> loadTemplate(String title) async {
+    final data = await PdfEditorStorageService.loadTemplate(title);
+    if (data != null) {
+      titleController.text = data.title;
+      paperSize = data.paperSize;
+      loadedFileName = data.fileName;
+      pdfRawBytes = data.pdfBytes;
+      fields.clear();
+      fields.addAll(data.fields);
+      PdfBoxStyleService.syncFromFields(fields);
+      if (pdfRawBytes != null) {
+        renderedPages = await PdfRenderHelper.renderPdfPages(pdfRawBytes!);
+      }
+      notifyListeners();
+    }
+  }
   @override
-  State<StampStudioPage> createState() => _StampStudioPageState();
+  void dispose() {
+    titleController.dispose();
+    super.dispose();
+  }
 }
-class _StampStudioPageState extends State<StampStudioPage> {
-  late final StampStudioController _controller;
+</file>
+
+<file path="lib/features/pdf_editor/pdf_editor_page.dart">
+import 'package:flutter/material.dart';
+import 'components/pdf_editor_app_bar_ui.dart';
+import 'components/pdf_editor_canvas_sheet_ui.dart';
+import 'components/pdf_editor_tags_bar_ui.dart';
+import 'pdf_editor_controller.dart';
+class PdfEditorPage extends StatefulWidget {
+  final String? initialTitle;
+  const PdfEditorPage({super.key, this.initialTitle});
+  @override
+  State<PdfEditorPage> createState() => _PdfEditorPageState();
+}
+class _PdfEditorPageState extends State<PdfEditorPage> {
+  late final PdfEditorController _controller;
   @override
   void initState() {
     super.initState();
-    _controller = StampStudioController();
+    _controller = PdfEditorController();
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
-    _controller.initFromTemplate(widget.initialTitle);
+    if (widget.initialTitle != null) {
+      _controller.loadTemplate(widget.initialTitle!);
+    }
   }
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+  void _showAddCustomTagDialog() {
+    final textCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('نیا کسٹم ٹیگ شامل کریں', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            content: TextField(
+              controller: textCtrl,
+              autofocus: true,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(
+                hintText: 'مثلاً: والد کا نام یا گواہ کا فون',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('منسوخ'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (textCtrl.text.trim().isNotEmpty) {
+                    _controller.addCustomTag(textCtrl.text.trim());
+                    Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('شامل کریں'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
+    final isA4 = _controller.paperSize == 'A4';
+    final double sheetW = isA4 ? 595.0 : 612.0;
+    final double sheetH = isA4 ? 842.0 : 1008.0;
+    final bg = _controller.renderedPages.isNotEmpty ? _controller.renderedPages.first : null;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFD4D8DC),
-        appBar: StampStudioAppBarUi(
+        appBar: PdfEditorAppBarUi(
           paperSize: _controller.paperSize,
-          onPaperSizeChanged: (s) => _controller.setPaperSize(s),
+          onPaperSizeChanged: _controller.setPaperSize,
           onSave: () async {
             final ok = await _controller.saveTemplate();
             if (!context.mounted) return;
-            if (ok) Navigator.pop(context, true);
+            if (ok) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('ٹیمپلیٹ کامیابی سے محفوظ ہو گیا!')),
+              );
+              Navigator.pop(context, true);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('براہ کرم ٹیمپلیٹ کا عنوان درج کریں!')),
+              );
+            }
           },
         ),
         body: Column(
           children: [
-            StampHeaderToolbarUi(
+            PdfEditorTagsBarUi(
               titleController: _controller.titleController,
-              loadedPdfFileName: _controller.loadedPdfFileName,
-              fontSize: _controller.currentActiveFontSize,
-              topMargin: _controller.topMargin,
-              bottomMargin: _controller.bottomMargin,
-              sideMargin: _controller.sideMargin,
-              onPickPdf: () => _controller.pickPdf(),
-              onNormalizeParagraphs: () => _controller.normalizeBodyText(),
-              onFontSizeChanged: (newSize) {
-                if (newSize > _controller.currentActiveFontSize) {
-                  _controller.increaseFontSize();
-                } else {
-                  _controller.decreaseFontSize();
-                }
-              },
-              onShowMargins: () => StampMarginSheetUi.show(
-                context: context,
-                top: _controller.topMargin,
-                bottom: _controller.bottomMargin,
-                side: _controller.sideMargin,
-                onTop: (v) => _controller.setTopMargin(v),
-                onBottom: (v) => _controller.setBottomMargin(v),
-                onSide: (v) => _controller.setSideMargin(v),
-              ),
-            ),
-            StampEditingToolbarUi(
-              onAlignRight: () => _controller.alignSelectedLine(TextAlign.right),
-              onAlignCenter: () => _controller.alignSelectedLine(TextAlign.center),
-              onAlignLeft: () => _controller.alignSelectedLine(TextAlign.left),
-              onInsertBullet: () => _controller.toggleBullet(),
-            ),
-            StampTagsToolbarUi(
-              pinnedTags: _controller.pinnedTags,
-              onBold: () => _controller.applyFormatToSelection('b'),
-              onUnderline: () => _controller.applyFormatToSelection('u'),
-              onInsertEmSpace: () => _controller.insertEmSpace(),
-              onInsertEmptyTag: () => _controller.insertEmptyTag(),
-              onInsertTag: (t) => _controller.insertTagAtCursor(t),
-              onDeleteTag: (t) => _controller.removeTag(t),
-              onShowAddCustomTag: () => StampCustomTagDialogUi.show(context, (t) {
-                _controller.addCustomTag(t);
-                _controller.insertTagAtCursor(t);
-              }),
+              loadedFileName: _controller.loadedFileName,
+              onPickPdf: _controller.pickPdf,
+              onScanCamera: _controller.scanDocumentFromCamera,
+              availableTags: _controller.availableTags,
+              activePendingTag: _controller.pendingStampTag,
+              isPendingStatic: _controller.isPendingStatic,
+              onSelectTagToStamp: (t) => _controller.setPendingStamp(t, isStatic: false),
+              onDeleteTag: _controller.removeCustomTag,
+              onReorderTags: _controller.reorderTags,
+              onShowAddCustomTagDialog: _showAddCustomTagDialog,
+              onSelectStaticToStamp: () => _controller.setPendingStamp('', isStatic: true),
+              onSelectEmptyTagToStamp: () => _controller.setPendingStamp('__empty_tag__', isStatic: false),
             ),
             Expanded(
-              child: StampCanvasViewportUi(
-                controller: _controller,
-                onStateChange: () => setState(() {}),
+              child: Container(
+                color: const Color(0xFFDCDCDC),
+                width: double.infinity,
+                height: double.infinity,
+                child: InteractiveViewer(
+                  boundaryMargin: const EdgeInsets.all(40.0),
+                  minScale: 0.8,
+                  maxScale: 3.0,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 24.0),
+                    child: Center(
+                      child: PdfEditorCanvasSheetUi(
+                        sheetWidth: sheetW,
+                        sheetHeight: sheetH,
+                        bgImage: bg,
+                        fields: _controller.fields,
+                        selectedFieldId: _controller.selectedFieldId,
+                        toolbarScale: _controller.currentToolbarScale,
+                        onCanvasTapWithPos: (pos) {
+                          if (_controller.pendingStampTag != null || _controller.isPendingStatic) {
+                            final tagToUse = _controller.pendingStampTag == '__empty_tag__'
+                                ? ''
+                                : (_controller.pendingStampTag ?? '');
+                            _controller.addFieldAtPosition(
+                              tagToUse,
+                              pos.dx,
+                              pos.dy,
+                              isStatic: _controller.isPendingStatic,
+                            );
+                          } else {
+                            _controller.selectField(null);
+                          }
+                        },
+                        onSelectField: _controller.selectField,
+                        onDragField: _controller.updateFieldPosition,
+                        onDeleteField: _controller.removeField,
+                        onFontSizeChange: _controller.updateFieldFontSize,
+                        onToggleBold: _controller.toggleBold,
+                        onToggleUnderline: _controller.toggleUnderline,
+                        onTextEdited: _controller.updateFieldText,
+                        onAdjustToolbarScale: _controller.adjustToolbarScale,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
-  }
-}
-</file>
-
-<file path="lib/features/stamp_agreement/stamp_studio_controller.dart">
-import 'dart:convert';
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import '../../core/utils/paper_pagination_helper.dart';
-import 'services/stamp_alignment_service.dart';
-import 'services/stamp_file_service.dart';
-import 'services/stamp_paragraph_service.dart';
-import 'services/stamp_payload_builder.dart';
-import 'services/stamp_rich_text_controller.dart';
-import 'services/stamp_storage_handler_service.dart';
-import 'services/stamp_text_format_service.dart';
-class StampStudioController extends ChangeNotifier {
-  final TextEditingController titleController =
-      TextEditingController(text: 'پنجاب ای-اسٹامپ معاہدہ');
-  late final StampRichTextController bodyController;
-  TextSelection activeSelection = const TextSelection.collapsed(offset: 0);
-  String paperSize = 'Legal';
-  double topMargin = 320.0,
-      subsequentTopMargin = 65.0,
-      bottomMargin = 270.0,
-      sideMargin = 40.0;
-  double fontSize = 14.0;
-  Uint8List? stampPdfBytes;
-  List<Uint8List?> cachedStampPages = [];
-  String? loadedPdfFileName;
-  bool isLoadingPdf = false;
-  final List<String> pinnedTags = [
-    'کسٹمر کا نام',
-    'ولدیت',
-    'شناختی کارڈ',
-    'موبائل ماڈل',
-    'IMEI نمبر',
-    'ایڈوانس رقم',
-    'ماہانہ قسط',
-    'ٹوٹل رقم',
-    'مدت',
-  ];
-  StampStudioController() {
-    bodyController = StampRichTextController(defaultFontSize: fontSize);
-    bodyController.addListener(() {
-      if (bodyController.selection.isValid) {
-        activeSelection = bodyController.selection;
-      }
-    });
-  }
-  TextSelection get effectiveSelection {
-    if (bodyController.selection.isValid && bodyController.selection.start >= 0) {
-      return bodyController.selection;
-    }
-    if (activeSelection.isValid && activeSelection.start >= 0) {
-      return activeSelection;
-    }
-    return TextSelection.collapsed(offset: bodyController.text.length);
-  }
-  double get currentActiveFontSize {
-    final sel = effectiveSelection;
-    if (sel.isValid && !sel.isCollapsed) {
-      return bodyController.getSelectedFontSize(sel.start, sel.end);
-    }
-    return fontSize;
-  }
-  void initFromTemplate(String? existingTitle) {
-    if (existingTitle == null || existingTitle.isEmpty) return;
-    final doc = StampStorageHandlerService.fetchTemplate(existingTitle);
-    if (doc == null) return;
-    titleController.text = doc.title;
-    bodyController.text = doc.content;
-    paperSize = doc.paperSize.isNotEmpty ? doc.paperSize : 'Legal';
-    topMargin = doc.topMargin;
-    subsequentTopMargin = doc.subsequentTopMargin;
-    bottomMargin = doc.bottomMargin;
-    sideMargin = doc.sideMargin;
-    fontSize = doc.fontSize.roundToDouble();
-    bodyController.defaultFontSize = fontSize;
-    loadedPdfFileName = doc.stampFileName;
-    if (doc.base64Pdf != null && doc.base64Pdf!.isNotEmpty) {
-      try {
-        stampPdfBytes = base64Decode(doc.base64Pdf!);
-        _renderPdf(stampPdfBytes!);
-      } catch (_) {}
-    }
-    notifyListeners();
-  }
-  void insertEmptyTag() {
-    bodyController.selection = effectiveSelection;
-    StampTextFormatService.insertEmptyTag(bodyController);
-    activeSelection = bodyController.selection;
-    notifyListeners();
-  }
-  void insertEmSpace() {
-    bodyController.selection = effectiveSelection;
-    StampAlignmentService.insertEmSpace(bodyController);
-    activeSelection = bodyController.selection;
-    notifyListeners();
-  }
-  void insertTagAtCursor(String tagText) {
-    bodyController.selection = effectiveSelection;
-    StampTextFormatService.insertTag(bodyController, tagText);
-    activeSelection = bodyController.selection;
-    notifyListeners();
-  }
-  void increaseFontSize() {
-    final sel = effectiveSelection;
-    if (sel.isValid && !sel.isCollapsed) {
-      bodyController.incrementFontSizeInRange(sel.start, sel.end, 1.0);
-      activeSelection = bodyController.selection;
-    } else {
-      fontSize = (fontSize + 1.0).clamp(10.0, 32.0);
-      bodyController.defaultFontSize = fontSize;
-    }
-    notifyListeners();
-  }
-  void decreaseFontSize() {
-    final sel = effectiveSelection;
-    if (sel.isValid && !sel.isCollapsed) {
-      bodyController.incrementFontSizeInRange(sel.start, sel.end, -1.0);
-      activeSelection = bodyController.selection;
-    } else {
-      fontSize = (fontSize - 1.0).clamp(10.0, 32.0);
-      bodyController.defaultFontSize = fontSize;
-    }
-    notifyListeners();
-  }
-  void setFontSize(double size) {
-    final targetSize = size.roundToDouble().clamp(10.0, 32.0);
-    final sel = effectiveSelection;
-    if (sel.isValid && !sel.isCollapsed) {
-      final current = bodyController.getSelectedFontSize(sel.start, sel.end);
-      final delta = targetSize - current;
-      bodyController.incrementFontSizeInRange(sel.start, sel.end, delta);
-      activeSelection = bodyController.selection;
-    } else {
-      fontSize = targetSize;
-      bodyController.defaultFontSize = targetSize;
-    }
-    notifyListeners();
-  }
-  void alignSelectedLine(TextAlign alignment) {
-    bodyController.selection = effectiveSelection;
-    StampAlignmentService.alignLine(bodyController, alignment);
-    activeSelection = bodyController.selection;
-    notifyListeners();
-  }
-  void toggleBullet() {
-    bodyController.selection = effectiveSelection;
-    StampParagraphService.toggleBullet(bodyController);
-    activeSelection = bodyController.selection;
-    notifyListeners();
-  }
-  void applyFormatToSelection(String format) {
-    final sel = effectiveSelection;
-    if (sel.isValid && !sel.isCollapsed) {
-      bodyController.selection = sel;
-    }
-    StampTextFormatService.insertFormatting(bodyController, format);
-    activeSelection = bodyController.selection;
-    notifyListeners();
-  }
-  void addCustomTag(String tag) {
-    if (tag.trim().isNotEmpty && !pinnedTags.contains(tag.trim())) {
-      pinnedTags.add(tag.trim());
-      notifyListeners();
-    }
-  }
-  void removeTag(String tag) {
-    pinnedTags.remove(tag);
-    notifyListeners();
-  }
-  void setPaperSize(String size) {
-    paperSize = size;
-    final isA4 = size == 'A4';
-    topMargin = isA4 ? 45.0 : 320.0;
-    subsequentTopMargin = isA4 ? 45.0 : 65.0;
-    bottomMargin = isA4 ? 45.0 : 270.0;
-    sideMargin = isA4 ? 35.0 : 40.0;
-    notifyListeners();
-  }
-  void setTopMargin(double val) {
-    topMargin = val.clamp(30.0, 700.0);
-    notifyListeners();
-  }
-  void setSubsequentTopMargin(double val) {
-    subsequentTopMargin = val.clamp(30.0, 400.0);
-    notifyListeners();
-  }
-  void setBottomMargin(double val) {
-    bottomMargin = val.clamp(30.0, 500.0);
-    notifyListeners();
-  }
-  void setSideMargin(double val) {
-    sideMargin = val.clamp(15.0, 150.0);
-    notifyListeners();
-  }
-  Future<void> pickPdf() async {
-    final file = await StampFileService.pickPdfFile();
-    if (file != null && file.bytes != null) {
-      stampPdfBytes = file.bytes!;
-      loadedPdfFileName = file.name;
-      await _renderPdf(stampPdfBytes!);
-    }
-  }
-  Future<void> _renderPdf(Uint8List bytes) async {
-    isLoadingPdf = true;
-    notifyListeners();
-    cachedStampPages = await StampFileService.rasterizePdf(bytes);
-    isLoadingPdf = false;
-    notifyListeners();
-  }
-  void normalizeBodyText() {
-    StampTextFormatService.normalizeParagraphs(bodyController);
-    notifyListeners();
-  }
-  List<String> paginateText() => AgreementPaginationService.paginate(
-        fullText: bodyController.text,
-        fontSize: fontSize,
-        p1TopMargin: topMargin,
-        subsequentTopMargin: subsequentTopMargin,
-        bottomMargin: bottomMargin,
-        sideMargin: sideMargin,
-        paperSize: paperSize,
-      );
-  Future<bool> saveTemplate() async {
-    if (titleController.text.trim().isEmpty) return false;
-    final b64 = stampPdfBytes != null ? base64Encode(stampPdfBytes!) : null;
-    final payload = StampPayloadBuilder.build(
-      title: titleController.text.trim(),
-      content: bodyController.text,
-      paperSize: paperSize,
-      topMargin: topMargin,
-      subsequentTopMargin: subsequentTopMargin,
-      bottomMargin: bottomMargin,
-      sideMargin: sideMargin,
-      fontSize: fontSize,
-      base64Pdf: b64,
-      stampFileName: loadedPdfFileName,
-      pages: paginateText(),
-    );
-    await StampStorageHandlerService.saveTemplate(payload);
-    return true;
-  }
-  @override
-  void dispose() {
-    titleController.dispose();
-    bodyController.dispose();
-    super.dispose();
   }
 }
 </file>

@@ -25,7 +25,12 @@ class CounterStorageHandlerService {
     return HiveBoxManager.listenToBox(BoxNames.agreementDraftBox);
   }
 
-  // ٹیمپلیٹس باکس سے براہ راست پڑھنا
+  /// ہائیو ٹیمپلیٹس باکس کا رئیل ٹائم لسنر
+  static ValueListenable listenToTemplates() {
+    return HiveBoxManager.listenToBox(BoxNames.templatesBox);
+  }
+
+  // ٹیمپلیٹس باکس سے فوری ڈیٹا پڑھنا
   static Map<String, Map<String, dynamic>> getAllTemplates() {
     try {
       final box = HiveBoxManager.getBox(BoxNames.templatesBox);
@@ -39,6 +44,24 @@ class CounterStorageHandlerService {
       return map;
     } catch (_) {
       return {};
+    }
+  }
+
+  /// ٹیمپلیٹ کو ہائیو سے ڈیلیٹ کرنا (اور ڈرافٹ میں اگر سلیکٹڈ ہو تو کلیئر کرنا)
+  static Future<bool> deleteTemplate(String title) async {
+    try {
+      final box = HiveBoxManager.getBox(BoxNames.templatesBox);
+      await box.delete(title.trim());
+
+      // اگر یہی ٹیمپلیٹ ڈرافٹ میں ایکٹو تھا تو ڈرافٹ سے بھی سلیکشن ہٹا دیں
+      final draftBox = HiveBoxManager.getBox(BoxNames.agreementDraftBox);
+      if (draftBox.get('selected_template') == title.trim()) {
+        await draftBox.delete('selected_template');
+      }
+      return true;
+    } catch (e) {
+      debugPrint('CounterStorageHandlerService deleteTemplate Error: $e');
+      return false;
     }
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'models/stamp_overlay_field_model.dart';
+import 'services/stamp_box_style_service.dart';
 import 'services/stamp_margin_service.dart';
 import 'services/stamp_pdf_state_service.dart';
 import 'services/stamp_rich_text_controller.dart';
@@ -16,6 +18,13 @@ class StampStudioController extends ChangeNotifier {
   String paperSize = 'Legal';
   double topMargin = 320.0, subsequentTopMargin = 65.0, bottomMargin = 270.0, sideMargin = 40.0;
   double fontSize = 14.0;
+
+  // آزاد اوورلے فیلڈز (مونوگرام، محفوظ زون اور تمام صفحات کے لیے)
+  final List<StampOverlayFieldModel> overlayFields = [];
+  String? selectedOverlayFieldId;
+  bool isOverlayPlacementActive = false;
+
+  double get currentToolbarScale => StampBoxStyleService.toolbarScale;
 
   StampStudioController() {
     bodyController = StampRichTextController(defaultFontSize: fontSize);
@@ -89,7 +98,94 @@ class StampStudioController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // عمومی نوٹیفائر (UI ٹولز سروس کال کے بعد اسے پکاریں گے)
+  // فلوٹنگ اوورلے پاپ اپ ایکشنز
+  void toggleOverlayPlacementMode() {
+    isOverlayPlacementActive = !isOverlayPlacementActive;
+    if (isOverlayPlacementActive) {
+      selectedOverlayFieldId = null;
+    }
+    notifyListeners();
+  }
+
+  void addOverlayFieldAtPosition(double x, double y, {int pageIndex = 0, String text = ''}) {
+    final newField = StampBoxStyleService.createField(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      tag: text,
+      x: x.clamp(10.0, 500.0),
+      y: y.clamp(10.0, 950.0),
+      pageIndex: pageIndex,
+      isStaticText: true,
+    );
+    overlayFields.add(newField);
+    selectedOverlayFieldId = newField.id;
+    isOverlayPlacementActive = false;
+    notifyListeners();
+  }
+
+  void selectOverlayField(String? id) {
+    selectedOverlayFieldId = id;
+    notifyListeners();
+  }
+
+  void updateOverlayFieldPosition(String id, double dx, double dy) {
+    final idx = overlayFields.indexWhere((f) => f.id == id);
+    if (idx != -1) {
+      overlayFields[idx].x += dx;
+      overlayFields[idx].y += dy;
+      notifyListeners();
+    }
+  }
+
+  void updateOverlayFieldFontSize(String id, double newSize) {
+    final idx = overlayFields.indexWhere((f) => f.id == id);
+    if (idx != -1) {
+      final clamped = newSize.clamp(9.0, 36.0);
+      overlayFields[idx].fontSize = clamped;
+      StampBoxStyleService.rememberStyle(fontSize: clamped);
+      notifyListeners();
+    }
+  }
+
+  void toggleOverlayBold(String id) {
+    final idx = overlayFields.indexWhere((f) => f.id == id);
+    if (idx != -1) {
+      final newState = !overlayFields[idx].isBold;
+      overlayFields[idx].isBold = newState;
+      StampBoxStyleService.rememberStyle(isBold: newState);
+      notifyListeners();
+    }
+  }
+
+  void toggleOverlayUnderline(String id) {
+    final idx = overlayFields.indexWhere((f) => f.id == id);
+    if (idx != -1) {
+      final newState = !overlayFields[idx].isUnderline;
+      overlayFields[idx].isUnderline = newState;
+      StampBoxStyleService.rememberStyle(isUnderline: newState);
+      notifyListeners();
+    }
+  }
+
+  void updateOverlayFieldText(String id, String newText) {
+    final idx = overlayFields.indexWhere((f) => f.id == id);
+    if (idx != -1) {
+      overlayFields[idx].tag = newText;
+      notifyListeners();
+    }
+  }
+
+  void removeOverlayField(String id) {
+    overlayFields.removeWhere((f) => f.id == id);
+    if (selectedOverlayFieldId == id) selectedOverlayFieldId = null;
+    notifyListeners();
+  }
+
+  void adjustToolbarScale(double delta) {
+    final newScale = (StampBoxStyleService.toolbarScale + delta).clamp(0.8, 1.6);
+    StampBoxStyleService.rememberStyle(newToolbarScale: newScale);
+    notifyListeners();
+  }
+
   void notify() => notifyListeners();
 
   List<String> paginateText() => StampTemplateService.paginate(

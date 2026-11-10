@@ -87,6 +87,8 @@ class _StampStudioPageState extends State<StampStudioPage> {
               ),
             ),
             StampEditingToolbarUi(
+              isOverlayActive: _controller.isOverlayPlacementActive,
+              onToggleOverlayMode: _controller.toggleOverlayPlacementMode,
               onAlignRight: () {
                 _syncSelection();
                 StampAlignmentService.alignLine(_controller.bodyController, TextAlign.right);

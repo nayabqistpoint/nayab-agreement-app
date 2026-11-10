@@ -91,6 +91,9 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       context,
                       const StampStudioPage(),
                     ).then((_) => _c.init()),
+                    onOpenPdfEditor: () => CounterNavigationService.openPdfEditor(
+                      context,
+                    ).then((_) => _c.init()),
                   ),
                   CounterTemplateSelectorUi(
                     selectedTitle: _c.selectedTemplateTitle,
@@ -100,6 +103,14 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       context,
                       _c.selectedTemplateTitle,
                     ).then((v) => v == true ? _c.init() : null),
+                    onDeleteTemplate: (title) async {
+                      final ok = await _c.deleteCurrentTemplate(title);
+                      if (ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('ٹیمپلیٹ "$title" حذف کر دیا گیا')),
+                        );
+                      }
+                    },
                   ),
                   CounterBucketBadgeUi(
                     filledCount: _c.currentFieldValues.length,
