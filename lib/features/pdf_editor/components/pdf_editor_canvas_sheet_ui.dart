@@ -49,7 +49,7 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primaryEmerald : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
@@ -84,7 +84,6 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // 1. کینوس بیک گراؤنڈ جس پر کلک کرنے کی لوکل پوزیشن پکڑی جائے گی
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -109,8 +108,6 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                       ),
               ),
             ),
-
-            // 2. تمام ڈریگ ایبل ٹیکسٹ باکسز
             ...fields.map((f) => PdfDraggableBoxUi(
               field: f,
               isSelected: f.id == selectedFieldId,
@@ -118,14 +115,12 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
               onDrag: (dx, dy) => onDragField(f.id, dx, dy),
               onTextEdited: (newText) => onTextEdited(f.id, newText),
             )),
-
-            // 3. ٹول بار (ڈائنامک اسکیل اور ری سائز ہینڈل کے ساتھ)
             if (selectedField != null)
               Positioned(
-                left: selectedField.x.clamp(8.0, (sheetWidth - (280.0 * toolbarScale)).clamp(10.0, sheetWidth)),
-                top: (selectedField.y - (52.0 * toolbarScale)) < 5.0
-                    ? (selectedField.y + 45.0)
-                    : (selectedField.y - (52.0 * toolbarScale)),
+                left: selectedField.x.clamp(8.0, (sheetWidth - (310.0 * toolbarScale)).clamp(10.0, sheetWidth)),
+                top: (selectedField.y - (62.0 * toolbarScale)) < 5.0
+                    ? (selectedField.y + 50.0)
+                    : (selectedField.y - (62.0 * toolbarScale)),
                 child: Transform.scale(
                   scale: toolbarScale,
                   alignment: Alignment.bottomLeft,
@@ -133,12 +128,12 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                     behavior: HitTestBehavior.opaque,
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         boxShadow: const [
-                          BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 3)),
+                          BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 1, offset: Offset(0, 4)),
                         ],
                       ),
                       child: Row(
@@ -147,64 +142,74 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                           _buildToolbarBtn(
                             onTap: () => onToggleBold(selectedField!.id),
                             isActive: selectedField.isBold,
-                            child: const Text('B', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13.5)),
+                            child: const Text('B', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
                           ),
-                          const SizedBox(width: 2),
+                          const SizedBox(width: 3),
                           _buildToolbarBtn(
                             onTap: () => onToggleUnderline(selectedField!.id),
                             isActive: selectedField.isUnderline,
-                            child: const Text('U', style: TextStyle(color: Colors.white, decoration: TextDecoration.underline, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                            child: const Text('U', style: TextStyle(color: Colors.white, decoration: TextDecoration.underline, fontWeight: FontWeight.bold, fontSize: 15)),
                           ),
                           const SizedBox(width: 4),
-                          Container(height: 16, width: 1, color: Colors.white30),
+                          Container(height: 18, width: 1.2, color: Colors.white30),
                           const SizedBox(width: 4),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize - 1),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                              child: Icon(Icons.remove_circle_outline, size: 18, color: Colors.white),
+                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                              child: Icon(Icons.remove_circle_outline, size: 21, color: Colors.white),
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
                             child: Text(
                               '${selectedField.fontSize.round()}',
-                              style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
                             ),
                           ),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize + 1),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                              child: Icon(Icons.add_circle_outline, size: 18, color: Colors.white),
+                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                              child: Icon(Icons.add_circle_outline, size: 21, color: Colors.white),
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Container(height: 16, width: 1, color: Colors.white30),
-                          // ٹول بار زوم/ری سائز کنٹرول (موبائل اور بڑی اسکرین کے لیے)
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => onAdjustToolbarScale(toolbarScale > 1.2 ? -0.2 : 0.2),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                              child: Icon(
-                                toolbarScale > 1.2 ? Icons.zoom_out_map : Icons.zoom_in_map,
-                                size: 16,
-                                color: Colors.amberAccent,
+                          Container(height: 18, width: 1.2, color: Colors.white30),
+                          const SizedBox(width: 4),
+                          Tooltip(
+                            message: 'ٹول بار چھوٹا کریں',
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => onAdjustToolbarScale(-0.2),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                                child: Text('T-', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 12.5)),
+                              ),
+                            ),
+                          ),
+                          Tooltip(
+                            message: 'ٹول بار بڑا کریں',
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => onAdjustToolbarScale(0.2),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                                child: Text('T+', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 14)),
                               ),
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Container(height: 16, width: 1, color: Colors.white30),
+                          Container(height: 18, width: 1.2, color: Colors.white30),
                           const SizedBox(width: 4),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: () => onDeleteField(selectedField!.id),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                              child: Icon(Icons.delete_forever, size: 20, color: Colors.redAccent),
+                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                              child: Icon(Icons.delete_forever, size: 23, color: Colors.redAccent),
                             ),
                           ),
                         ],

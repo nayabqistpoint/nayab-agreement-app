@@ -11,15 +11,12 @@ import 'services/pdf_scanner_service.dart';
 
 class PdfEditorController extends ChangeNotifier {
   final TextEditingController titleController = TextEditingController();
-
   String paperSize = 'A4';
   String? loadedFileName;
   Uint8List? pdfRawBytes;
   List<Uint8List> renderedPages = [];
-
   final List<PdfOverlayFieldModel> fields = [];
   String? selectedFieldId;
-
   String? pendingStampTag;
   bool isPendingStatic = false;
 
@@ -67,7 +64,6 @@ class PdfEditorController extends ChangeNotifier {
 
   void addFieldAtPosition(String tag, double x, double y, {bool isStatic = false}) {
     final cleanTag = isStatic ? tag : (tag.isEmpty ? '' : '{{${tag.replaceAll('{{', '').replaceAll('}}', '').trim()}}}');
-    
     final newField = PdfBoxStyleService.createField(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       tag: cleanTag,
@@ -75,7 +71,6 @@ class PdfEditorController extends ChangeNotifier {
       y: y.clamp(10.0, 750.0),
       isStaticText: isStatic,
     );
-
     fields.add(newField);
     selectedFieldId = newField.id;
     pendingStampTag = null;
@@ -83,7 +78,7 @@ class PdfEditorController extends ChangeNotifier {
   }
 
   void adjustToolbarScale(double delta) {
-    final newScale = (PdfBoxStyleService.toolbarScale + delta).clamp(0.8, 1.6);
+    final newScale = (PdfBoxStyleService.toolbarScale + delta).clamp(1.0, 2.4);
     PdfBoxStyleService.rememberStyle(newToolbarScale: newScale);
     notifyListeners();
   }
@@ -180,15 +175,11 @@ class PdfEditorController extends ChangeNotifier {
     }
   }
 
-  /// کیمرہ سکینر کے ذریعے تصویر لینا اور کینوس پر لگانا
   Future<void> scanDocumentFromCamera() async {
     final imageBytes = await PdfScannerService.scanDocument();
     if (imageBytes != null) {
-      // 1. کینوس پر براہ راست تصویر بچھا دیں
       renderedPages = [imageBytes];
       loadedFileName = 'کیمرہ سکین شدہ دستاویز (${DateTime.now().hour}:${DateTime.now().minute})';
-
-      // 2. ہائیو اسٹوریج اور پرنٹ پائپ لائن کے لیے اس تصویر سے شفاف PDF بائٹس بنانا
       final doc = pw.Document();
       final pageFormat = paperSize == 'A4' ? PdfPageFormat.a4 : PdfPageFormat.legal;
       doc.addPage(

@@ -5,7 +5,8 @@ class PdfBoxStyleService {
   static bool lastIsBold = false;
   static bool lastIsUnderline = false;
   static String lastFontType = 'JameelNoori';
-  static double toolbarScale = 1.0; // ٹول بار کا اسکیل یاد رکھنے کے لیے
+  // موبائل اسکرین کے لیے ڈیفالٹ سکیل
+  static double toolbarScale = 1.35;
 
   static void rememberStyle({
     double? fontSize,
@@ -18,7 +19,7 @@ class PdfBoxStyleService {
     if (isBold != null) lastIsBold = isBold;
     if (isUnderline != null) lastIsUnderline = isUnderline;
     if (fontType != null) lastFontType = fontType;
-    if (newToolbarScale != null) toolbarScale = newToolbarScale.clamp(0.8, 1.6);
+    if (newToolbarScale != null) toolbarScale = newToolbarScale.clamp(1.0, 2.4);
   }
 
   static PdfOverlayFieldModel createField({
@@ -56,6 +57,6 @@ class PdfBoxStyleService {
     lastIsBold = false;
     lastIsUnderline = false;
     lastFontType = 'JameelNoori';
-    toolbarScale = 1.0;
+    toolbarScale = 1.35;
   }
 }
