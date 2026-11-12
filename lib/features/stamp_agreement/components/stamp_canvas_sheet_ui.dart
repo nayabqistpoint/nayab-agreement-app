@@ -50,7 +50,6 @@ class StampCanvasSheetUi extends StatelessWidget {
   Widget build(BuildContext context) {
     final double boxW = (sheetWidth - (scaledSide * 2)).clamp(50.0, sheetWidth);
     final double boxH = (sheetHeight - scaledTop - scaledBottom).clamp(40.0, sheetHeight);
-
     final textStyle = TextStyle(
       fontFamily: 'JameelNoori',
       fontSize: fontSize,
@@ -91,7 +90,6 @@ class StampCanvasSheetUi extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // 1. بیک گراؤنڈ
                   if (bgImage != null)
                     Positioned.fill(
                       child: IgnorePointer(
@@ -110,22 +108,20 @@ class StampCanvasSheetUi extends StatelessWidget {
                         ),
                       ),
                     ),
-
-                  // 2. محفوظ مونوگرام ایریا
                   StampSafeZoneOverlayUi(
                     topHeight: scaledTop,
                     bottomHeight: scaledBottom,
                     isFirstPage: isFirstPage,
                   ),
-
-                  // 3. تحریری ایریا
+                  
+                  // تحریر کا اصل ڈبہ (مناسب اندرونی خلا اور براہِ راست فوکس کے ساتھ)
                   Positioned(
                     top: scaledTop,
                     left: scaledSide,
                     width: boxW,
                     height: boxH,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                       child: isFirstPage
                           ? TextField(
                               controller: bodyController,
@@ -135,7 +131,8 @@ class StampCanvasSheetUi extends StatelessWidget {
                               textAlign: TextAlign.right,
                               textDirection: TextDirection.rtl,
                               cursorColor: Colors.teal.shade800,
-                              cursorWidth: 2.5,
+                              cursorWidth: 3.0,
+                              cursorRadius: const Radius.circular(2),
                               style: textStyle,
                               decoration: InputDecoration(
                                 border: InputBorder.none,
@@ -162,7 +159,7 @@ class StampCanvasSheetUi extends StatelessWidget {
                     ),
                   ),
 
-                  // 4. مارجن ڈریگ بارڈرز
+                  // مارجن ایڈجسٹ کرنے والے ریڈ بینڈز
                   StampCanvasBordersUi(
                     top: scaledTop,
                     bottom: scaledBottom,
@@ -174,7 +171,7 @@ class StampCanvasSheetUi extends StatelessWidget {
                     onSideDrag: onSideDrag,
                   ),
 
-                  // 5. آزاد اوورلے لیئر (خالی کلک پر ٹول بار بند، گرپ ہینڈل، اور بڑا ٹول بار)
+                  // اوورلے کینوس لیئر (اب یہ نیچے ٹیکسٹ فیلڈ کا کلک بلاک نہیں کرے گی)
                   StampOverlayCanvasLayerUi(
                     pageIndex: pageIndex,
                     sheetWidth: sheetWidth,

@@ -1,74 +1,69 @@
 import 'package:flutter/material.dart';
-import '../../../core/models/document_template_model.dart';
+import '../../../../core/constants/app_colors.dart';
 
 class CounterQuickToolbar extends StatelessWidget {
-  final DocumentMode currentMode;
-  final double fontSize;
-  final Function(double) onFontSizeChanged;
-  final VoidCallback onPickCustomerStamp;
-  final String? stampFileName;
+  final int selectedDocsCount;
   final int totalPages;
+  final int legalPagesCount;
+  final int a4PagesCount;
 
   const CounterQuickToolbar({
     super.key,
-    required this.currentMode,
-    required this.fontSize,
-    required this.onFontSizeChanged,
-    required this.onPickCustomerStamp,
-    required this.stampFileName,
+    required this.selectedDocsCount,
     required this.totalPages,
+    required this.legalPagesCount,
+    required this.a4PagesCount,
   });
+
+  Widget _buildBadge(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      margin: const EdgeInsets.only(left: 6),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withAlpha(80)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+          const SizedBox(width: 4),
+          Text(
+            value,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       color: Colors.white,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 20, color: Colors.teal),
-              tooltip: 'فونٹ بڑا کریں',
-              onPressed: () => onFontSizeChanged(fontSize + 0.5),
-            ),
-            Text(
-              'pt ${fontSize.toStringAsFixed(1)}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline, size: 20, color: Colors.teal),
-              tooltip: 'فونٹ چھوٹا کریں',
-              onPressed: () => onFontSizeChanged(fontSize - 0.5),
-            ),
+            const Icon(Icons.analytics_outlined, size: 16, color: Colors.blueGrey),
+            const SizedBox(width: 6),
+            _buildBadge('دستاویزات:', '$selectedDocsCount', const Color(0xFF1E293B)),
+            _buildBadge('کل صفحات:', '$totalPages', AppColors.primaryEmerald),
+            _buildBadge('لیگل پیپرز (اسٹامپ):', '$legalPagesCount', Colors.brown.shade800),
+            _buildBadge('A4 پیپرز (رسیدیں):', '$a4PagesCount', Colors.teal.shade800),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'صفحات: $totalPages',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: onPickCustomerStamp,
-              icon: const Icon(Icons.upload_file, size: 15),
-              label: Text(
-                stampFileName ?? 'اسٹامپ چنیں',
-                style: const TextStyle(fontSize: 12),
-                overflow: TextOverflow.ellipsis,
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.brown.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              ),
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.zoom_in, size: 15, color: Colors.black45),
+                SizedBox(width: 4),
+                Text(
+                  '(چٹکی بھر کر زوم کریں)',
+                  style: TextStyle(fontSize: 10.5, color: Colors.black45),
+                ),
+              ],
             ),
           ],
         ),

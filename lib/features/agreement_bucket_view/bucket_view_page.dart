@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import 'bucket_view_controller.dart';
+import 'components/bucket_customer_block_ui.dart';
+import 'components/bucket_stats_header_ui.dart';
 import 'components/dynamic_bucket_field_list_ui.dart';
 import 'components/whatsapp_dispatcher_card_ui.dart';
 
@@ -44,13 +46,17 @@ class _BucketViewPageState extends State<BucketViewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final int total = _controller.fields.length;
+    final int filled = _controller.fields.where((f) => (_controller.controllers[f]?.text.trim() ?? '').isNotEmpty).length;
+    final int missing = total > filled ? (total - filled) : 0;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
           title: const Text(
-            'معلومات کی بالٹی (ان پٹ بکٹ)',
+            'معلومات کی بالٹی (ڈیٹا بکٹ)',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           backgroundColor: AppColors.primaryEmerald,
@@ -69,11 +75,17 @@ class _BucketViewPageState extends State<BucketViewPage> {
           ],
         ),
         body: _controller.isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryEmerald))
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   children: [
+                    BucketStatsHeaderUi(
+                      totalCount: total,
+                      filledCount: filled,
+                      missingCount: missing,
+                    ),
+                    BucketCustomerBlockUi(controllers: _controller.controllers),
                     WhatsappDispatcherCardUi(
                       phoneController: _controller.phoneController,
                       onSendQuestions: () => _controller.sendQuestionsOnWhatsapp(),
@@ -84,10 +96,37 @@ class _BucketViewPageState extends State<BucketViewPage> {
                       fields: _controller.fields,
                       controllers: _controller.controllers,
                       qrSourceData: _parseQrData(_controller.qrSourceData),
+                      onFieldChanged: () {
+                        _controller.persistDraft();
+                        setState(() {});
+                      },
                     ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                _controller.persistDraft();
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.check_circle_outline, size: 22),
+              label: const Text(
+                'معلومات محفوظ کریں اور کاؤنٹر پر جائیں',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryEmerald,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

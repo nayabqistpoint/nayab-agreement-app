@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/models/customer_profile_model.dart';
+import 'components/customer_detail_sheet_ui.dart';
+import 'components/customer_profile_tile_ui.dart';
 import 'customer_directory_controller.dart';
 
 class CustomerDirectoryPage extends StatefulWidget {
@@ -24,6 +27,22 @@ class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _openCustomerDetails(CustomerProfileModel customer) {
+    final deals = _controller.fetchDealsForCustomer(customer.cnic);
+    CustomerDetailSheetUi.show(
+      context: context,
+      customer: customer,
+      deals: deals,
+      onGenerateNotice: (deal) async {
+        final nav = Navigator.of(context);
+        await _controller.createNoticeForDeal(deal);
+        if (!mounted) return;
+        nav.pop(); // باٹم شیٹ بند
+        nav.pop(); // کاؤنٹر پر واپسی
+      },
+    );
   }
 
   @override
@@ -60,22 +79,13 @@ class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
                   ? const Center(
                       child: Text('کوئی ریکارڈ نہیں ملا۔', style: TextStyle(color: AppColors.textMuted)),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                  : ListView.builder(
                       itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final p = list[index];
-                        return Card(
-                          elevation: 1,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.teal.shade100,
-                              child: Text(p.role.substring(0, 1)),
-                            ),
-                            title: Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('CNIC: ${p.cnic} | فون: ${p.phone}'),
-                          ),
+                        return CustomerProfileTileUi(
+                          customer: p,
+                          onTap: () => _openCustomerDetails(p),
                         );
                       },
                     ),

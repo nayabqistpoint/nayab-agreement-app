@@ -65,51 +65,52 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pageFields = fields.where((f) => f.pageIndex == pageIndex).toList();
-
     StampOverlayFieldModel? selectedField;
     if (selectedFieldId != null) {
       final idx = pageFields.indexWhere((f) => f.id == selectedFieldId);
       if (idx != -1) selectedField = pageFields[idx];
     }
 
+    // اگر اوورلے پلیسمنٹ موڈ آن نہیں ہے اور کوئی فیلڈ بھی سلیکٹ نہیں ہے،
+    // تو بیک گراؤنڈ لسنر بند رہے گا تاکہ ٹیکسٹ فیلڈ کے کلکس فوری پاس ہو سکیں۔
+    final bool needsBackdropDetector = isPlacementActive || selectedFieldId != null;
+
     return Positioned.fill(
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // 1. خالی کینوس پر کلک کا محافظ: اگر ٹول بار کھلا ہو تو فوراً بند کرے، اگر اوورلے ایکٹو ہو تو نئی تحریر لگائے
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTapUp: (details) {
-                if (isPlacementActive) {
-                  onCanvasTap(details.localPosition);
-                } else if (selectedFieldId != null) {
-                  onDismissSelection();
-                }
-              },
-              child: isPlacementActive
-                  ? Container(
-                      color: AppColors.primaryEmerald.withAlpha(20),
-                      alignment: Alignment.topCenter,
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6)],
+          if (needsBackdropDetector)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTapUp: (details) {
+                  if (isPlacementActive) {
+                    onCanvasTap(details.localPosition);
+                  } else if (selectedFieldId != null) {
+                    onDismissSelection();
+                  }
+                },
+                child: isPlacementActive
+                    ? Container(
+                        color: AppColors.primaryEmerald.withAlpha(20),
+                        alignment: Alignment.topCenter,
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                          ),
+                          child: const Text(
+                            'کسی بھی جگہ کلک کر کے نئی تحریر لگائیں (باہر کلک سے کینسل)',
+                            style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'JameelNoori', fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        child: const Text(
-                          'کسی بھی جگہ کلک کر کے نئی تحریر لگائیں (باہر کلک سے کینسل)',
-                          style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'JameelNoori', fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    )
-                  : const SizedBox.expand(),
+                      )
+                    : const SizedBox.expand(),
+              ),
             ),
-          ),
-
-          // 2. فلوٹنگ باکسز
           ...pageFields.map((f) => StampDraggableBoxUi(
             field: f,
             isSelected: f.id == selectedFieldId,
@@ -117,8 +118,6 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
             onDrag: (dx, dy) => onDragField(f.id, dx, dy),
             onTextEdited: (newText) => onTextEdited(f.id, newText),
           )),
-
-          // 3. ٹول بار پاپ اپ (موبائل فرینڈلی، نمایاں بٹنز اور اسکیل زوم کے ساتھ)
           if (selectedField != null)
             Positioned(
               left: selectedField.x.clamp(8.0, (sheetWidth - (310.0 * toolbarScale)).clamp(10.0, sheetWidth)),
@@ -194,7 +193,6 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
                         const SizedBox(width: 4),
                         Container(height: 18, width: 1.2, color: Colors.white30),
                         const SizedBox(width: 4),
-                        // ٹول بار سائز بڑھانے / گھٹانے کے مخصوص موبائل ہینڈلز
                         Tooltip(
                           message: 'ٹول بار چھوٹا کریں',
                           child: GestureDetector(

@@ -28,16 +28,15 @@ class _StampDraggableBoxUiState extends State<StampDraggableBoxUi> {
   @override
   void initState() {
     super.initState();
-    _editCtrl = TextEditingController(text: _getEditableValue(widget.field.tag));
+    _editCtrl = TextEditingController(text: widget.field.tag);
   }
 
   @override
   void didUpdateWidget(covariant StampDraggableBoxUi oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.field.tag != widget.field.tag) {
-      final currentExpected = _getEditableValue(widget.field.tag);
-      if (_editCtrl.text != currentExpected) {
-        _editCtrl.text = currentExpected;
+      if (_editCtrl.text != widget.field.tag) {
+        _editCtrl.text = widget.field.tag;
       }
     }
   }
@@ -48,37 +47,19 @@ class _StampDraggableBoxUiState extends State<StampDraggableBoxUi> {
     super.dispose();
   }
 
-  String _getEditableValue(String raw) {
-    if (widget.field.isStaticText) return raw;
-    return raw.replaceAll('{{', '').replaceAll('}}', '').trim();
-  }
-
-  String _getDisplayText(String raw) {
-    if (widget.isSelected) {
-      return widget.field.isStaticText ? raw : '{{${raw.replaceAll('{{', '').replaceAll('}}', '').trim()}}}';
-    }
-    return raw.replaceAll('{{', '').replaceAll('}}', '').trim();
-  }
-
   @override
   Widget build(BuildContext context) {
     final f = widget.field;
+    final bool isTag = f.tag.startsWith('{{') && f.tag.endsWith('}}');
 
     final textStyle = TextStyle(
       fontFamily: f.fontType.isNotEmpty ? f.fontType : 'JameelNoori',
       fontSize: f.fontSize,
-      fontWeight: f.isBold ? FontWeight.bold : FontWeight.normal,
+      fontWeight: f.isBold || isTag ? FontWeight.bold : FontWeight.normal,
       decoration: f.isUnderline ? TextDecoration.underline : TextDecoration.none,
       decorationThickness: f.isBold ? 2.5 : 1.2,
-      color: AppColors.primaryEmerald,
+      color: isTag ? Colors.blue.shade900 : AppColors.primaryEmerald,
       height: 1.8,
-      shadows: f.isBold
-          ? [
-              const Shadow(offset: Offset(0.35, 0), color: AppColors.primaryEmerald),
-              const Shadow(offset: Offset(-0.35, 0), color: AppColors.primaryEmerald),
-              const Shadow(offset: Offset(0, 0.35), color: AppColors.primaryEmerald),
-            ]
-          : null,
     );
 
     return Positioned(
@@ -89,7 +70,6 @@ class _StampDraggableBoxUiState extends State<StampDraggableBoxUi> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onSelect,
-          // چاہے باکس کھلا ہو یا بند، انگلی/ماؤس رکھتے ہی فوری تمام سمتوں میں چلے گا
           onPanUpdate: (details) => widget.onDrag(details.delta.dx, details.delta.dy),
           child: Container(
             constraints: const BoxConstraints(minWidth: 40, maxWidth: 450),
@@ -98,13 +78,16 @@ class _StampDraggableBoxUiState extends State<StampDraggableBoxUi> {
               vertical: widget.isSelected ? 4 : 2,
             ),
             decoration: BoxDecoration(
-              color: widget.isSelected
-                  ? AppColors.primaryEmerald.withAlpha(25)
-                  : Colors.transparent,
+              color: isTag
+                  ? Colors.blue.shade50
+                  : (widget.isSelected ? AppColors.primaryEmerald.withAlpha(25) : Colors.transparent),
               borderRadius: BorderRadius.circular(6),
-              border: widget.isSelected
-                  ? Border.all(color: AppColors.primaryEmerald, width: 1.8)
-                  : Border.all(color: Colors.transparent, width: 1),
+              border: Border.all(
+                color: widget.isSelected
+                    ? AppColors.primaryEmerald
+                    : (isTag ? Colors.blue.shade300 : Colors.transparent),
+                width: widget.isSelected ? 1.8 : 1,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -133,7 +116,7 @@ class _StampDraggableBoxUiState extends State<StampDraggableBoxUi> {
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           border: InputBorder.none,
-                          hintText: f.isStaticText ? 'تحریر لکھیں...' : 'ٹیگ...',
+                          hintText: 'تحریر یا {{ٹیگ}} لکھیں...',
                           hintStyle: TextStyle(
                             color: Colors.black38,
                             fontSize: f.fontSize,
@@ -148,11 +131,9 @@ class _StampDraggableBoxUiState extends State<StampDraggableBoxUi> {
                   )
                 else
                   Text(
-                    _getDisplayText(f.tag).isEmpty
-                        ? (f.isStaticText ? 'خالی تحریر' : 'خالی ٹیگ')
-                        : _getDisplayText(f.tag),
+                    f.tag.isEmpty ? 'خالی تحریر' : f.tag,
                     textDirection: TextDirection.rtl,
-                    style: _getDisplayText(f.tag).isEmpty
+                    style: f.tag.isEmpty
                         ? textStyle.copyWith(color: Colors.black26, fontStyle: FontStyle.italic)
                         : textStyle,
                   ),

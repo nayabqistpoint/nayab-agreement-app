@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import '../../../core/utils/paper_pagination_helper.dart';
+import '../models/stamp_overlay_field_model.dart';
 import 'stamp_payload_builder.dart';
 import 'stamp_storage_handler_service.dart';
 
@@ -12,10 +13,12 @@ class StampTemplateService {
     double top,
     double subTop,
     double bottom,
+    double subBottom,
     double side,
     double fontSize,
     String? fileName,
     Uint8List? pdfBytes,
+    List<StampOverlayFieldModel> overlayFields,
   })? load(String title) {
     final doc = StampStorageHandlerService.fetchTemplate(title);
     if (doc == null) return null;
@@ -27,6 +30,19 @@ class StampTemplateService {
       } catch (_) {}
     }
 
+    final tagCheckRegex = RegExp(r'\{\{([^{}]*?)\}\}');
+    final fields = doc.floatingBoxes.map((b) {
+      final isTag = tagCheckRegex.hasMatch(b.tag);
+      return StampOverlayFieldModel(
+        id: b.id,
+        tag: b.tag,
+        x: b.x,
+        y: b.y,
+        fontSize: b.fontSize,
+        isStaticText: !isTag,
+      );
+    }).toList();
+
     return (
       title: doc.title,
       content: doc.content,
@@ -34,10 +50,12 @@ class StampTemplateService {
       top: doc.topMargin,
       subTop: doc.subsequentTopMargin,
       bottom: doc.bottomMargin,
+      subBottom: doc.subsequentBottomMargin,
       side: doc.sideMargin,
       fontSize: doc.fontSize.roundToDouble(),
       fileName: doc.stampFileName,
       pdfBytes: bytes,
+      overlayFields: fields,
     );
   }
 
@@ -47,6 +65,7 @@ class StampTemplateService {
     required double top,
     required double subTop,
     required double bottom,
+    required double subBottom,
     required double side,
     required String paperSize,
   }) {
@@ -56,6 +75,7 @@ class StampTemplateService {
       p1TopMargin: top,
       subsequentTopMargin: subTop,
       bottomMargin: bottom,
+      subsequentBottomMargin: subBottom,
       sideMargin: side,
       paperSize: paperSize,
     );
@@ -68,11 +88,13 @@ class StampTemplateService {
     required double top,
     required double subTop,
     required double bottom,
+    required double subBottom,
     required double side,
     required double fontSize,
     required Uint8List? pdfBytes,
     required String? fileName,
     required List<String> pages,
+    required List<StampOverlayFieldModel> overlayFields,
   }) async {
     if (title.trim().isEmpty) return false;
     final b64 = pdfBytes != null ? base64Encode(pdfBytes) : null;
@@ -83,11 +105,13 @@ class StampTemplateService {
       topMargin: top,
       subsequentTopMargin: subTop,
       bottomMargin: bottom,
+      subsequentBottomMargin: subBottom,
       sideMargin: side,
       fontSize: fontSize,
       base64Pdf: b64,
       stampFileName: fileName,
       pages: pages,
+      overlayFields: overlayFields,
     );
     await StampStorageHandlerService.saveTemplate(payload);
     return true;

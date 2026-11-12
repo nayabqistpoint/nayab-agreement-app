@@ -22,7 +22,7 @@ class StampCanvasBordersUi extends StatelessWidget {
     required this.onSideDrag,
   });
 
-  static const double _thickness = 28.0;
+  static const double _thickness = 24.0;
   static const Color _solidColor = Color(0xFFD32F2F);
 
   Widget _buildBand({
@@ -43,8 +43,8 @@ class StampCanvasBordersUi extends StatelessWidget {
             begin: begin,
             end: end,
             colors: [
-              Colors.red.shade700.withAlpha(20),
-              Colors.red.shade700.withAlpha(80),
+              Colors.red.shade700.withAlpha(15),
+              Colors.red.shade700.withAlpha(65),
             ],
           ),
         ),
@@ -53,7 +53,7 @@ class StampCanvasBordersUi extends StatelessWidget {
           width: isVertical ? 36 : 4,
           height: isVertical ? 4 : 36,
           decoration: BoxDecoration(
-            color: _solidColor.withAlpha(180),
+            color: _solidColor.withAlpha(190),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -69,7 +69,7 @@ class StampCanvasBordersUi extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // 1. اوپر والی سرخ پٹی
+        // اوپری بارڈر (نیچے کھینچنے سے مارجن بڑھے گا)
         Positioned(
           top: top - _thickness,
           left: side - _thickness,
@@ -84,7 +84,7 @@ class StampCanvasBordersUi extends StatelessWidget {
           ),
         ),
 
-        // 2. نیچے والی سرخ پٹی
+        // نچلا بارڈر (اوپر کھینچنے سے مارجن بڑھے گا)
         Positioned(
           bottom: bottom - _thickness,
           left: side - _thickness,
@@ -99,7 +99,7 @@ class StampCanvasBordersUi extends StatelessWidget {
           ),
         ),
 
-        // 3. دائیں طرف کی سرخ پٹی
+        // دایاں بارڈر (اندر یعنی بائیں طرف کھینچنے سے sideMargin بڑھے گا، باہر کھینچنے سے کم ہوگا)
         Positioned(
           top: top - _thickness,
           right: side - _thickness,
@@ -110,11 +110,11 @@ class StampCanvasBordersUi extends StatelessWidget {
             border: const Border(left: BorderSide(color: _solidColor, width: 2.0)),
             begin: Alignment.centerRight,
             end: Alignment.centerLeft,
-            onDrag: (d) => onSideDrag(d.delta.dx),
+            onDrag: (d) => onSideDrag(-d.delta.dx),
           ),
         ),
 
-        // 4. بائیں طرف کی سرخ پٹی
+        // بایاں بارڈر (اندر یعنی دائیں طرف کھینچنے سے sideMargin بڑھے گا، باہر کھینچنے سے کم ہوگا)
         Positioned(
           top: top - _thickness,
           left: side - _thickness,
@@ -125,7 +125,7 @@ class StampCanvasBordersUi extends StatelessWidget {
             border: const Border(right: BorderSide(color: _solidColor, width: 2.0)),
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            onDrag: (d) => onSideDrag(-d.delta.dx),
+            onDrag: (d) => onSideDrag(d.delta.dx),
           ),
         ),
       ],

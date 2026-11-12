@@ -1,15 +1,19 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../core/constants/box_names.dart';
+import '../../core/database/hive_box_manager.dart';
+import '../../core/models/customer_deal_model.dart';
 import '../../core/models/document_template_model.dart';
-import '../../core/utils/paper_pagination_helper.dart';
+import '../../core/utils/smart_payload_parser.dart';
+import 'services/counter_bundle_engine_service.dart';
+import 'services/counter_deal_recorder_service.dart';
+import 'services/counter_media_picker_service.dart';
 import 'services/counter_payload_builder.dart';
 import 'services/counter_render_service.dart';
 import 'services/counter_storage_handler_service.dart';
 
 class AgreementCounterController extends ChangeNotifier {
-  String selectedTemplateTitle = '';
-  DocumentMode currentDocMode = DocumentMode.stampOverlay;
+  List<String> selectedTemplates = [];
   String paperSize = 'Legal';
   double fontSize = 13.5;
   double topMargin = 320.0;
@@ -17,42 +21,39 @@ class AgreementCounterController extends ChangeNotifier {
   double bottomMargin = 270.0;
   double sideMargin = 40.0;
 
-  String? selectedStampFileName;
-  Uint8List? selectedStampPdfBytes;
-  List<String> lockedStudioPages = [];
+  Map<String, Uint8List> customTemplateStamps = {};
   Map<String, String> currentFieldValues = {};
-  List<String> requiredFields = [];
   List<String> availableTemplates = [];
-
-  List<Uint8List?> cachedStampPages = [];
+  Map<String, DocumentTemplateModel> templateModelsMap = {};
+  
+  List<BundlePageMeta> bundlePages = [];
+  List<String> requiredFields = [];
   bool isRenderingStamp = false;
 
+  CustomerDealModel? activeDeal;
+
+  int get legalPagesCount => bundlePages.where((p) => p.originalPaperSize.toLowerCase().contains('legal')).length;
+  int get a4PagesCount => bundlePages.where((p) => !p.originalPaperSize.toLowerCase().contains('legal')).length;
+
   void init() {
-    loadTemplates();
     loadDraft();
+    loadTemplates();
   }
 
   void loadTemplates() {
     final all = CounterStorageHandlerService.getAllTemplates();
     availableTemplates = all.keys.toList();
-    if (availableTemplates.isNotEmpty) {
-      if (selectedTemplateTitle.isEmpty || !availableTemplates.contains(selectedTemplateTitle)) {
-        switchTemplate(availableTemplates.first);
-        return;
-      }
-    } else {
-      _clearSelection();
-    }
-    notifyListeners();
-  }
+    templateModelsMap.clear();
 
-  void _clearSelection() {
-    selectedTemplateTitle = '';
-    lockedStudioPages = [];
-    requiredFields = [];
-    selectedStampPdfBytes = null;
-    selectedStampFileName = null;
-    cachedStampPages = [];
+    for (var entry in all.entries) {
+      templateModelsMap[entry.key] = DocumentTemplateModel.fromMap(entry.value);
+    }
+
+    if (availableTemplates.isNotEmpty && selectedTemplates.isEmpty) {
+      selectedTemplates = [availableTemplates.first];
+    }
+    recalculateBundle();
+    notifyListeners();
   }
 
   void loadDraft() {
@@ -60,113 +61,164 @@ class AgreementCounterController extends ChangeNotifier {
     if (draft.containsKey('fieldValues') && draft['fieldValues'] is Map) {
       currentFieldValues = Map<String, String>.from(draft['fieldValues']);
     }
-    notifyListeners();
+    if (draft.containsKey('selected_templates_bundle') && draft['selected_templates_bundle'] is List) {
+      final savedBundle = List<String>.from(draft['selected_templates_bundle']);
+      if (savedBundle.isNotEmpty) {
+        selectedTemplates = savedBundle;
+      }
+    }
   }
 
-  void switchTemplate(String title) {
-    selectedTemplateTitle = title;
-    final all = CounterStorageHandlerService.getAllTemplates();
-    if (all.containsKey(title)) {
-      final doc = DocumentTemplateModel.fromMap(all[title]!);
-      currentDocMode = doc.mode;
-      paperSize = doc.paperSize;
-      fontSize = doc.fontSize;
-      topMargin = doc.topMargin;
-      subsequentTopMargin = doc.subsequentTopMargin;
-      bottomMargin = doc.bottomMargin;
-      sideMargin = doc.sideMargin;
-      lockedStudioPages = List<String>.from(doc.pages);
-      requiredFields = List<String>.from(doc.fields);
-
-      if (doc.base64Pdf != null && doc.base64Pdf!.isNotEmpty) {
-        try {
-          selectedStampPdfBytes = base64Decode(doc.base64Pdf!);
-          selectedStampFileName = doc.stampFileName ?? "ٹیمپلیٹ کا محفوظ اسٹامپ";
-        } catch (_) {}
-      } else {
-        selectedStampPdfBytes = null;
-        selectedStampFileName = null;
+  void toggleTemplateSelection(String title) {
+    if (selectedTemplates.contains(title)) {
+      if (selectedTemplates.length > 1) {
+        selectedTemplates.remove(title);
       }
     } else {
-      _clearSelection();
+      selectedTemplates.add(title);
     }
-    refreshStampPages();
+    recalculateBundle();
     persistState();
     notifyListeners();
   }
 
-  /// ٹیمپلیٹ کو ہائیو سے ڈیلیٹ کرنا اور رئیل ٹائم اسٹیٹ اپ ڈیٹ کرنا
-  Future<bool> deleteCurrentTemplate(String title) async {
-    final ok = await CounterStorageHandlerService.deleteTemplate(title);
-    if (ok) {
-      availableTemplates.remove(title);
-      if (selectedTemplateTitle == title) {
-        if (availableTemplates.isNotEmpty) {
-          switchTemplate(availableTemplates.first);
-        } else {
-          _clearSelection();
-          persistState();
-          notifyListeners();
-        }
-      } else {
-        notifyListeners();
-      }
-      return true;
-    }
-    return false;
-  }
-
-  Future<void> refreshStampPages() async {
-    if (selectedStampPdfBytes == null) {
-      cachedStampPages = [];
-      notifyListeners();
-      return;
-    }
-    isRenderingStamp = true;
-    notifyListeners();
-    cachedStampPages = await CounterRenderService.renderPdfPages(selectedStampPdfBytes);
-    isRenderingStamp = false;
+  void selectAllTemplates() {
+    selectedTemplates = List.from(availableTemplates);
+    recalculateBundle();
+    persistState();
     notifyListeners();
   }
 
-  Future<void> handlePickStamp() async {
+  void clearAllSelectedTemplates() {
+    if (availableTemplates.isNotEmpty) {
+      selectedTemplates = [availableTemplates.first];
+    }
+    recalculateBundle();
+    persistState();
+    notifyListeners();
+  }
+
+  Future<void> attachStampToTemplate(String templateTitle) async {
     final file = await CounterRenderService.pickStampFile();
     if (file != null && file.bytes != null) {
-      selectedStampPdfBytes = file.bytes!;
-      selectedStampFileName = file.name;
-      await refreshStampPages();
+      customTemplateStamps[templateTitle] = file.bytes!;
+      await recalculateBundle();
+      notifyListeners();
+    }
+  }
+
+  Future<void> recalculateBundle() async {
+    isRenderingStamp = true;
+    notifyListeners();
+
+    final result = await CounterBundleEngineService.processBundle(
+      selectedTitles: selectedTemplates,
+      fieldValues: currentFieldValues,
+      fontSize: fontSize,
+      fallbackTop: topMargin,
+      fallbackSubTop: subsequentTopMargin,
+      fallbackBottom: bottomMargin,
+      fallbackSide: sideMargin,
+      paperSize: paperSize,
+      customTemplateStamps: customTemplateStamps,
+    );
+
+    bundlePages = result.bundlePages;
+    requiredFields = result.combinedRequiredFields;
+
+    // ٹیمپلیٹ سے آئی ہوئی تمام فیلڈز کو ہمیشہ یقینی بنائیں
+    for (var field in requiredFields) {
+      if (!currentFieldValues.containsKey(field)) {
+        currentFieldValues[field] = '';
+      }
+    }
+
+    isRenderingStamp = false;
+    persistState();
+    notifyListeners();
+  }
+
+  void applyScannedData(String rawScan) {
+    final parsedMap = SmartPayloadParser.parseScannedInput(rawScan);
+    if (parsedMap.isNotEmpty) {
+      currentFieldValues.addAll(parsedMap);
+
+      if (parsedMap.containsKey('شناختی کارڈ')) {
+        final cnic = parsedMap['شناختی کارڈ']!;
+        final box = HiveBoxManager.getBox(BoxNames.customersBox);
+        final rawCust = box.get(cnic);
+        if (rawCust is Map) {
+          if (!currentFieldValues.containsKey('کسٹمر کا نام') || currentFieldValues['کسٹمر کا نام']!.isEmpty) {
+            currentFieldValues['کسٹمر کا نام'] = rawCust['fullName']?.toString() ?? '';
+          }
+          if (!currentFieldValues.containsKey('ولدیت') || currentFieldValues['ولدیت']!.isEmpty) {
+            currentFieldValues['ولدیت'] = rawCust['fatherName']?.toString() ?? '';
+          }
+          if (!currentFieldValues.containsKey('رابطہ نمبر') || currentFieldValues['رابطہ نمبر']!.isEmpty) {
+            currentFieldValues['رابطہ نمبر'] = rawCust['phone']?.toString() ?? '';
+          }
+          if (!currentFieldValues.containsKey('مستقل پتہ') || currentFieldValues['مستقل پتہ']!.isEmpty) {
+            currentFieldValues['مستقل پتہ'] = rawCust['address']?.toString() ?? '';
+          }
+        }
+      }
+
+      recalculateBundle();
       persistState();
       notifyListeners();
     }
   }
 
-  List<String> getPages() {
-    if (lockedStudioPages.isNotEmpty) return lockedStudioPages;
-    return AgreementPaginationService.paginate(
-      fullText: "ٹیمپلیٹ منتخب کریں",
-      fontSize: fontSize,
-      p1TopMargin: topMargin,
-      subsequentTopMargin: subsequentTopMargin,
-      bottomMargin: bottomMargin,
-      sideMargin: sideMargin,
-      paperSize: paperSize,
+  Future<CustomerDealModel> commitDeal() async {
+    final deal = await CounterDealRecorderService.recordDeal(
+      bundledTemplates: selectedTemplates,
+      fieldValues: currentFieldValues,
+      deliveryPhotoPath: activeDeal?.deliveryPhotoPath,
+      signedDocPhotoPath: activeDeal?.signedDocPhotoPath,
     );
+    activeDeal = deal;
+    notifyListeners();
+    return deal;
   }
 
-  void setFontSize(double size) {
-    fontSize = size.clamp(10.0, 22.0);
-    persistState();
-    notifyListeners();
+  Future<void> captureDeliveryPhoto() async {
+    if (activeDeal == null) {
+      await commitDeal();
+    }
+    final path = await CounterMediaPickerService.capturePhoto(prefixName: 'delivery_${activeDeal!.id}');
+    if (path != null) {
+      await CounterDealRecorderService.updateDealMedia(
+        dealId: activeDeal!.id,
+        deliveryPhotoPath: path,
+      );
+      activeDeal = activeDeal!.copyWith(deliveryPhotoPath: path);
+      notifyListeners();
+    }
+  }
+
+  Future<void> captureSignedDocPhoto() async {
+    if (activeDeal == null) {
+      await commitDeal();
+    }
+    final path = await CounterMediaPickerService.capturePhoto(prefixName: 'signed_${activeDeal!.id}');
+    if (path != null) {
+      await CounterDealRecorderService.updateDealMedia(
+        dealId: activeDeal!.id,
+        signedDocPhotoPath: path,
+      );
+      activeDeal = activeDeal!.copyWith(signedDocPhotoPath: path);
+      notifyListeners();
+    }
   }
 
   void persistState() {
     final payload = CounterPayloadBuilder.buildDraftPayload(
-      templateTitle: selectedTemplateTitle,
+      templateTitle: selectedTemplates.isNotEmpty ? selectedTemplates.first : '',
       paperSize: paperSize,
       fontSize: fontSize,
       fieldValues: currentFieldValues,
-      stampFileName: selectedStampFileName,
     );
+    payload['selected_templates_bundle'] = selectedTemplates;
     CounterStorageHandlerService.saveDraftBatch(payload);
   }
 }

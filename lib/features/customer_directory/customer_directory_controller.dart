@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
+import '../../core/models/customer_deal_model.dart';
 import '../../core/models/customer_profile_model.dart';
+import 'services/customer_deal_history_service.dart';
+import 'services/customer_notice_generator_service.dart';
 
 class CustomerDirectoryController extends ChangeNotifier {
   final TextEditingController searchController = TextEditingController();
@@ -67,6 +70,14 @@ class CustomerDirectoryController extends ChangeNotifier {
         return nameMatch || cnicMatch || phoneMatch;
       }).toList();
     }
+  }
+
+  List<CustomerDealModel> fetchDealsForCustomer(String cnic) {
+    return CustomerDealHistoryService.getCustomerDeals(cnic);
+  }
+
+  Future<void> createNoticeForDeal(CustomerDealModel deal) async {
+    await CustomerNoticeGeneratorService.prepareNoticeInDraft(deal);
   }
 
   @override
