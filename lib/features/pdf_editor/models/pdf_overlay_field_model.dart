@@ -3,6 +3,7 @@ class PdfOverlayFieldModel {
   String tag;
   double x;
   double y;
+  double width;
   double fontSize;
   String fontType;
   bool isBold;
@@ -14,6 +15,7 @@ class PdfOverlayFieldModel {
     required this.tag,
     required this.x,
     required this.y,
+    this.width = 180.0,
     this.fontSize = 13.0,
     this.fontType = 'JameelNoori',
     this.isBold = false,
@@ -27,6 +29,7 @@ class PdfOverlayFieldModel {
       'tag': tag,
       'x': x,
       'y': y,
+      'width': width,
       'fontSize': fontSize,
       'fontType': fontType,
       'isBold': isBold,
@@ -41,6 +44,7 @@ class PdfOverlayFieldModel {
       tag: map['tag']?.toString() ?? '',
       x: (map['x'] as num?)?.toDouble() ?? 50.0,
       y: (map['y'] as num?)?.toDouble() ?? 50.0,
+      width: (map['width'] as num?)?.toDouble() ?? 180.0,
       fontSize: (map['fontSize'] as num?)?.toDouble() ?? 13.0,
       fontType: map['fontType']?.toString() ?? 'JameelNoori',
       isBold: map['isBold'] as bool? ?? false,

@@ -3,23 +3,25 @@ import '../../../core/constants/app_colors.dart';
 
 class StampTagsToolbarUi extends StatefulWidget {
   final List<String> pinnedTags;
-  final VoidCallback onBold;
-  final VoidCallback onUnderline;
-  final VoidCallback onInsertEmSpace;
-  final VoidCallback onInsertEmptyTag;
+  final String? activePendingTag;
+  final bool isPendingStatic;
+  final VoidCallback onSelectStaticToStamp;
+  final VoidCallback onSelectEmptyTagToStamp;
   final VoidCallback onShowAddCustomTag;
-  final Function(String) onInsertTag;
+  final Function(String) onSelectTagToStamp;
+  final Function(String) onInsertTagInText;
   final Function(String) onDeleteTag;
 
   const StampTagsToolbarUi({
     super.key,
     required this.pinnedTags,
-    required this.onBold,
-    required this.onUnderline,
-    required this.onInsertEmSpace,
-    required this.onInsertEmptyTag,
+    this.activePendingTag,
+    this.isPendingStatic = false,
+    required this.onSelectStaticToStamp,
+    required this.onSelectEmptyTagToStamp,
     required this.onShowAddCustomTag,
-    required this.onInsertTag,
+    required this.onSelectTagToStamp,
+    required this.onInsertTagInText,
     required this.onDeleteTag,
   });
 
@@ -28,79 +30,6 @@ class StampTagsToolbarUi extends StatefulWidget {
 }
 
 class _StampTagsToolbarUiState extends State<StampTagsToolbarUi> {
-  Widget _buildFormatBtn({
-    required String text,
-    required VoidCallback onTap,
-    bool bold = false,
-    bool underline = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        width: 34,
-        height: 32,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: bold ? FontWeight.w900 : FontWeight.bold,
-            decoration: underline ? TextDecoration.underline : null,
-            color: const Color(0xFF1E293B),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionBtn({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isPrimary = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: isPrimary ? AppColors.primaryEmerald : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isPrimary ? AppColors.primaryEmerald : Colors.grey.shade300,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 15,
-              color: isPrimary ? Colors.white : const Color(0xFF1E293B),
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: isPrimary ? Colors.white : const Color(0xFF1E293B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -119,36 +48,85 @@ class _StampTagsToolbarUiState extends State<StampTagsToolbarUi> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFormatBtn(text: 'B', onTap: widget.onBold, bold: true),
+                ElevatedButton.icon(
+                  onPressed: widget.onSelectStaticToStamp,
+                  icon: const Icon(Icons.text_fields, size: 14),
+                  label: Text(
+                    widget.isPendingStatic
+                        ? 'تحریر (صفحے پر کلک کریں)'
+                        : 'تحریر لکھیں',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.isPendingStatic
+                        ? Colors.orange.shade800
+                        : Colors.teal.shade700,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  ),
+                ),
                 const SizedBox(width: 6),
-                _buildFormatBtn(text: 'U', onTap: widget.onUnderline, underline: true),
+                ElevatedButton.icon(
+                  onPressed: widget.onSelectEmptyTagToStamp,
+                  icon: const Icon(Icons.data_object, size: 14),
+                  label: Text(
+                    widget.activePendingTag == '__empty_tag__'
+                        ? 'خالی ٹیگ (کلک کریں)'
+                        : 'خالی ٹیگ {{ }}',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        widget.activePendingTag == '__empty_tag__'
+                            ? Colors.orange.shade800
+                            : Colors.indigo.shade700,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                ElevatedButton.icon(
+                  onPressed: widget.onShowAddCustomTag,
+                  icon: const Icon(Icons.add, size: 14),
+                  label: const Text(
+                    'نیا ٹیگ',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryEmerald,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Container(height: 20, width: 1, color: Colors.grey.shade300),
-                const SizedBox(width: 8),
-                _buildActionBtn(
-                  icon: Icons.space_bar,
-                  label: 'اسپیس (Tab)',
-                  onTap: widget.onInsertEmSpace,
-                ),
                 const SizedBox(width: 6),
-                _buildActionBtn(
-                  icon: Icons.data_object,
-                  label: 'خالی ٹیگ {{ }}',
-                  onTap: widget.onInsertEmptyTag,
-                ),
-                const SizedBox(width: 6),
-                _buildActionBtn(
-                  icon: Icons.add,
-                  label: 'نیا ٹیگ',
-                  onTap: widget.onShowAddCustomTag,
-                  isPrimary: true,
+                const Text(
+                  'ٹیگ چُنیں (کلک: باکس / ڈبل کلک: پیراگراف):',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey,
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 6),
           SizedBox(
-            height: 38,
+            height: 36,
             child: ReorderableListView(
               scrollDirection: Axis.horizontal,
               buildDefaultDragHandles: false,
@@ -165,52 +143,72 @@ class _StampTagsToolbarUiState extends State<StampTagsToolbarUi> {
                     index: index,
                     child: Container(
                       margin: const EdgeInsets.only(left: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: widget.activePendingTag ==
+                                widget.pinnedTags[index]
+                            ? AppColors.primaryEmerald.withAlpha(40)
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                        border: Border.all(
+                          color: widget.activePendingTag ==
+                                  widget.pinnedTags[index]
+                              ? AppColors.primaryEmerald
+                              : const Color(0xFFCBD5E1),
+                          width: widget.activePendingTag ==
+                                  widget.pinnedTags[index]
+                              ? 1.8
+                              : 1.1,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // پکڑ کر دائیں بائیں گھسیٹنے والا ہینڈل
                           ReorderableDragStartListener(
                             index: index,
                             child: const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 2),
                               child: Icon(
                                 Icons.drag_indicator,
-                                size: 16,
+                                size: 15,
                                 color: Color(0xFF94A3B8),
                               ),
                             ),
                           ),
                           const SizedBox(width: 2),
-                          // ٹیگ کا نام
                           InkWell(
-                            onTap: () => widget.onInsertTag(widget.pinnedTags[index]),
+                            onTap: () => widget
+                                .onSelectTagToStamp(widget.pinnedTags[index]),
+                            onDoubleTap: () => widget
+                                .onInsertTagInText(widget.pinnedTags[index]),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
                               child: Text(
                                 widget.pinnedTags[index],
-                                style: const TextStyle(
-                                  fontSize: 12.5,
+                                style: TextStyle(
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
+                                  color: widget.activePendingTag ==
+                                          widget.pinnedTags[index]
+                                      ? AppColors.primaryEmerald
+                                      : const Color(0xFF1E293B),
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 4),
-                          // ٹیگ ہٹانے کا کراس بٹن
                           InkWell(
-                            onTap: () => widget.onDeleteTag(widget.pinnedTags[index]),
+                            onTap: () =>
+                                widget.onDeleteTag(widget.pinnedTags[index]),
                             child: Padding(
                               padding: const EdgeInsets.all(2.0),
                               child: Icon(
                                 Icons.close,
-                                size: 14,
+                                size: 13,
                                 color: Colors.red.shade600,
                               ),
                             ),

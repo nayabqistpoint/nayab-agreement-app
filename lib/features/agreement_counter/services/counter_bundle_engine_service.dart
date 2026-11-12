@@ -10,6 +10,7 @@ import 'counter_render_service.dart';
 
 class BundlePageMeta {
   final String templateTitle;
+  final DocumentMode mode;
   final String text;
   final Uint8List? stampBg;
   final double topMargin;
@@ -23,6 +24,7 @@ class BundlePageMeta {
 
   BundlePageMeta({
     required this.templateTitle,
+    required this.mode,
     required this.text,
     required this.stampBg,
     required this.topMargin,
@@ -56,6 +58,7 @@ class CounterBundleEngineService {
         bundlePages: [
           BundlePageMeta(
             templateTitle: '',
+            mode: DocumentMode.stampOverlay,
             text: "ٹیمپلیٹ منتخب کریں",
             stampBg: null,
             topMargin: fallbackTop,
@@ -86,30 +89,37 @@ class CounterBundleEngineService {
         fieldSet.add(f.trim());
       }
 
-      // ٹیمپلیٹ کے اپنے محفوظ شدہ فونٹ سائز اور مارجنز استعمال ہوں تاکہ 1:1 میچ رہے
-      final String docPaperSize = doc.paperSize.isNotEmpty ? doc.paperSize : paperSize;
+      final String docPaperSize =
+          doc.paperSize.isNotEmpty ? doc.paperSize : paperSize;
       final double docFontSize = (doc.fontSize > 6) ? doc.fontSize : fontSize;
       final double docP1Top = (doc.topMargin > 10) ? doc.topMargin : fallbackTop;
-      final double docSubTop = (doc.subsequentTopMargin > 10) ? doc.subsequentTopMargin : fallbackSubTop;
-      final double docBottom = (doc.bottomMargin > 10) ? doc.bottomMargin : fallbackBottom;
-      final double docSubBottom = (doc.subsequentBottomMargin > 10) ? doc.subsequentBottomMargin : 65.0;
-      final double docSide = (doc.sideMargin > 10) ? doc.sideMargin : fallbackSide;
+      final double docSubTop = (doc.subsequentTopMargin > 10)
+          ? doc.subsequentTopMargin
+          : fallbackSubTop;
+      final double docBottom =
+          (doc.bottomMargin > 10) ? doc.bottomMargin : fallbackBottom;
+      final double docSubBottom =
+          (doc.subsequentBottomMargin > 10) ? doc.subsequentBottomMargin : 65.0;
+      final double docSide =
+          (doc.sideMargin > 10) ? doc.sideMargin : fallbackSide;
 
       List<Uint8List?>? templateRasterizedPages;
-
-      if (customTemplateStamps != null && customTemplateStamps.containsKey(title)) {
+      if (customTemplateStamps != null &&
+          customTemplateStamps.containsKey(title)) {
         try {
-          templateRasterizedPages = await CounterRenderService.renderPdfPages(customTemplateStamps[title]!);
+          templateRasterizedPages = await CounterRenderService.renderPdfPages(
+              customTemplateStamps[title]!);
         } catch (_) {}
       } else if (doc.base64Pdf != null && doc.base64Pdf!.isNotEmpty) {
         try {
           final decodedBytes = base64Decode(doc.base64Pdf!);
-          templateRasterizedPages = await CounterRenderService.renderPdfPages(decodedBytes);
+          templateRasterizedPages =
+              await CounterRenderService.renderPdfPages(decodedBytes);
         } catch (_) {}
       }
 
-      final replacedContent = TemplateService.replaceTags(doc.content, fieldValues);
-
+      final replacedContent =
+          TemplateService.replaceTags(doc.content, fieldValues);
       final docPages = AgreementPaginationService.paginate(
         fullText: replacedContent,
         fontSize: docFontSize,
@@ -127,8 +137,8 @@ class CounterBundleEngineService {
         final double effectiveBottom = isFirst ? docBottom : docSubBottom;
 
         Uint8List? bg;
-        if (templateRasterizedPages != null && templateRasterizedPages.isNotEmpty) {
-          // اگر پی ڈی ایف 2 صفحات کی ہے تو 3 یا اس سے اوپر کے صفحات بالکل سادہ سفید کاغذ (null) رہیں گے
+        if (templateRasterizedPages != null &&
+            templateRasterizedPages.isNotEmpty) {
           if (i < templateRasterizedPages.length) {
             bg = templateRasterizedPages[i];
           } else {
@@ -142,6 +152,7 @@ class CounterBundleEngineService {
 
         allPages.add(BundlePageMeta(
           templateTitle: title,
+          mode: doc.mode,
           text: docPages[i],
           stampBg: bg,
           topMargin: effectiveTop,
@@ -161,6 +172,7 @@ class CounterBundleEngineService {
           ? [
               BundlePageMeta(
                 templateTitle: '',
+                mode: DocumentMode.stampOverlay,
                 text: "ٹیمپلیٹ خالی ہے",
                 stampBg: null,
                 topMargin: fallbackTop,

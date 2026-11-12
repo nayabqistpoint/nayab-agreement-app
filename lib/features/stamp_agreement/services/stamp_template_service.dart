@@ -22,14 +22,12 @@ class StampTemplateService {
   })? load(String title) {
     final doc = StampStorageHandlerService.fetchTemplate(title);
     if (doc == null) return null;
-
     Uint8List? bytes;
     if (doc.base64Pdf != null && doc.base64Pdf!.isNotEmpty) {
       try {
         bytes = base64Decode(doc.base64Pdf!);
       } catch (_) {}
     }
-
     final tagCheckRegex = RegExp(r'\{\{([^{}]*?)\}\}');
     final fields = doc.floatingBoxes.map((b) {
       final isTag = tagCheckRegex.hasMatch(b.tag);
@@ -38,11 +36,13 @@ class StampTemplateService {
         tag: b.tag,
         x: b.x,
         y: b.y,
+        width: b.width > 30 ? b.width : 180.0,
         fontSize: b.fontSize,
+        isBold: b.isBold,
+        isUnderline: b.isUnderline,
         isStaticText: !isTag,
       );
     }).toList();
-
     return (
       title: doc.title,
       content: doc.content,

@@ -49,7 +49,8 @@ class StampCanvasSheetUi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double boxW = (sheetWidth - (scaledSide * 2)).clamp(50.0, sheetWidth);
-    final double boxH = (sheetHeight - scaledTop - scaledBottom).clamp(40.0, sheetHeight);
+    final double boxH =
+        (sheetHeight - scaledTop - scaledBottom).clamp(40.0, sheetHeight);
     final textStyle = TextStyle(
       fontFamily: 'JameelNoori',
       fontSize: fontSize,
@@ -69,7 +70,11 @@ class StampCanvasSheetUi extends StatelessWidget {
           ),
           child: Text(
             pageLabel,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: Colors.white,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -84,7 +89,12 @@ class StampCanvasSheetUi extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(4),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                    offset: Offset(0, 4),
+                  ),
                 ],
               ),
               child: Stack(
@@ -93,7 +103,11 @@ class StampCanvasSheetUi extends StatelessWidget {
                   if (bgImage != null)
                     Positioned.fill(
                       child: IgnorePointer(
-                        child: Image.memory(bgImage!, fit: BoxFit.fill, filterQuality: FilterQuality.high),
+                        child: Image.memory(
+                          bgImage!,
+                          fit: BoxFit.fill,
+                          filterQuality: FilterQuality.high,
+                        ),
                       ),
                     )
                   else
@@ -102,8 +116,13 @@ class StampCanvasSheetUi extends StatelessWidget {
                         child: Opacity(
                           opacity: 0.05,
                           child: Text(
-                            isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "اضافی سادہ ورق",
-                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                            isFirstPage
+                                ? "سرکاری ای-اسٹامپ پیپر"
+                                : "اضافی سادہ ورق",
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -113,21 +132,23 @@ class StampCanvasSheetUi extends StatelessWidget {
                     bottomHeight: scaledBottom,
                     isFirstPage: isFirstPage,
                   ),
-                  
-                  // تحریر کا اصل ڈبہ (مناسب اندرونی خلا اور براہِ راست فوکس کے ساتھ)
                   Positioned(
                     top: scaledTop,
                     left: scaledSide,
                     width: boxW,
                     height: boxH,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                       child: isFirstPage
                           ? TextField(
                               controller: bodyController,
                               maxLines: null,
                               expands: true,
-                              scrollPhysics: const NeverScrollableScrollPhysics(),
+                              scrollPhysics:
+                                  const NeverScrollableScrollPhysics(),
                               textAlign: TextAlign.right,
                               textDirection: TextDirection.rtl,
                               cursorColor: Colors.teal.shade800,
@@ -141,7 +162,8 @@ class StampCanvasSheetUi extends StatelessWidget {
                                 hintText: 'یہاں تحریر لکھیں یا پیسٹ کریں...',
                                 hintStyle: TextStyle(
                                   fontFamily: 'JameelNoori',
-                                  fontSize: (fontSize + 3.0).clamp(16.0, 26.0),
+                                  fontSize:
+                                      (fontSize + 3.0).clamp(16.0, 26.0),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black38,
                                 ),
@@ -158,8 +180,6 @@ class StampCanvasSheetUi extends StatelessWidget {
                             ),
                     ),
                   ),
-
-                  // مارجن ایڈجسٹ کرنے والے ریڈ بینڈز
                   StampCanvasBordersUi(
                     top: scaledTop,
                     bottom: scaledBottom,
@@ -170,8 +190,6 @@ class StampCanvasSheetUi extends StatelessWidget {
                     onBottomDrag: onBottomDrag,
                     onSideDrag: onSideDrag,
                   ),
-
-                  // اوورلے کینوس لیئر (اب یہ نیچے ٹیکسٹ فیلڈ کا کلک بلاک نہیں کرے گی)
                   StampOverlayCanvasLayerUi(
                     pageIndex: pageIndex,
                     sheetWidth: sheetWidth,
@@ -180,15 +198,20 @@ class StampCanvasSheetUi extends StatelessWidget {
                     selectedFieldId: controller.selectedOverlayFieldId,
                     toolbarScale: controller.currentToolbarScale,
                     isPlacementActive: controller.isOverlayPlacementActive,
-                    onCanvasTap: (pos) => controller.addOverlayFieldAtPosition(pos.dx, pos.dy, pageIndex: pageIndex),
+                    onCanvasTap: (pos) => controller.addOverlayFieldAtPosition(
+                      pos.dx,
+                      pos.dy,
+                      pageIndex: pageIndex,
+                    ),
                     onDismissSelection: () {
                       controller.selectOverlayField(null);
                       if (controller.isOverlayPlacementActive) {
-                        controller.toggleOverlayPlacementMode();
+                        controller.cancelOverlayPlacement();
                       }
                     },
                     onSelectField: controller.selectOverlayField,
                     onDragField: controller.updateOverlayFieldPosition,
+                    onResizeFieldWidth: controller.updateOverlayFieldWidth,
                     onDeleteField: controller.removeOverlayField,
                     onFontSizeChange: controller.updateOverlayFieldFontSize,
                     onToggleBold: controller.toggleOverlayBold,

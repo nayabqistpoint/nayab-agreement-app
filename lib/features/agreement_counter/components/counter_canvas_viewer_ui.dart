@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/models/document_template_model.dart';
+import '../../pdf_editor/components/pdf_form_counter_preview.dart';
 import '../../stamp_agreement/components/stamp_counter_preview.dart';
 import '../services/counter_bundle_engine_service.dart';
 
@@ -42,27 +44,40 @@ class CounterCanvasViewerUi extends StatelessWidget {
               maxScale: 3.5,
               boundaryMargin: const EdgeInsets.all(20),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
                 child: Center(
                   child: Column(
                     children: List.generate(pages.length, (i) {
                       final page = pages[i];
+                      final bool isFormFiller =
+                          page.mode == DocumentMode.formFiller;
+
                       return RepaintBoundary(
-                        key: (i < pageBoundaryKeys.length) ? pageBoundaryKeys[i] : null,
+                        key: (i < pageBoundaryKeys.length)
+                            ? pageBoundaryKeys[i]
+                            : null,
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 20.0),
-                          child: StampCounterPreview(
-                            topMargin: page.topMargin,
-                            bottomMargin: page.bottomMargin,
-                            sideMargin: page.sideMargin,
-                            textContent: page.text,
-                            bgImage: page.stampBg,
-                            isFirstPage: page.isFirstPageOfDoc,
-                            fontSize: page.fontSize,
-                            paperSize: page.originalPaperSize,
-                            floatingBoxes: page.floatingBoxes,
-                            fieldValues: page.fieldValues,
-                          ),
+                          child: isFormFiller
+                              ? PdfFormCounterPreview(
+                                  bgImage: page.stampBg,
+                                  paperSize: page.originalPaperSize,
+                                  floatingBoxes: page.floatingBoxes,
+                                  fieldValues: page.fieldValues,
+                                )
+                              : StampCounterPreview(
+                                  topMargin: page.topMargin,
+                                  bottomMargin: page.bottomMargin,
+                                  sideMargin: page.sideMargin,
+                                  textContent: page.text,
+                                  bgImage: page.stampBg,
+                                  isFirstPage: page.isFirstPageOfDoc,
+                                  fontSize: page.fontSize,
+                                  paperSize: page.originalPaperSize,
+                                  floatingBoxes: page.floatingBoxes,
+                                  fieldValues: page.fieldValues,
+                                ),
                         ),
                       );
                     }),

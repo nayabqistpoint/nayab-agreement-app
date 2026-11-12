@@ -14,6 +14,7 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
   final Function(Offset localPosition) onCanvasTapWithPos;
   final Function(String id) onSelectField;
   final Function(String id, double dx, double dy) onDragField;
+  final Function(String id, double newWidth) onResizeFieldWidth;
   final Function(String id) onDeleteField;
   final Function(String id, double newSize) onFontSizeChange;
   final Function(String id) onToggleBold;
@@ -32,6 +33,7 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
     required this.onCanvasTapWithPos,
     required this.onSelectField,
     required this.onDragField,
+    required this.onResizeFieldWidth,
     required this.onDeleteField,
     required this.onFontSizeChange,
     required this.onToggleBold,
@@ -78,7 +80,12 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(4),
           boxShadow: const [
-            BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2, offset: Offset(0, 4)),
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10,
+              spreadRadius: 2,
+              offset: Offset(0, 4),
+            ),
           ],
         ),
         child: Stack(
@@ -89,7 +96,11 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (details) => onCanvasTapWithPos(details.localPosition),
                 child: bgImage != null
-                    ? Image.memory(bgImage!, fit: BoxFit.fill, filterQuality: FilterQuality.high)
+                    ? Image.memory(
+                        bgImage!,
+                        fit: BoxFit.fill,
+                        filterQuality: FilterQuality.high,
+                      )
                     : Center(
                         child: Opacity(
                           opacity: 0.1,
@@ -100,7 +111,11 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                               SizedBox(height: 8),
                               Text(
                                 'اوپر سے اپنی رسید یا انوائس PDF اپلوڈ کریں',
-                                style: TextStyle(fontFamily: 'JameelNoori', fontSize: 24, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontFamily: 'JameelNoori',
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
@@ -108,16 +123,22 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                       ),
               ),
             ),
-            ...fields.map((f) => PdfDraggableBoxUi(
-              field: f,
-              isSelected: f.id == selectedFieldId,
-              onSelect: () => onSelectField(f.id),
-              onDrag: (dx, dy) => onDragField(f.id, dx, dy),
-              onTextEdited: (newText) => onTextEdited(f.id, newText),
-            )),
+            ...fields.map(
+              (f) => PdfDraggableBoxUi(
+                field: f,
+                isSelected: f.id == selectedFieldId,
+                onSelect: () => onSelectField(f.id),
+                onDrag: (dx, dy) => onDragField(f.id, dx, dy),
+                onResizeWidth: (newW) => onResizeFieldWidth(f.id, newW),
+                onTextEdited: (newText) => onTextEdited(f.id, newText),
+              ),
+            ),
             if (selectedField != null)
               Positioned(
-                left: selectedField.x.clamp(8.0, (sheetWidth - (310.0 * toolbarScale)).clamp(10.0, sheetWidth)),
+                left: selectedField.x.clamp(
+                  8.0,
+                  (sheetWidth - (310.0 * toolbarScale)).clamp(10.0, sheetWidth),
+                ),
                 top: (selectedField.y - (62.0 * toolbarScale)) < 5.0
                     ? (selectedField.y + 50.0)
                     : (selectedField.y - (62.0 * toolbarScale)),
@@ -128,12 +149,20 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                     behavior: HitTestBehavior.opaque,
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F172A),
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: const [
-                          BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 1, offset: Offset(0, 4)),
+                          BoxShadow(
+                            color: Colors.black54,
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                            offset: Offset(0, 4),
+                          ),
                         ],
                       ),
                       child: Row(
@@ -142,42 +171,89 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                           _buildToolbarBtn(
                             onTap: () => onToggleBold(selectedField!.id),
                             isActive: selectedField.isBold,
-                            child: const Text('B', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                            child: const Text(
+                              'B',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 3),
                           _buildToolbarBtn(
                             onTap: () => onToggleUnderline(selectedField!.id),
                             isActive: selectedField.isUnderline,
-                            child: const Text('U', style: TextStyle(color: Colors.white, decoration: TextDecoration.underline, fontWeight: FontWeight.bold, fontSize: 15)),
+                            child: const Text(
+                              'U',
+                              style: TextStyle(
+                                color: Colors.white,
+                                decoration: TextDecoration.underline,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 4),
-                          Container(height: 18, width: 1.2, color: Colors.white30),
+                          Container(
+                            height: 18,
+                            width: 1.2,
+                            color: Colors.white30,
+                          ),
                           const SizedBox(width: 4),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize - 1),
+                            onTap: () => onFontSizeChange(
+                              selectedField!.id,
+                              selectedField.fontSize - 1,
+                            ),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                              child: Icon(Icons.remove_circle_outline, size: 21, color: Colors.white),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 5,
+                              ),
+                              child: Icon(
+                                Icons.remove_circle_outline,
+                                size: 21,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 5),
                             child: Text(
                               '${selectedField.fontSize.round()}',
-                              style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize + 1),
+                            onTap: () => onFontSizeChange(
+                              selectedField!.id,
+                              selectedField.fontSize + 1,
+                            ),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                              child: Icon(Icons.add_circle_outline, size: 21, color: Colors.white),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 5,
+                              ),
+                              child: Icon(
+                                Icons.add_circle_outline,
+                                size: 21,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Container(height: 18, width: 1.2, color: Colors.white30),
+                          Container(
+                            height: 18,
+                            width: 1.2,
+                            color: Colors.white30,
+                          ),
                           const SizedBox(width: 4),
                           Tooltip(
                             message: 'ٹول بار چھوٹا کریں',
@@ -185,8 +261,18 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                               behavior: HitTestBehavior.opaque,
                               onTap: () => onAdjustToolbarScale(-0.2),
                               child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                                child: Text('T-', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 5,
+                                ),
+                                child: Text(
+                                  'T-',
+                                  style: TextStyle(
+                                    color: Colors.amberAccent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -196,20 +282,41 @@ class PdfEditorCanvasSheetUi extends StatelessWidget {
                               behavior: HitTestBehavior.opaque,
                               onTap: () => onAdjustToolbarScale(0.2),
                               child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                                child: Text('T+', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 5,
+                                ),
+                                child: Text(
+                                  'T+',
+                                  style: TextStyle(
+                                    color: Colors.amberAccent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Container(height: 18, width: 1.2, color: Colors.white30),
+                          Container(
+                            height: 18,
+                            width: 1.2,
+                            color: Colors.white30,
+                          ),
                           const SizedBox(width: 4),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: () => onDeleteField(selectedField!.id),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                              child: Icon(Icons.delete_forever, size: 23, color: Colors.redAccent),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 5,
+                              ),
+                              child: Icon(
+                                Icons.delete_forever,
+                                size: 23,
+                                color: Colors.redAccent,
+                              ),
                             ),
                           ),
                         ],

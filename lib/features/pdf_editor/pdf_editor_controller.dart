@@ -19,68 +19,96 @@ class PdfEditorController extends ChangeNotifier {
   String? selectedFieldId;
   String? pendingStampTag;
   bool isPendingStatic = false;
+  bool _isDisposed = false;
 
   double get currentToolbarScale => PdfBoxStyleService.toolbarScale;
 
   final List<String> availableTags = [
     '{{کسٹمر کا نام}}',
+    '{{ولدیت}}',
     '{{شناختی کارڈ}}',
-    '{{موبائل نمبر}}',
-    '{{پتہ}}',
-    '{{فون ماڈل}}',
-    '{{کل رقم}}',
-    '{{پیشگی ادائیگی}}',
+    '{{رابطہ نمبر}}',
+    '{{مستقل پتہ}}',
+    '{{موبائل ماڈل}}',
+    '{{IMEI نمبر}}',
+    '{{ٹوٹل رقم}}',
+    '{{ایڈوانس رقم}}',
     '{{ماہانہ قسط}}',
-    '{{تاریخ}}',
-    '{{گارنٹر نام}}',
+    '{{مدت}}',
   ];
+
+  void _safeNotify() {
+    if (!_isDisposed) {
+      notifyListeners();
+    }
+  }
 
   void setPaperSize(String size) {
     paperSize = size;
-    notifyListeners();
+    _safeNotify();
   }
 
   void selectField(String? id) {
     selectedFieldId = id;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setPendingStamp(String tag, {bool isStatic = false}) {
     if (pendingStampTag == tag && isPendingStatic == isStatic) {
       pendingStampTag = null;
+      isPendingStatic = false;
     } else {
       pendingStampTag = tag;
       isPendingStatic = isStatic;
       selectedFieldId = null;
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearPendingStamp() {
     pendingStampTag = null;
     isPendingStatic = false;
-    notifyListeners();
+    _safeNotify();
   }
 
-  void addFieldAtPosition(String tag, double x, double y, {bool isStatic = false}) {
-    final cleanTag = isStatic ? tag : (tag.isEmpty ? '' : '{{${tag.replaceAll('{{', '').replaceAll('}}', '').trim()}}}');
+  void addFieldAtPosition(
+    String tag,
+    double x,
+    double y, {
+    bool isStatic = false,
+  }) {
+    final String formattedTag;
+    if (isStatic) {
+      formattedTag = tag;
+    } else if (tag.trim().isEmpty) {
+      formattedTag = '{{   }}';
+    } else {
+      final clean = tag.replaceAll('{{', '').replaceAll('}}', '').trim();
+      formattedTag = '{{$clean}}';
+    }
+
+    final double maxX = paperSize == 'A4' ? 500.0 : 520.0;
+    final double maxY = paperSize == 'A4' ? 780.0 : 940.0;
+
     final newField = PdfBoxStyleService.createField(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      tag: cleanTag,
-      x: x.clamp(10.0, 500.0),
-      y: y.clamp(10.0, 750.0),
+      tag: formattedTag,
+      x: x.clamp(10.0, maxX),
+      y: y.clamp(10.0, maxY),
       isStaticText: isStatic,
     );
+
     fields.add(newField);
     selectedFieldId = newField.id;
     pendingStampTag = null;
-    notifyListeners();
+    isPendingStatic = false;
+    _safeNotify();
   }
 
   void adjustToolbarScale(double delta) {
     final newScale = (PdfBoxStyleService.toolbarScale + delta).clamp(1.0, 2.4);
     PdfBoxStyleService.rememberStyle(newToolbarScale: newScale);
-    notifyListeners();
+    _safeNotify();
   }
 
   void addCustomTag(String tagName) {
@@ -89,20 +117,23 @@ class PdfEditorController extends ChangeNotifier {
     final fullTag = '{{$clean}}';
     if (!availableTags.contains(fullTag)) {
       availableTags.add(fullTag);
-      notifyListeners();
     }
+    pendingStampTag = fullTag;
+    isPendingStatic = false;
+    selectedFieldId = null;
+    _safeNotify();
   }
 
   void removeCustomTag(String tag) {
     availableTags.remove(tag);
     if (pendingStampTag == tag) pendingStampTag = null;
-    notifyListeners();
+    _safeNotify();
   }
 
   void reorderTags(int oldIndex, int newIndex) {
     final item = availableTags.removeAt(oldIndex);
     availableTags.insert(newIndex, item);
-    notifyListeners();
+    _safeNotify();
   }
 
   void updateFieldPosition(String id, double dx, double dy) {
@@ -110,7 +141,15 @@ class PdfEditorController extends ChangeNotifier {
     if (index != -1) {
       fields[index].x += dx;
       fields[index].y += dy;
-      notifyListeners();
+      _safeNotify();
+    }
+  }
+
+  void updateFieldWidth(String id, double newWidth) {
+    final index = fields.indexWhere((f) => f.id == id);
+    if (index != -1) {
+      fields[index].width = newWidth.clamp(60.0, 520.0);
+      _safeNotify();
     }
   }
 
@@ -120,7 +159,7 @@ class PdfEditorController extends ChangeNotifier {
       final clampedSize = newSize.clamp(9.0, 36.0);
       fields[index].fontSize = clampedSize;
       PdfBoxStyleService.rememberStyle(fontSize: clampedSize);
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -130,7 +169,7 @@ class PdfEditorController extends ChangeNotifier {
       final newState = !fields[index].isBold;
       fields[index].isBold = newState;
       PdfBoxStyleService.rememberStyle(isBold: newState);
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -140,7 +179,7 @@ class PdfEditorController extends ChangeNotifier {
       final newState = !fields[index].isUnderline;
       fields[index].isUnderline = newState;
       PdfBoxStyleService.rememberStyle(isUnderline: newState);
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -148,14 +187,18 @@ class PdfEditorController extends ChangeNotifier {
     final index = fields.indexWhere((f) => f.id == id);
     if (index != -1) {
       fields[index].tag = text;
-      notifyListeners();
+      final trimmed = text.trim();
+      if (trimmed.startsWith('{{') && trimmed.endsWith('}}')) {
+        fields[index].isStaticText = false;
+      }
+      _safeNotify();
     }
   }
 
   void removeField(String id) {
     fields.removeWhere((f) => f.id == id);
     if (selectedFieldId == id) selectedFieldId = null;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> pickPdf() async {
@@ -164,24 +207,30 @@ class PdfEditorController extends ChangeNotifier {
       allowedExtensions: ['pdf'],
       withData: true,
     );
+    if (_isDisposed) return;
     if (result != null && result.files.isNotEmpty) {
       final file = result.files.first;
       if (file.bytes != null) {
         pdfRawBytes = file.bytes;
         loadedFileName = file.name;
-        renderedPages = await PdfRenderHelper.renderPdfPages(file.bytes!);
-        notifyListeners();
+        final pages = await PdfRenderHelper.renderPdfPages(file.bytes!);
+        if (_isDisposed) return;
+        renderedPages = pages;
+        _safeNotify();
       }
     }
   }
 
   Future<void> scanDocumentFromCamera() async {
     final imageBytes = await PdfScannerService.scanDocument();
+    if (_isDisposed) return;
     if (imageBytes != null) {
       renderedPages = [imageBytes];
-      loadedFileName = 'کیمرہ سکین شدہ دستاویز (${DateTime.now().hour}:${DateTime.now().minute})';
+      loadedFileName =
+          'کیمرہ سکین شدہ دستاویز (${DateTime.now().hour}:${DateTime.now().minute})';
       final doc = pw.Document();
-      final pageFormat = paperSize == 'A4' ? PdfPageFormat.a4 : PdfPageFormat.legal;
+      final pageFormat =
+          paperSize == 'A4' ? PdfPageFormat.a4 : PdfPageFormat.legal;
       doc.addPage(
         pw.Page(
           pageFormat: pageFormat,
@@ -193,7 +242,8 @@ class PdfEditorController extends ChangeNotifier {
         ),
       );
       pdfRawBytes = await doc.save();
-      notifyListeners();
+      if (_isDisposed) return;
+      _safeNotify();
     }
   }
 
@@ -211,23 +261,26 @@ class PdfEditorController extends ChangeNotifier {
 
   Future<void> loadTemplate(String title) async {
     final data = await PdfEditorStorageService.loadTemplate(title);
-    if (data != null) {
-      titleController.text = data.title;
-      paperSize = data.paperSize;
-      loadedFileName = data.fileName;
-      pdfRawBytes = data.pdfBytes;
-      fields.clear();
-      fields.addAll(data.fields);
-      PdfBoxStyleService.syncFromFields(fields);
-      if (pdfRawBytes != null) {
-        renderedPages = await PdfRenderHelper.renderPdfPages(pdfRawBytes!);
-      }
-      notifyListeners();
+    if (_isDisposed || data == null) return;
+    titleController.text = data.title;
+    paperSize = data.paperSize;
+    loadedFileName = data.fileName;
+    pdfRawBytes = data.pdfBytes;
+    fields.clear();
+    fields.addAll(data.fields);
+    PdfBoxStyleService.syncFromFields(fields);
+    _safeNotify();
+    if (pdfRawBytes != null) {
+      final pages = await PdfRenderHelper.renderPdfPages(pdfRawBytes!);
+      if (_isDisposed) return;
+      renderedPages = pages;
+      _safeNotify();
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     titleController.dispose();
     super.dispose();
   }

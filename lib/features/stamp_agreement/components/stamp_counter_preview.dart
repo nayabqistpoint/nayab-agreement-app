@@ -39,9 +39,9 @@ class StampCounterPreview extends StatelessWidget {
     final bool isA4 = paperSize.toUpperCase() == 'A4';
     final double sheetWidth = isA4 ? 595.0 : 612.0;
     final double sheetHeight = isA4 ? 842.0 : 1008.0;
-
     final double boxW = (sheetWidth - (sideMargin * 2)).clamp(50.0, sheetWidth);
-    final double boxH = (sheetHeight - topMargin - bottomMargin).clamp(40.0, sheetHeight);
+    final double boxH =
+        (sheetHeight - topMargin - bottomMargin).clamp(40.0, sheetHeight);
 
     return FittedBox(
       fit: BoxFit.contain,
@@ -77,19 +77,23 @@ class StampCounterPreview extends StatelessWidget {
                   opacity: 0.05,
                   child: Text(
                     isFirstPage ? "سرکاری ای-اسٹامپ پیپر" : "اضافی سادہ ورق",
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-
-            // 1. مین باڈی ٹیکسٹ (اسٹوڈیو کی عین مطابق پیڈنگ اور الائنمنٹ کے ساتھ)
             Positioned(
               top: topMargin,
               left: sideMargin,
               width: boxW,
               height: boxH,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12.0,
+                  vertical: 8.0,
+                ),
                 child: ClipRect(
                   child: Text(
                     textContent,
@@ -106,27 +110,56 @@ class StampCounterPreview extends StatelessWidget {
                 ),
               ),
             ),
-
-            // 2. فلوٹنگ باکسز (بغیر کسی اسکیل تبدیلی کے عین اصل کوآرڈینیٹس پر)
             ...floatingBoxes.map((box) {
               final resolvedText = _resolveFloatingText(box.tag);
+              final double maxAllowedWidth =
+                  (sheetWidth - box.x - 12.0).clamp(60.0, sheetWidth);
 
               return Positioned(
                 left: box.x,
                 top: box.y,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 40, maxWidth: 450),
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Text(
-                    resolvedText,
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
-                    style: TextStyle(
-                      fontFamily: 'JameelNoori',
-                      fontSize: box.fontSize,
-                      height: 1.8,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF111111),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: 20,
+                    maxWidth: maxAllowedWidth,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        resolvedText,
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(
+                          fontFamily: 'JameelNoori',
+                          fontSize: box.fontSize,
+                          height: 1.8,
+                          fontWeight:
+                              box.isBold ? FontWeight.w900 : FontWeight.w600,
+                          decoration: box.isUnderline
+                              ? TextDecoration.underline
+                              : TextDecoration.none,
+                          decorationThickness: box.isBold ? 2.2 : 1.3,
+                          color: const Color(0xFF111111),
+                          shadows: box.isBold
+                              ? const [
+                                  Shadow(
+                                    color: Color(0xFF111111),
+                                    offset: Offset(0.35, 0),
+                                  ),
+                                  Shadow(
+                                    color: Color(0xFF111111),
+                                    offset: Offset(-0.35, 0),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
                     ),
                   ),
                 ),

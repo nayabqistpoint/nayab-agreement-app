@@ -15,6 +15,7 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
   final VoidCallback onDismissSelection;
   final Function(String id) onSelectField;
   final Function(String id, double dx, double dy) onDragField;
+  final Function(String id, double newWidth) onResizeFieldWidth;
   final Function(String id) onDeleteField;
   final Function(String id, double newSize) onFontSizeChange;
   final Function(String id) onToggleBold;
@@ -35,6 +36,7 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
     required this.onDismissSelection,
     required this.onSelectField,
     required this.onDragField,
+    required this.onResizeFieldWidth,
     required this.onDeleteField,
     required this.onFontSizeChange,
     required this.onToggleBold,
@@ -71,9 +73,8 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
       if (idx != -1) selectedField = pageFields[idx];
     }
 
-    // اگر اوورلے پلیسمنٹ موڈ آن نہیں ہے اور کوئی فیلڈ بھی سلیکٹ نہیں ہے،
-    // تو بیک گراؤنڈ لسنر بند رہے گا تاکہ ٹیکسٹ فیلڈ کے کلکس فوری پاس ہو سکیں۔
-    final bool needsBackdropDetector = isPlacementActive || selectedFieldId != null;
+    final bool needsBackdropDetector =
+        isPlacementActive || selectedFieldId != null;
 
     return Positioned.fill(
       child: Stack(
@@ -96,31 +97,47 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
                         alignment: Alignment.topCenter,
                         padding: const EdgeInsets.only(top: 10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF0F172A),
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black38, blurRadius: 6),
+                            ],
                           ),
                           child: const Text(
-                            'کسی بھی جگہ کلک کر کے نئی تحریر لگائیں (باہر کلک سے کینسل)',
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'JameelNoori', fontWeight: FontWeight.bold),
+                            'صفحے پر جہاں لگانا ہو وہاں کلک کریں (باہر کلک سے کینسل)',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontFamily: 'JameelNoori',
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       )
                     : const SizedBox.expand(),
               ),
             ),
-          ...pageFields.map((f) => StampDraggableBoxUi(
-            field: f,
-            isSelected: f.id == selectedFieldId,
-            onSelect: () => onSelectField(f.id),
-            onDrag: (dx, dy) => onDragField(f.id, dx, dy),
-            onTextEdited: (newText) => onTextEdited(f.id, newText),
-          )),
+          ...pageFields.map(
+            (f) => StampDraggableBoxUi(
+              field: f,
+              isSelected: f.id == selectedFieldId,
+              onSelect: () => onSelectField(f.id),
+              onDrag: (dx, dy) => onDragField(f.id, dx, dy),
+              onResizeWidth: (newW) => onResizeFieldWidth(f.id, newW),
+              onTextEdited: (newText) => onTextEdited(f.id, newText),
+            ),
+          ),
           if (selectedField != null)
             Positioned(
-              left: selectedField.x.clamp(8.0, (sheetWidth - (310.0 * toolbarScale)).clamp(10.0, sheetWidth)),
+              left: selectedField.x.clamp(
+                8.0,
+                (sheetWidth - (310.0 * toolbarScale)).clamp(10.0, sheetWidth),
+              ),
               top: (selectedField.y - (62.0 * toolbarScale)) < 5.0
                   ? (selectedField.y + 50.0)
                   : (selectedField.y - (62.0 * toolbarScale)),
@@ -131,12 +148,20 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onTap: () {},
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0F172A),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: const [
-                        BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 1, offset: Offset(0, 4)),
+                        BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                          offset: Offset(0, 4),
+                        ),
                       ],
                     ),
                     child: Row(
@@ -147,7 +172,11 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
                           isActive: selectedField.isBold,
                           child: const Text(
                             'B',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 3),
@@ -165,33 +194,65 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Container(height: 18, width: 1.2, color: Colors.white30),
+                        Container(
+                          height: 18,
+                          width: 1.2,
+                          color: Colors.white30,
+                        ),
                         const SizedBox(width: 4),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize - 1),
+                          onTap: () => onFontSizeChange(
+                            selectedField!.id,
+                            selectedField.fontSize - 1,
+                          ),
                           child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                            child: Icon(Icons.remove_circle_outline, size: 21, color: Colors.white),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 5,
+                            ),
+                            child: Icon(
+                              Icons.remove_circle_outline,
+                              size: 21,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 5),
                           child: Text(
                             '${selectedField.fontSize.round()}',
-                            style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => onFontSizeChange(selectedField!.id, selectedField.fontSize + 1),
+                          onTap: () => onFontSizeChange(
+                            selectedField!.id,
+                            selectedField.fontSize + 1,
+                          ),
                           child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                            child: Icon(Icons.add_circle_outline, size: 21, color: Colors.white),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 5,
+                            ),
+                            child: Icon(
+                              Icons.add_circle_outline,
+                              size: 21,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Container(height: 18, width: 1.2, color: Colors.white30),
+                        Container(
+                          height: 18,
+                          width: 1.2,
+                          color: Colors.white30,
+                        ),
                         const SizedBox(width: 4),
                         Tooltip(
                           message: 'ٹول بار چھوٹا کریں',
@@ -199,8 +260,18 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
                             behavior: HitTestBehavior.opaque,
                             onTap: () => onAdjustToolbarScale(-0.2),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                              child: Text('T-', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 12.5)),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 5,
+                              ),
+                              child: Text(
+                                'T-',
+                                style: TextStyle(
+                                  color: Colors.amberAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -210,20 +281,41 @@ class StampOverlayCanvasLayerUi extends StatelessWidget {
                             behavior: HitTestBehavior.opaque,
                             onTap: () => onAdjustToolbarScale(0.2),
                             child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                              child: Text('T+', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 5,
+                              ),
+                              child: Text(
+                                'T+',
+                                style: TextStyle(
+                                  color: Colors.amberAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Container(height: 18, width: 1.2, color: Colors.white30),
+                        Container(
+                          height: 18,
+                          width: 1.2,
+                          color: Colors.white30,
+                        ),
                         const SizedBox(width: 4),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () => onDeleteField(selectedField!.id),
                           child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                            child: Icon(Icons.delete_forever, size: 23, color: Colors.redAccent),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 5,
+                            ),
+                            child: Icon(
+                              Icons.delete_forever,
+                              size: 23,
+                              color: Colors.redAccent,
+                            ),
                           ),
                         ),
                       ],

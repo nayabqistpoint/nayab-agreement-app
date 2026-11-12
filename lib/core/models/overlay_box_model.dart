@@ -6,6 +6,8 @@ class OverlayBoxModel {
   final double width;
   final double height;
   final double fontSize;
+  final bool isBold;
+  final bool isUnderline;
   final bool isMultiLine;
 
   const OverlayBoxModel({
@@ -16,6 +18,8 @@ class OverlayBoxModel {
     required this.width,
     required this.height,
     this.fontSize = 13.5,
+    this.isBold = false,
+    this.isUnderline = false,
     this.isMultiLine = false,
   });
 
@@ -28,6 +32,8 @@ class OverlayBoxModel {
       'width': width,
       'height': height,
       'fontSize': fontSize,
+      'isBold': isBold,
+      'isUnderline': isUnderline,
       'isMultiLine': isMultiLine,
     };
   }
@@ -38,9 +44,11 @@ class OverlayBoxModel {
       tag: map['tag']?.toString() ?? '',
       x: (map['x'] as num?)?.toDouble() ?? 0.0,
       y: (map['y'] as num?)?.toDouble() ?? 0.0,
-      width: (map['width'] as num?)?.toDouble() ?? 120.0,
-      height: (map['height'] as num?)?.toDouble() ?? 30.0,
+      width: (map['width'] as num?)?.toDouble() ?? 180.0,
+      height: (map['height'] as num?)?.toDouble() ?? 32.0,
       fontSize: (map['fontSize'] as num?)?.toDouble() ?? 13.5,
+      isBold: map['isBold'] as bool? ?? false,
+      isUnderline: map['isUnderline'] as bool? ?? false,
       isMultiLine: map['isMultiLine'] as bool? ?? false,
     );
   }
@@ -53,6 +61,8 @@ class OverlayBoxModel {
     double? width,
     double? height,
     double? fontSize,
+    bool? isBold,
+    bool? isUnderline,
     bool? isMultiLine,
   }) {
     return OverlayBoxModel(
@@ -63,6 +73,8 @@ class OverlayBoxModel {
       width: width ?? this.width,
       height: height ?? this.height,
       fontSize: fontSize ?? this.fontSize,
+      isBold: isBold ?? this.isBold,
+      isUnderline: isUnderline ?? this.isUnderline,
       isMultiLine: isMultiLine ?? this.isMultiLine,
     );
   }

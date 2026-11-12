@@ -21,16 +21,17 @@ class StampPayloadBuilder {
     required List<StampOverlayFieldModel> overlayFields,
   }) {
     final now = TimeStatusService.nowUtcIso();
-
     final List<OverlayBoxModel> floatingBoxes = overlayFields.map((f) {
       return OverlayBoxModel(
         id: f.id,
         tag: f.tag,
         x: f.x,
         y: f.y,
-        width: 150.0,
+        width: f.width,
         height: 35.0,
         fontSize: f.fontSize,
+        isBold: f.isBold,
+        isUnderline: f.isUnderline,
         isMultiLine: false,
       );
     }).toList();
@@ -39,10 +40,13 @@ class StampPayloadBuilder {
     for (final tag in TemplateService.extractFields(content)) {
       allExtractedFields.add(tag);
     }
-
     for (final f in overlayFields) {
-      for (final tag in TemplateService.extractFields(f.tag)) {
-        allExtractedFields.add(tag);
+      if (!f.isStaticText) {
+        for (final tag in TemplateService.extractFields(f.tag)) {
+          if (tag.isNotEmpty) {
+            allExtractedFields.add(tag);
+          }
+        }
       }
     }
 

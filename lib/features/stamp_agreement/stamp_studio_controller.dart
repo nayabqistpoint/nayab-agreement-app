@@ -9,7 +9,8 @@ import 'services/stamp_tag_service.dart';
 import 'services/stamp_template_service.dart';
 
 class StampStudioController extends ChangeNotifier {
-  final TextEditingController titleController = TextEditingController(text: 'پنجاب ای-اسٹامپ معاہدہ');
+  final TextEditingController titleController =
+      TextEditingController(text: 'پنجاب ای-اسٹامپ معاہدہ');
   late final StampRichTextController bodyController;
   final StampPdfStateService pdfService = StampPdfStateService();
   final List<String> pinnedTags = List.from(StampTagService.defaultTags);
@@ -23,26 +24,40 @@ class StampStudioController extends ChangeNotifier {
   double fontSize = 14.0;
   final List<StampOverlayFieldModel> overlayFields = [];
   String? selectedOverlayFieldId;
-  bool isOverlayPlacementActive = false;
+  String? pendingOverlayTag;
+  bool isPendingOverlayStatic = false;
+
+  bool get isOverlayPlacementActive =>
+      pendingOverlayTag != null || isPendingOverlayStatic;
+
   double get currentToolbarScale => StampBoxStyleService.toolbarScale;
 
   StampStudioController() {
     bodyController = StampRichTextController(defaultFontSize: fontSize);
     bodyController.addListener(() {
-      if (bodyController.selection.isValid) activeSelection = bodyController.selection;
+      if (bodyController.selection.isValid) {
+        activeSelection = bodyController.selection;
+      }
     });
   }
 
   List<Uint8List?> get cachedStampPages => pdfService.cachedStampPages;
   String? get loadedPdfFileName => pdfService.loadedPdfFileName;
-  TextSelection get effectiveSelection => (bodyController.selection.isValid && bodyController.selection.start >= 0)
-      ? bodyController.selection
-      : (activeSelection.isValid && activeSelection.start >= 0)
-          ? activeSelection
-          : TextSelection.collapsed(offset: bodyController.text.length);
-  double get currentActiveFontSize => (effectiveSelection.isValid && !effectiveSelection.isCollapsed)
-      ? bodyController.getSelectedFontSize(effectiveSelection.start, effectiveSelection.end)
-      : fontSize;
+
+  TextSelection get effectiveSelection =>
+      (bodyController.selection.isValid && bodyController.selection.start >= 0)
+          ? bodyController.selection
+          : (activeSelection.isValid && activeSelection.start >= 0)
+              ? activeSelection
+              : TextSelection.collapsed(offset: bodyController.text.length);
+
+  double get currentActiveFontSize =>
+      (effectiveSelection.isValid && !effectiveSelection.isCollapsed)
+          ? bodyController.getSelectedFontSize(
+              effectiveSelection.start,
+              effectiveSelection.end,
+            )
+          : fontSize;
 
   void initFromTemplate(String? title) async {
     if (title == null || title.isEmpty) return;
@@ -60,7 +75,7 @@ class StampStudioController extends ChangeNotifier {
     bodyController.defaultFontSize = fontSize;
     overlayFields.clear();
     overlayFields.addAll(data.overlayFields);
-
+    StampBoxStyleService.syncFromFields(overlayFields);
     if (data.pdfBytes != null) {
       pdfService.setLoadedPdf(data.pdfBytes!, data.fileName);
       await pdfService.renderPages(data.pdfBytes!);
@@ -68,7 +83,13 @@ class StampStudioController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateMargins({double? top, double? subTop, double? bottom, double? subBottom, double? side}) {
+  void updateMargins({
+    double? top,
+    double? subTop,
+    double? bottom,
+    double? subBottom,
+    double? side,
+  }) {
     if (top != null) topMargin = StampMarginService.clampTop(top);
     if (subTop != null) subsequentTopMargin = StampMarginService.clampSubTop(subTop);
     if (bottom != null) bottomMargin = StampMarginService.clampBottom(bottom);
@@ -80,7 +101,13 @@ class StampStudioController extends ChangeNotifier {
   void setPaperSize(String size) {
     paperSize = size;
     final m = StampMarginService.getDefaults(size);
-    updateMargins(top: m.top, subTop: m.subTop, bottom: m.bottom, subBottom: 65.0, side: m.side);
+    updateMargins(
+      top: m.top,
+      subTop: m.subTop,
+      bottom: m.bottom,
+      subBottom: 65.0,
+      side: m.side,
+    );
   }
 
   void updateFontSize(double size) {
@@ -97,27 +124,61 @@ class StampStudioController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleOverlayPlacementMode() {
-    isOverlayPlacementActive = !isOverlayPlacementActive;
-    if (isOverlayPlacementActive) {
+  void setPendingOverlay(String tag, {bool isStatic = false}) {
+    if (pendingOverlayTag == tag && isPendingOverlayStatic == isStatic) {
+      pendingOverlayTag = null;
+      isPendingOverlayStatic = false;
+    } else {
+      pendingOverlayTag = tag;
+      isPendingOverlayStatic = isStatic;
       selectedOverlayFieldId = null;
     }
     notifyListeners();
   }
 
-  void addOverlayFieldAtPosition(double x, double y, {int pageIndex = 0, String text = ''}) {
-    final isTag = text.startsWith('{{') && text.endsWith('}}');
+  void cancelOverlayPlacement() {
+    pendingOverlayTag = null;
+    isPendingOverlayStatic = false;
+    notifyListeners();
+  }
+
+  void toggleOverlayPlacementMode() {
+    if (isOverlayPlacementActive) {
+      cancelOverlayPlacement();
+    } else {
+      setPendingOverlay('', isStatic: true);
+    }
+  }
+
+  void addOverlayFieldAtPosition(
+    double x,
+    double y, {
+    int pageIndex = 0,
+  }) {
+    final String formattedTag;
+    if (isPendingOverlayStatic) {
+      formattedTag = '';
+    } else if (pendingOverlayTag == '__empty_tag__' ||
+        (pendingOverlayTag ?? '').trim().isEmpty) {
+      formattedTag = '{{   }}';
+    } else {
+      final clean =
+          pendingOverlayTag!.replaceAll('{{', '').replaceAll('}}', '').trim();
+      formattedTag = '{{$clean}}';
+    }
+
     final newField = StampBoxStyleService.createField(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      tag: text.isEmpty ? 'تحریر لکھیں' : text,
+      tag: formattedTag,
       x: x.clamp(10.0, 500.0),
       y: y.clamp(10.0, 950.0),
       pageIndex: pageIndex,
-      isStaticText: !isTag,
+      isStaticText: isPendingOverlayStatic,
     );
     overlayFields.add(newField);
     selectedOverlayFieldId = newField.id;
-    isOverlayPlacementActive = false;
+    pendingOverlayTag = null;
+    isPendingOverlayStatic = false;
     notifyListeners();
   }
 
@@ -131,6 +192,14 @@ class StampStudioController extends ChangeNotifier {
     if (idx != -1) {
       overlayFields[idx].x += dx;
       overlayFields[idx].y += dy;
+      notifyListeners();
+    }
+  }
+
+  void updateOverlayFieldWidth(String id, double newWidth) {
+    final idx = overlayFields.indexWhere((f) => f.id == id);
+    if (idx != -1) {
+      overlayFields[idx].width = newWidth.clamp(60.0, 520.0);
       notifyListeners();
     }
   }
@@ -169,8 +238,10 @@ class StampStudioController extends ChangeNotifier {
     final idx = overlayFields.indexWhere((f) => f.id == id);
     if (idx != -1) {
       overlayFields[idx].tag = newText;
-      final isTag = newText.startsWith('{{') && newText.endsWith('}}');
-      overlayFields[idx].isStaticText = !isTag;
+      final trimmed = newText.trim();
+      if (trimmed.startsWith('{{') && trimmed.endsWith('}}')) {
+        overlayFields[idx].isStaticText = false;
+      }
       notifyListeners();
     }
   }
@@ -182,7 +253,7 @@ class StampStudioController extends ChangeNotifier {
   }
 
   void adjustToolbarScale(double delta) {
-    final newScale = (StampBoxStyleService.toolbarScale + delta).clamp(0.8, 1.6);
+    final newScale = (StampBoxStyleService.toolbarScale + delta).clamp(1.0, 2.4);
     StampBoxStyleService.rememberStyle(newToolbarScale: newScale);
     notifyListeners();
   }

@@ -15,20 +15,29 @@ class PdfEditorPage extends StatefulWidget {
 class _PdfEditorPageState extends State<PdfEditorPage> {
   late final PdfEditorController _controller;
 
+  void _onControllerUpdate() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _controller = PdfEditorController();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _controller.addListener(_onControllerUpdate);
     if (widget.initialTitle != null) {
-      _controller.loadTemplate(widget.initialTitle!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _controller.loadTemplate(widget.initialTitle!);
+        }
+      });
     }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerUpdate);
     _controller.dispose();
     super.dispose();
   }
@@ -41,7 +50,10 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
         return Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
-            title: const Text('نیا کسٹم ٹیگ شامل کریں', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            title: const Text(
+              'نیا کسٹم ٹیگ شامل کریں',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             content: TextField(
               controller: textCtrl,
               autofocus: true,
@@ -72,12 +84,31 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
     );
   }
 
+  Future<void> _handleSave() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final ok = await _controller.saveTemplate();
+    if (!mounted) return;
+    if (ok) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('ٹیمپلیٹ کامیابی سے محفوظ ہو گیا!')),
+      );
+      navigator.pop(true);
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('براہ کرم ٹیمپلیٹ کا عنوان درج کریں!')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isA4 = _controller.paperSize == 'A4';
     final double sheetW = isA4 ? 595.0 : 612.0;
     final double sheetH = isA4 ? 842.0 : 1008.0;
-    final bg = _controller.renderedPages.isNotEmpty ? _controller.renderedPages.first : null;
+    final bg = _controller.renderedPages.isNotEmpty
+        ? _controller.renderedPages.first
+        : null;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -86,20 +117,7 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
         appBar: PdfEditorAppBarUi(
           paperSize: _controller.paperSize,
           onPaperSizeChanged: _controller.setPaperSize,
-          onSave: () async {
-            final ok = await _controller.saveTemplate();
-            if (!context.mounted) return;
-            if (ok) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ٹیمپلیٹ کامیابی سے محفوظ ہو گیا!')),
-              );
-              Navigator.pop(context, true);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('براہ کرم ٹیمپلیٹ کا عنوان درج کریں!')),
-              );
-            }
-          },
+          onSave: _handleSave,
         ),
         body: Column(
           children: [
@@ -111,12 +129,15 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
               availableTags: _controller.availableTags,
               activePendingTag: _controller.pendingStampTag,
               isPendingStatic: _controller.isPendingStatic,
-              onSelectTagToStamp: (t) => _controller.setPendingStamp(t, isStatic: false),
+              onSelectTagToStamp: (t) =>
+                  _controller.setPendingStamp(t, isStatic: false),
               onDeleteTag: _controller.removeCustomTag,
               onReorderTags: _controller.reorderTags,
               onShowAddCustomTagDialog: _showAddCustomTagDialog,
-              onSelectStaticToStamp: () => _controller.setPendingStamp('', isStatic: true),
-              onSelectEmptyTagToStamp: () => _controller.setPendingStamp('__empty_tag__', isStatic: false),
+              onSelectStaticToStamp: () =>
+                  _controller.setPendingStamp('', isStatic: true),
+              onSelectEmptyTagToStamp: () =>
+                  _controller.setPendingStamp('__empty_tag__', isStatic: false),
             ),
             Expanded(
               child: Container(
@@ -138,10 +159,12 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
                         selectedFieldId: _controller.selectedFieldId,
                         toolbarScale: _controller.currentToolbarScale,
                         onCanvasTapWithPos: (pos) {
-                          if (_controller.pendingStampTag != null || _controller.isPendingStatic) {
-                            final tagToUse = _controller.pendingStampTag == '__empty_tag__'
-                                ? ''
-                                : (_controller.pendingStampTag ?? '');
+                          if (_controller.pendingStampTag != null ||
+                              _controller.isPendingStatic) {
+                            final tagToUse =
+                                _controller.pendingStampTag == '__empty_tag__'
+                                    ? ''
+                                    : (_controller.pendingStampTag ?? '');
                             _controller.addFieldAtPosition(
                               tagToUse,
                               pos.dx,
@@ -154,6 +177,7 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
                         },
                         onSelectField: _controller.selectField,
                         onDragField: _controller.updateFieldPosition,
+                        onResizeFieldWidth: _controller.updateFieldWidth,
                         onDeleteField: _controller.removeField,
                         onFontSizeChange: _controller.updateFieldFontSize,
                         onToggleBold: _controller.toggleBold,

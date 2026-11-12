@@ -43,6 +43,13 @@ class _StampStudioPageState extends State<StampStudioPage> {
     _controller.bodyController.selection = _controller.effectiveSelection;
   }
 
+  Future<void> _handleSave() async {
+    final navigator = Navigator.of(context);
+    final ok = await _controller.saveTemplate();
+    if (!mounted) return;
+    if (ok) navigator.pop(true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -52,11 +59,7 @@ class _StampStudioPageState extends State<StampStudioPage> {
         appBar: StampStudioAppBarUi(
           paperSize: _controller.paperSize,
           onPaperSizeChanged: _controller.setPaperSize,
-          onSave: () async {
-            final ok = await _controller.saveTemplate();
-            if (!context.mounted) return;
-            if (ok) Navigator.pop(context, true);
-          },
+          onSave: _handleSave,
         ),
         body: Column(
           children: [
@@ -72,7 +75,9 @@ class _StampStudioPageState extends State<StampStudioPage> {
                 if (ok) _controller.notify();
               },
               onNormalizeParagraphs: () {
-                StampTextFormatService.normalizeParagraphs(_controller.bodyController);
+                StampTextFormatService.normalizeParagraphs(
+                  _controller.bodyController,
+                );
                 _controller.notify();
               },
               onFontSizeChanged: _controller.updateFontSize,
@@ -91,17 +96,26 @@ class _StampStudioPageState extends State<StampStudioPage> {
               onToggleOverlayMode: _controller.toggleOverlayPlacementMode,
               onAlignRight: () {
                 _syncSelection();
-                StampAlignmentService.alignLine(_controller.bodyController, TextAlign.right);
+                StampAlignmentService.alignLine(
+                  _controller.bodyController,
+                  TextAlign.right,
+                );
                 _controller.notify();
               },
               onAlignCenter: () {
                 _syncSelection();
-                StampAlignmentService.alignLine(_controller.bodyController, TextAlign.center);
+                StampAlignmentService.alignLine(
+                  _controller.bodyController,
+                  TextAlign.center,
+                );
                 _controller.notify();
               },
               onAlignLeft: () {
                 _syncSelection();
-                StampAlignmentService.alignLine(_controller.bodyController, TextAlign.left);
+                StampAlignmentService.alignLine(
+                  _controller.bodyController,
+                  TextAlign.left,
+                );
                 _controller.notify();
               },
               onInsertBullet: () {
@@ -112,27 +126,17 @@ class _StampStudioPageState extends State<StampStudioPage> {
             ),
             StampTagsToolbarUi(
               pinnedTags: _controller.pinnedTags,
-              onBold: () {
-                _syncSelection();
-                StampTextFormatService.insertFormatting(_controller.bodyController, 'b');
-                _controller.notify();
-              },
-              onUnderline: () {
-                _syncSelection();
-                StampTextFormatService.insertFormatting(_controller.bodyController, 'u');
-                _controller.notify();
-              },
-              onInsertEmSpace: () {
-                _syncSelection();
-                StampAlignmentService.insertEmSpace(_controller.bodyController);
-                _controller.notify();
-              },
-              onInsertEmptyTag: () {
-                _syncSelection();
-                StampTextFormatService.insertEmptyTag(_controller.bodyController);
-                _controller.notify();
-              },
-              onInsertTag: (t) {
+              activePendingTag: _controller.pendingOverlayTag,
+              isPendingStatic: _controller.isPendingOverlayStatic,
+              onSelectStaticToStamp: () =>
+                  _controller.setPendingOverlay('', isStatic: true),
+              onSelectEmptyTagToStamp: () => _controller.setPendingOverlay(
+                '__empty_tag__',
+                isStatic: false,
+              ),
+              onSelectTagToStamp: (t) =>
+                  _controller.setPendingOverlay(t, isStatic: false),
+              onInsertTagInText: (t) {
                 _syncSelection();
                 StampTextFormatService.insertTag(_controller.bodyController, t);
                 _controller.notify();
@@ -143,9 +147,7 @@ class _StampStudioPageState extends State<StampStudioPage> {
               },
               onShowAddCustomTag: () => StampCustomTagDialogUi.show(context, (t) {
                 StampTagService.addTag(_controller.pinnedTags, t);
-                _syncSelection();
-                StampTextFormatService.insertTag(_controller.bodyController, t);
-                _controller.notify();
+                _controller.setPendingOverlay(t, isStatic: false);
               }),
             ),
             Expanded(

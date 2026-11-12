@@ -3,7 +3,8 @@ class StampOverlayFieldModel {
   String tag;
   double x;
   double y;
-  int pageIndex; // تاکہ ہر صفحے (پیج 1، پیج 2 وغیرہ) پر آزادانہ شناخت ہو سکے
+  double width;
+  int pageIndex;
   double fontSize;
   bool isBold;
   bool isUnderline;
@@ -15,6 +16,7 @@ class StampOverlayFieldModel {
     required this.tag,
     required this.x,
     required this.y,
+    this.width = 180.0,
     this.pageIndex = 0,
     this.fontSize = 13.0,
     this.isBold = false,
@@ -29,6 +31,7 @@ class StampOverlayFieldModel {
       'tag': tag,
       'x': x,
       'y': y,
+      'width': width,
       'pageIndex': pageIndex,
       'fontSize': fontSize,
       'isBold': isBold,
@@ -44,6 +47,7 @@ class StampOverlayFieldModel {
       tag: map['tag']?.toString() ?? '',
       x: (map['x'] as num?)?.toDouble() ?? 50.0,
       y: (map['y'] as num?)?.toDouble() ?? 50.0,
+      width: (map['width'] as num?)?.toDouble() ?? 180.0,
       pageIndex: (map['pageIndex'] as num?)?.toInt() ?? 0,
       fontSize: (map['fontSize'] as num?)?.toDouble() ?? 13.0,
       isBold: map['isBold'] == true,
