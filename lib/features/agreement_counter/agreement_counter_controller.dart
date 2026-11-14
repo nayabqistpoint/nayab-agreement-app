@@ -9,6 +9,7 @@ import 'services/counter_bundle_engine_service.dart';
 import 'services/counter_deal_recorder_service.dart';
 import 'services/counter_media_picker_service.dart';
 import 'services/counter_payload_builder.dart';
+import 'services/counter_pos_order_service.dart';
 import 'services/counter_render_service.dart';
 import 'services/counter_storage_handler_service.dart';
 
@@ -25,15 +26,18 @@ class AgreementCounterController extends ChangeNotifier {
   Map<String, String> currentFieldValues = {};
   List<String> availableTemplates = [];
   Map<String, DocumentTemplateModel> templateModelsMap = {};
-  
   List<BundlePageMeta> bundlePages = [];
   List<String> requiredFields = [];
   bool isRenderingStamp = false;
-
   CustomerDealModel? activeDeal;
+  String? activePosOrderId;
 
-  int get legalPagesCount => bundlePages.where((p) => p.originalPaperSize.toLowerCase().contains('legal')).length;
-  int get a4PagesCount => bundlePages.where((p) => !p.originalPaperSize.toLowerCase().contains('legal')).length;
+  int get legalPagesCount => bundlePages
+      .where((p) => p.originalPaperSize.toLowerCase().contains('legal'))
+      .length;
+  int get a4PagesCount => bundlePages
+      .where((p) => !p.originalPaperSize.toLowerCase().contains('legal'))
+      .length;
 
   void init() {
     loadDraft();
@@ -44,11 +48,9 @@ class AgreementCounterController extends ChangeNotifier {
     final all = CounterStorageHandlerService.getAllTemplates();
     availableTemplates = all.keys.toList();
     templateModelsMap.clear();
-
     for (var entry in all.entries) {
       templateModelsMap[entry.key] = DocumentTemplateModel.fromMap(entry.value);
     }
-
     if (availableTemplates.isNotEmpty && selectedTemplates.isEmpty) {
       selectedTemplates = [availableTemplates.first];
     }
@@ -61,11 +63,15 @@ class AgreementCounterController extends ChangeNotifier {
     if (draft.containsKey('fieldValues') && draft['fieldValues'] is Map) {
       currentFieldValues = Map<String, String>.from(draft['fieldValues']);
     }
-    if (draft.containsKey('selected_templates_bundle') && draft['selected_templates_bundle'] is List) {
+    if (draft.containsKey('selected_templates_bundle') &&
+        draft['selected_templates_bundle'] is List) {
       final savedBundle = List<String>.from(draft['selected_templates_bundle']);
       if (savedBundle.isNotEmpty) {
         selectedTemplates = savedBundle;
       }
+    }
+    if (draft.containsKey('activePosOrderId')) {
+      activePosOrderId = draft['activePosOrderId']?.toString();
     }
   }
 
@@ -110,7 +116,6 @@ class AgreementCounterController extends ChangeNotifier {
   Future<void> recalculateBundle() async {
     isRenderingStamp = true;
     notifyListeners();
-
     final result = await CounterBundleEngineService.processBundle(
       selectedTitles: selectedTemplates,
       fieldValues: currentFieldValues,
@@ -122,47 +127,61 @@ class AgreementCounterController extends ChangeNotifier {
       paperSize: paperSize,
       customTemplateStamps: customTemplateStamps,
     );
-
     bundlePages = result.bundlePages;
     requiredFields = result.combinedRequiredFields;
-
-    // ٹیمپلیٹ سے آئی ہوئی تمام فیلڈز کو ہمیشہ یقینی بنائیں
     for (var field in requiredFields) {
       if (!currentFieldValues.containsKey(field)) {
         currentFieldValues[field] = '';
       }
     }
-
     isRenderingStamp = false;
     persistState();
     notifyListeners();
+  }
+
+  /// POS پینڈنگ آرڈر کو منتخب کر کے تمام فیلڈز بالٹی میں آٹو فل کرنا
+  void applyPosOrder(Map<String, dynamic> order) {
+    final mappedFields = CounterPosOrderService.mapOrderToBucketFields(order);
+    if (mappedFields.isNotEmpty) {
+      activePosOrderId = order['id']?.toString();
+      currentFieldValues.addAll(mappedFields);
+      recalculateBundle();
+      persistState();
+      notifyListeners();
+    }
   }
 
   void applyScannedData(String rawScan) {
     final parsedMap = SmartPayloadParser.parseScannedInput(rawScan);
     if (parsedMap.isNotEmpty) {
       currentFieldValues.addAll(parsedMap);
-
       if (parsedMap.containsKey('شناختی کارڈ')) {
         final cnic = parsedMap['شناختی کارڈ']!;
         final box = HiveBoxManager.getBox(BoxNames.customersBox);
         final rawCust = box.get(cnic);
         if (rawCust is Map) {
-          if (!currentFieldValues.containsKey('کسٹمر کا نام') || currentFieldValues['کسٹمر کا نام']!.isEmpty) {
-            currentFieldValues['کسٹمر کا نام'] = rawCust['fullName']?.toString() ?? '';
+          if (!currentFieldValues.containsKey('کسٹمر کا نام') ||
+              currentFieldValues['کسٹمر کا نام']!.isEmpty) {
+            currentFieldValues['کسٹمر کا نام'] =
+                rawCust['fullName']?.toString() ?? '';
           }
-          if (!currentFieldValues.containsKey('ولدیت') || currentFieldValues['ولدیت']!.isEmpty) {
-            currentFieldValues['ولدیت'] = rawCust['fatherName']?.toString() ?? '';
+          if (!currentFieldValues.containsKey('ولدیت') ||
+              currentFieldValues['ولدیت']!.isEmpty) {
+            currentFieldValues['ولدیت'] =
+                rawCust['fatherName']?.toString() ?? '';
           }
-          if (!currentFieldValues.containsKey('رابطہ نمبر') || currentFieldValues['رابطہ نمبر']!.isEmpty) {
-            currentFieldValues['رابطہ نمبر'] = rawCust['phone']?.toString() ?? '';
+          if (!currentFieldValues.containsKey('رابطہ نمبر') ||
+              currentFieldValues['رابطہ نمبر']!.isEmpty) {
+            currentFieldValues['رابطہ نمبر'] =
+                rawCust['phone']?.toString() ?? '';
           }
-          if (!currentFieldValues.containsKey('مستقل پتہ') || currentFieldValues['مستقل پتہ']!.isEmpty) {
-            currentFieldValues['مستقل پتہ'] = rawCust['address']?.toString() ?? '';
+          if (!currentFieldValues.containsKey('مستقل پتہ') ||
+              currentFieldValues['مستقل پتہ']!.isEmpty) {
+            currentFieldValues['مستقل پتہ'] =
+                rawCust['address']?.toString() ?? '';
           }
         }
       }
-
       recalculateBundle();
       persistState();
       notifyListeners();
@@ -176,7 +195,12 @@ class AgreementCounterController extends ChangeNotifier {
       deliveryPhotoPath: activeDeal?.deliveryPhotoPath,
       signedDocPhotoPath: activeDeal?.signedDocPhotoPath,
     );
+    if (activePosOrderId != null && activePosOrderId!.isNotEmpty) {
+      await CounterPosOrderService.markOrderAgreementCompleted(activePosOrderId!);
+      activePosOrderId = null;
+    }
     activeDeal = deal;
+    persistState();
     notifyListeners();
     return deal;
   }
@@ -185,7 +209,9 @@ class AgreementCounterController extends ChangeNotifier {
     if (activeDeal == null) {
       await commitDeal();
     }
-    final path = await CounterMediaPickerService.capturePhoto(prefixName: 'delivery_${activeDeal!.id}');
+    final path = await CounterMediaPickerService.capturePhoto(
+      prefixName: 'delivery_${activeDeal!.id}',
+    );
     if (path != null) {
       await CounterDealRecorderService.updateDealMedia(
         dealId: activeDeal!.id,
@@ -200,7 +226,9 @@ class AgreementCounterController extends ChangeNotifier {
     if (activeDeal == null) {
       await commitDeal();
     }
-    final path = await CounterMediaPickerService.capturePhoto(prefixName: 'signed_${activeDeal!.id}');
+    final path = await CounterMediaPickerService.capturePhoto(
+      prefixName: 'signed_${activeDeal!.id}',
+    );
     if (path != null) {
       await CounterDealRecorderService.updateDealMedia(
         dealId: activeDeal!.id,
@@ -219,6 +247,7 @@ class AgreementCounterController extends ChangeNotifier {
       fieldValues: currentFieldValues,
     );
     payload['selected_templates_bundle'] = selectedTemplates;
+    payload['activePosOrderId'] = activePosOrderId;
     CounterStorageHandlerService.saveDraftBatch(payload);
   }
 }

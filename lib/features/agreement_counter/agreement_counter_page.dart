@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/qr_scanner.dart';
 import '../agreement_bucket_view/bucket_view_page.dart';
 import '../customer_directory/customer_directory_page.dart';
+import '../pos_control_panel/pos_control_panel_page.dart';
 import '../stamp_agreement/stamp_studio_page.dart';
 import 'agreement_counter_controller.dart';
 import 'components/counter_app_bar_ui.dart';
@@ -12,6 +13,7 @@ import 'components/counter_bundle_selector_ui.dart';
 import 'components/counter_canvas_viewer_ui.dart';
 import 'components/counter_delivery_modal_ui.dart';
 import 'components/counter_module_tabs_ui.dart';
+import 'components/counter_pending_orders_bar_ui.dart';
 import 'components/counter_print_action_ui.dart';
 import 'components/counter_quick_toolbar.dart';
 import 'components/counter_scanner_bar_ui.dart';
@@ -21,7 +23,6 @@ import 'services/counter_storage_handler_service.dart';
 
 class AgreementCounterPage extends StatefulWidget {
   const AgreementCounterPage({super.key});
-
   @override
   State<AgreementCounterPage> createState() => _AgreementCounterPageState();
 }
@@ -134,19 +135,22 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   @override
   Widget build(BuildContext context) {
     _syncKeys(_c.bundlePages.length);
-
-    final int filled = _c.requiredFields.where((f) => (_c.currentFieldValues[f] ?? '').isNotEmpty).length;
-
+    final int filled = _c.requiredFields
+        .where((f) => (_c.currentFieldValues[f] ?? '').isNotEmpty)
+        .length;
     final Map<String, bool> hasStampsMap = {};
     for (var t in _c.availableTemplates) {
       hasStampsMap[t] = _c.customTemplateStamps.containsKey(t);
     }
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: CounterAppBarUi(
+          onOpenPosControlPanel: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PosControlPanelPage()),
+          ),
           onOpenCustomerDirectory: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const CustomerDirectoryPage()),
@@ -161,6 +165,20 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  CounterPendingOrdersBarUi(
+                    activeOrderId: _c.activePosOrderId,
+                    onSelectOrder: (order) {
+                      _c.applyPosOrder(order);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'آرڈر ${order['id']} کی معلومات بالٹی میں بھر دی گئی ہیں!',
+                          ),
+                          backgroundColor: AppColors.primaryEmerald,
+                        ),
+                      );
+                    },
+                  ),
                   CounterScannerBarUi(
                     onScanProduct: () => _scan('پروڈکٹ QR اسکین'),
                     onScanCnic: () => _scan('شناختی کارڈ اسکین'),
@@ -170,7 +188,8 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       context,
                       const StampStudioPage(),
                     ).then((_) => _c.init()),
-                    onOpenPdfEditor: () => CounterNavigationService.openPdfEditor(
+                    onOpenPdfEditor: () =>
+                        CounterNavigationService.openPdfEditor(
                       context,
                     ).then((_) => _c.init()),
                   ),
@@ -182,7 +201,9 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     onToggleTemplate: _c.toggleTemplateSelection,
                     onSelectAll: _c.selectAllTemplates,
                     onClearAll: _c.clearAllSelectedTemplates,
-                    onOpenSingleEditor: (t) => CounterNavigationService.openEditor(context, t).then((_) => _c.init()),
+                    onOpenSingleEditor: (t) =>
+                        CounterNavigationService.openEditor(context, t)
+                            .then((_) => _c.init()),
                     onDeleteTemplate: _handleDeleteTemplate,
                     onAttachStampToTemplate: _c.attachStampToTemplate,
                   ),
@@ -195,12 +216,14 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     ).then((_) => _c.loadDraft()),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     child: InkWell(
                       onTap: _openDeliveryModalManually,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: _c.activeDeal?.deliveryPhotoPath != null
                               ? AppColors.successGreen.withAlpha(20)
@@ -237,7 +260,8 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                               ),
                             ),
                             const Spacer(),
-                            const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.black45),
+                            const Icon(Icons.arrow_forward_ios,
+                                size: 12, color: Colors.black45),
                           ],
                         ),
                       ),

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
 class CounterAppBarUi extends StatelessWidget implements PreferredSizeWidget {
+  final VoidCallback onOpenPosControlPanel;
   final VoidCallback onOpenCustomerDirectory;
   final VoidCallback onReset;
 
   const CounterAppBarUi({
     super.key,
+    required this.onOpenPosControlPanel,
     required this.onOpenCustomerDirectory,
     required this.onReset,
   });
@@ -24,6 +26,11 @@ class CounterAppBarUi extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: AppColors.primaryEmerald,
       foregroundColor: Colors.white,
       actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_outlined),
+          tooltip: 'POS کنٹرول پینل (اسٹاک و ریٹس)',
+          onPressed: onOpenPosControlPanel,
+        ),
         IconButton(
           icon: const Icon(Icons.people_outline),
           tooltip: 'کسٹمر ڈائریکٹری',
