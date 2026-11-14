@@ -1,11 +1,18 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'core/database/hive_box_manager.dart';
 import 'core/constants/app_colors.dart';
+import 'core/database/hive_box_manager.dart';
 import 'features/agreement_counter/agreement_counter_page.dart';
+import 'firebase_options.dart';
+import 'sync/master_sync_hub.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await HiveBoxManager.initialize();
+  MasterSyncHub.startWatcher();
   runApp(const NayabAgreementApp());
 }
 

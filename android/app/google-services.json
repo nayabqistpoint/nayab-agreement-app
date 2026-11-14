@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "957880195307",
+    "project_id": "nayabsoppos",
+    "storage_bucket": "nayabsoppos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:957880195307:android:0f9fd58c89b477e98886ae",
+        "android_client_info": {
+          "package_name": "com.example.nayab_agreement_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCb8102lGNepKj-7iBg0Hi4I-phPb-Ffeg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:957880195307:android:e49c2999ed526c598886ae",
+        "android_client_info": {
+          "package_name": "com.example.nayab_shop_pos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCb8102lGNepKj-7iBg0Hi4I-phPb-Ffeg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
