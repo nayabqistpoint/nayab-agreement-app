@@ -33,7 +33,7 @@ The content is organized as follows:
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Only files matching these patterns are included: lib/features/agreement_bucket_view, lib/core
+- Only files matching these patterns are included: ../nayab_shop_pos/lib/sync, ../nayab_shop_pos/lib/firebase_options.dart, ../nayab_shop_pos/lib/main.dart, ../nayab_shop_pos/lib/core
 - Files matching these patterns are excluded: **/*.g.dart, build/**, .dart_tool/**, android/**, ios/**, windows/**
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
@@ -45,53 +45,38 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
-lib/
-  core/
-    constants/
-      app_colors.dart
-      box_names.dart
-    database/
-      hive_box_manager.dart
-    models/
-      customer_deal_model.dart
-      customer_profile_model.dart
-      document_template_model.dart
-      overlay_box_model.dart
-      tag_bank_item_model.dart
-    network/
-      connectivity_service.dart
-    services/
-      tag_registry_service.dart
-      tags_bank_service.dart
-    time/
-      time_status_service.dart
-    utils/
-      cnic_ocr_scanner.dart
-      paper_pagination_helper.dart
-      qr_scanner.dart
-      smart_payload_parser.dart
-      tag_extraction_helper.dart
-  features/
-    agreement_bucket_view/
-      args/
-        bucket_view_args.dart
-      components/
-        bucket_customer_block_ui.dart
-        bucket_stats_header_ui.dart
-        dynamic_bucket_field_list_ui.dart
-        pos_payload_mapper_card_ui.dart
-        whatsapp_dispatcher_card_ui.dart
-      services/
-        bucket_payload_builder.dart
-        bucket_storage_handler_service.dart
-      bucket_view_controller.dart
-      bucket_view_page.dart
+../
+  nayab_shop_pos/
+    lib/
+      core/
+        constants/
+          app_colors.dart
+          box_names.dart
+        database/
+          hive_box_manager.dart
+        network/
+          connectivity_service.dart
+        security/
+          screen_protector_service.dart
+        time/
+          time_status_service.dart
+      sync/
+        pull/
+          config_pull_service.dart
+          stock_pull_service.dart
+        push/
+          orders_push_service.dart
+        status/
+          sync_status_service.dart
+        master_sync_hub.dart
+      firebase_options.dart
+      main.dart
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
-<file path="lib/core/constants/app_colors.dart">
+<file path="../nayab_shop_pos/lib/core/constants/app_colors.dart">
 import 'package:flutter/material.dart';
 class AppColors {
   static const Color primaryEmerald = Color(0xFF00695C);
@@ -102,1986 +87,24 @@ class AppColors {
   static const Color errorRed = Color(0xFFC62828);
   static const Color backgroundLight = Color(0xFFF8F9FA);
   static const Color cardSurface = Colors.white;
-  static const Color textDark = Color(0xFF212121);
-  static const Color textMuted = Color(0xFF757575);
-  static const Color borderLight = Color(0xFFE0E0E0);
+  static const Color textDark = Color(0xFF0F172A);
+  static const Color textMuted = Color(0xFF64748B);
+  static const Color borderLight = Color(0xFFCBD5E1);
+  static const Color goldHighlight = Color(0xFFFDE68A);
+}
+typedef DataMap = Map<String, dynamic>;
+</file>
+
+<file path="../nayab_shop_pos/lib/core/constants/box_names.dart">
+class BoxNames {
+  static const String stockBox = 'stock_box';
+  static const String appConfigBox = 'app_config_box';
+  static const String shopOrdersBox = 'shop_orders_box';
+  static const String syncStatusBox = 'sync_status_box';
 }
 </file>
 
-<file path="lib/core/models/customer_deal_model.dart">
-class CustomerDealModel {
-  final String id;
-  final String customerCnic;
-  final String customerName;
-  final String mobileModel;
-  final String imei;
-  final String totalAmount;
-  final String advancePayment;
-  final String monthlyInstallment;
-  final String duration;
-  final List<String> bundledTemplates;
-  final Map<String, String> snapshotFieldValues;
-  final String? deliveryPhotoPath;
-  final String? signedDocPhotoPath;
-  final String createdAt;
-  final String updatedAt;
-  final bool isSynced;
-  final bool isDeleted;
-  CustomerDealModel({
-    required this.id,
-    required this.customerCnic,
-    required this.customerName,
-    required this.mobileModel,
-    required this.imei,
-    required this.totalAmount,
-    required this.advancePayment,
-    required this.monthlyInstallment,
-    required this.duration,
-    required this.bundledTemplates,
-    required this.snapshotFieldValues,
-    this.deliveryPhotoPath,
-    this.signedDocPhotoPath,
-    required this.createdAt,
-    required this.updatedAt,
-    this.isSynced = false,
-    this.isDeleted = false,
-  });
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'customerCnic': customerCnic,
-      'customerName': customerName,
-      'mobileModel': mobileModel,
-      'imei': imei,
-      'totalAmount': totalAmount,
-      'advancePayment': advancePayment,
-      'monthlyInstallment': monthlyInstallment,
-      'duration': duration,
-      'bundledTemplates': bundledTemplates,
-      'snapshotFieldValues': snapshotFieldValues,
-      'deliveryPhotoPath': deliveryPhotoPath,
-      'signedDocPhotoPath': signedDocPhotoPath,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'isSynced': isSynced,
-      'isDeleted': isDeleted,
-    };
-  }
-  factory CustomerDealModel.fromMap(Map<dynamic, dynamic> map) {
-    return CustomerDealModel(
-      id: map['id']?.toString() ?? '',
-      customerCnic: map['customerCnic']?.toString() ?? '',
-      customerName: map['customerName']?.toString() ?? '',
-      mobileModel: map['mobileModel']?.toString() ?? '',
-      imei: map['imei']?.toString() ?? '',
-      totalAmount: map['totalAmount']?.toString() ?? '',
-      advancePayment: map['advancePayment']?.toString() ?? '',
-      monthlyInstallment: map['monthlyInstallment']?.toString() ?? '',
-      duration: map['duration']?.toString() ?? '',
-      bundledTemplates: map['bundledTemplates'] != null
-          ? List<String>.from(map['bundledTemplates'])
-          : [],
-      snapshotFieldValues: map['snapshotFieldValues'] != null
-          ? Map<String, String>.from(map['snapshotFieldValues'])
-          : {},
-      deliveryPhotoPath: map['deliveryPhotoPath']?.toString(),
-      signedDocPhotoPath: map['signedDocPhotoPath']?.toString(),
-      createdAt: map['createdAt']?.toString() ?? '',
-      updatedAt: map['updatedAt']?.toString() ?? '',
-      isSynced: map['isSynced'] as bool? ?? false,
-      isDeleted: map['isDeleted'] as bool? ?? false,
-    );
-  }
-  CustomerDealModel copyWith({
-    String? deliveryPhotoPath,
-    String? signedDocPhotoPath,
-    String? updatedAt,
-    bool? isSynced,
-  }) {
-    return CustomerDealModel(
-      id: id,
-      customerCnic: customerCnic,
-      customerName: customerName,
-      mobileModel: mobileModel,
-      imei: imei,
-      totalAmount: totalAmount,
-      advancePayment: advancePayment,
-      monthlyInstallment: monthlyInstallment,
-      duration: duration,
-      bundledTemplates: bundledTemplates,
-      snapshotFieldValues: snapshotFieldValues,
-      deliveryPhotoPath: deliveryPhotoPath ?? this.deliveryPhotoPath,
-      signedDocPhotoPath: signedDocPhotoPath ?? this.signedDocPhotoPath,
-      createdAt: createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      isSynced: isSynced ?? this.isSynced,
-      isDeleted: isDeleted,
-    );
-  }
-}
-</file>
-
-<file path="lib/core/models/customer_profile_model.dart">
-class CustomerProfileModel {
-  final String id;
-  final String fullName;
-  final String fatherName;
-  final String cnic;
-  final String phone;
-  final String address;
-  final String role;
-  final bool isSynced;
-  final String updatedAt;
-  final String createdAt;
-  final bool isDeleted;
-  CustomerProfileModel({
-    required this.id,
-    required this.fullName,
-    required this.fatherName,
-    required this.cnic,
-    required this.phone,
-    required this.address,
-    this.role = 'گاہک',
-    this.isSynced = false,
-    required this.updatedAt,
-    required this.createdAt,
-    this.isDeleted = false,
-  });
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'fullName': fullName,
-      'fatherName': fatherName,
-      'cnic': cnic,
-      'phone': phone,
-      'address': address,
-      'role': role,
-      'isSynced': isSynced,
-      'updatedAt': updatedAt,
-      'createdAt': createdAt,
-      'isDeleted': isDeleted,
-    };
-  }
-  factory CustomerProfileModel.fromMap(Map<String, dynamic> map) {
-    return CustomerProfileModel(
-      id: map['id']?.toString() ?? '',
-      fullName: map['fullName']?.toString() ?? '',
-      fatherName: map['fatherName']?.toString() ?? '',
-      cnic: map['cnic']?.toString() ?? '',
-      phone: map['phone']?.toString() ?? '',
-      address: map['address']?.toString() ?? '',
-      role: map['role']?.toString() ?? 'گاہک',
-      isSynced: map['isSynced'] as bool? ?? false,
-      updatedAt: map['updatedAt']?.toString() ?? '',
-      createdAt: map['createdAt']?.toString() ?? '',
-      isDeleted: map['isDeleted'] as bool? ?? false,
-    );
-  }
-}
-</file>
-
-<file path="lib/core/models/tag_bank_item_model.dart">
-enum TagSourceType {
-  pos,
-  scanner,
-  custom,
-}
-class TagBankItemModel {
-  final String id;
-  final String urduName;
-  final TagSourceType source;
-  final String? rawKey;
-  final bool isEnabled;
-  final Map<String, String> valueTranslations;
-  final bool isSynced;
-  final String updatedAt;
-  final bool isDeleted;
-  const TagBankItemModel({
-    required this.id,
-    required this.urduName,
-    required this.source,
-    this.rawKey,
-    this.isEnabled = true,
-    this.valueTranslations = const {},
-    this.isSynced = false,
-    required this.updatedAt,
-    this.isDeleted = false,
-  });
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'urduName': urduName,
-      'source': source.name,
-      'rawKey': rawKey,
-      'isEnabled': isEnabled,
-      'valueTranslations': valueTranslations,
-      'isSynced': isSynced,
-      'updatedAt': updatedAt,
-      'isDeleted': isDeleted,
-    };
-  }
-  factory TagBankItemModel.fromMap(Map raw) {
-    final map = Map<String, dynamic>.from(raw);
-    final sourceStr = map['source']?.toString() ?? 'custom';
-    final parsedSource = TagSourceType.values.firstWhere(
-      (e) => e.name == sourceStr,
-      orElse: () => TagSourceType.custom,
-    );
-    final Map<String, String> trans = {};
-    final rawTrans = map['valueTranslations'];
-    if (rawTrans is Map) {
-      rawTrans.forEach((k, v) {
-        trans[k.toString()] = v.toString();
-      });
-    }
-    return TagBankItemModel(
-      id: map['id']?.toString() ?? '',
-      urduName: map['urduName']?.toString() ?? '',
-      source: parsedSource,
-      rawKey: map['rawKey']?.toString(),
-      isEnabled: map['isEnabled'] != false,
-      valueTranslations: trans,
-      isSynced: map['isSynced'] == true,
-      updatedAt: map['updatedAt']?.toString() ?? '',
-      isDeleted: map['isDeleted'] == true,
-    );
-  }
-}
-</file>
-
-<file path="lib/core/network/connectivity_service.dart">
-import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
-class ConnectivityService {
-  static final Connectivity _connectivity = Connectivity();
-  static Future<bool> get isOnline async {
-    final results = await _connectivity.checkConnectivity();
-    if (results.contains(ConnectivityResult.none)) {
-      return false;
-    }
-    return results.any((r) =>
-        r == ConnectivityResult.mobile ||
-        r == ConnectivityResult.wifi ||
-        r == ConnectivityResult.ethernet);
-  }
-  static Stream<bool> get onConnectivityChanged {
-    return _connectivity.onConnectivityChanged.map((results) {
-      if (results.contains(ConnectivityResult.none)) {
-        return false;
-      }
-      return results.any((r) =>
-          r == ConnectivityResult.mobile ||
-          r == ConnectivityResult.wifi ||
-          r == ConnectivityResult.ethernet);
-    });
-  }
-}
-</file>
-
-<file path="lib/core/services/tag_registry_service.dart">
-import '../constants/box_names.dart';
-import '../database/hive_box_manager.dart';
-typedef RuleMap = Map<String, dynamic>;
-class PosMappingRule {
-  final String rawKey;
-  bool enabled;
-  String urduTag;
-  Map<String, String> valueTranslations;
-  PosMappingRule({
-    required this.rawKey,
-    required this.enabled,
-    required this.urduTag,
-    Map<String, String>? valueTranslations,
-  }) : valueTranslations = valueTranslations ?? {};
-  RuleMap toMap() {
-    return {
-      'rawKey': rawKey,
-      'enabled': enabled,
-      'urduTag': urduTag,
-      'valueTranslations': valueTranslations,
-    };
-  }
-  factory PosMappingRule.fromMap(Map raw) {
-    final map = RuleMap.from(raw);
-    final rawTrans = map['valueTranslations'];
-    final Map<String, String> trans = {};
-    if (rawTrans is Map) {
-      rawTrans.forEach((k, v) {
-        trans[k.toString()] = v.toString();
-      });
-    }
-    return PosMappingRule(
-      rawKey: map['rawKey']?.toString() ?? '',
-      enabled: map['enabled'] == true,
-      urduTag: map['urduTag']?.toString() ?? '',
-      valueTranslations: trans,
-    );
-  }
-}
-class TagRegistryService {
-  static const String _rulesStorageKey = 'pos_payload_mapping_rules_v1';
-  static const String _customTagsStorageKey = 'custom_manual_tags_v1';
-  static final Map<String, PosMappingRule> _defaultRules = {
-    'docId': PosMappingRule(rawKey: 'docId', enabled: true, urduTag: 'دستاویز نمبر'),
-    'customerName': PosMappingRule(rawKey: 'customerName', enabled: true, urduTag: 'کسٹمر کا نام'),
-    'customerPhone': PosMappingRule(rawKey: 'customerPhone', enabled: true, urduTag: 'رابطہ نمبر'),
-    'customerCnic': PosMappingRule(rawKey: 'customerCnic', enabled: true, urduTag: 'شناختی کارڈ'),
-    'guarantorName': PosMappingRule(rawKey: 'guarantorName', enabled: true, urduTag: 'ضامن کا نام'),
-    'guarantorPhone': PosMappingRule(rawKey: 'guarantorPhone', enabled: true, urduTag: 'ضامن موبائل نمبر'),
-    'itemName': PosMappingRule(rawKey: 'itemName', enabled: true, urduTag: 'موبائل ماڈل'),
-    'imeiNo': PosMappingRule(rawKey: 'imeiNo', enabled: true, urduTag: 'IMEI نمبر'),
-    'totalContractAmount': PosMappingRule(rawKey: 'totalContractAmount', enabled: true, urduTag: 'ٹوٹل رقم'),
-    'advance': PosMappingRule(rawKey: 'advance', enabled: true, urduTag: 'ایڈوانس رقم'),
-    'monthlyAmount': PosMappingRule(rawKey: 'monthlyAmount', enabled: true, urduTag: 'ماہانہ قسط'),
-    'totalMonths': PosMappingRule(rawKey: 'totalMonths', enabled: true, urduTag: 'مدت'),
-    'guaranteeType': PosMappingRule(
-      rawKey: 'guaranteeType',
-      enabled: true,
-      urduTag: 'ضمانت',
-      valueTranslations: {
-        'LEGAL_STAMP': 'قانونی اشٹام و پرنوٹ',
-        'CHEQUE': 'بینک چیک',
-      },
-    ),
-    'bankName': PosMappingRule(rawKey: 'bankName', enabled: true, urduTag: 'بینک کا نام'),
-    'chequeNo': PosMappingRule(rawKey: 'chequeNo', enabled: true, urduTag: 'چیک نمبر'),
-    'id': PosMappingRule(rawKey: 'id', enabled: false, urduTag: 'آئی ڈی'),
-    'status': PosMappingRule(rawKey: 'status', enabled: false, urduTag: 'اسٹیٹس'),
-    'sourceMode': PosMappingRule(rawKey: 'sourceMode', enabled: false, urduTag: 'ذریعہ'),
-    'isDeleted': PosMappingRule(
-      rawKey: 'isDeleted',
-      enabled: false,
-      urduTag: 'حذف شدہ',
-      valueTranslations: {'true': 'ہاں', 'false': 'نہیں'},
-    ),
-    'isSynced': PosMappingRule(rawKey: 'isSynced', enabled: false, urduTag: 'سنک اسٹیٹس'),
-    'createdAt': PosMappingRule(rawKey: 'createdAt', enabled: false, urduTag: 'تاریخ تیاری'),
-    'updatedAt': PosMappingRule(rawKey: 'updatedAt', enabled: false, urduTag: 'آخری اپڈیٹ'),
-    'syncedAt': PosMappingRule(rawKey: 'syncedAt', enabled: false, urduTag: 'سنک وقت'),
-  };
-  static final List<String> _defaultCustomTags = [
-    'ولدیت',
-    'قومیت',
-    'مستقل پتہ',
-    'گواہ 1 کا نام',
-    'گواہ 2 کا نام',
-    'تاریخ ادائیگی',
-  ];
-  static Map<String, PosMappingRule> getAllRules() {
-    final Map<String, PosMappingRule> result = {};
-    _defaultRules.forEach((k, v) {
-      result[k] = PosMappingRule(
-        rawKey: v.rawKey,
-        enabled: v.enabled,
-        urduTag: v.urduTag,
-        valueTranslations: Map<String, String>.from(v.valueTranslations),
-      );
-    });
-    try {
-      final box = HiveBoxManager.getBox(BoxNames.tagsBox);
-      final raw = box.get(_rulesStorageKey);
-      if (raw is Map) {
-        raw.forEach((k, v) {
-          if (v is Map) {
-            result[k.toString()] = PosMappingRule.fromMap(v);
-          }
-        });
-      }
-    } catch (_) {}
-    return result;
-  }
-  static Future<void> saveAllRules(Map<String, PosMappingRule> rules) async {
-    final RuleMap serialized = {};
-    rules.forEach((k, rule) {
-      serialized[k] = rule.toMap();
-    });
-    await HiveBoxManager.putBatch(
-      boxName: BoxNames.tagsBox,
-      entries: {_rulesStorageKey: serialized},
-    );
-  }
-  static List<String> getActivePosTags() {
-    final rules = getAllRules();
-    final List<String> tags = [];
-    for (final rule in rules.values) {
-      if (rule.enabled && rule.urduTag.trim().isNotEmpty) {
-        if (!tags.contains(rule.urduTag.trim())) {
-          tags.add(rule.urduTag.trim());
-        }
-      }
-    }
-    return tags;
-  }
-  static List<String> getCustomTags() {
-    try {
-      final box = HiveBoxManager.getBox(BoxNames.tagsBox);
-      final raw = box.get(_customTagsStorageKey);
-      if (raw is List && raw.isNotEmpty) {
-        return raw.map((e) => e.toString()).toList();
-      }
-    } catch (_) {}
-    return List<String>.from(_defaultCustomTags);
-  }
-  static Future<void> saveCustomTags(List<String> tags) async {
-    await HiveBoxManager.putBatch(
-      boxName: BoxNames.tagsBox,
-      entries: {_customTagsStorageKey: tags},
-    );
-  }
-  static RuleMap getLatestRawPosOrderSample() {
-    try {
-      final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-      RuleMap? latest;
-      String latestTime = '';
-      for (final key in box.keys) {
-        final raw = box.get(key);
-        if (raw is Map) {
-          final map = RuleMap.from(raw);
-          final t = map['createdAt']?.toString() ?? '';
-          if (latest == null || t.compareTo(latestTime) >= 0) {
-            latest = map;
-            latestTime = t;
-          }
-        }
-      }
-      return latest ?? {};
-    } catch (_) {
-      return {};
-    }
-  }
-  /// تمام پرانے اور نئے POS آرڈرز سے ہر کلید کی تمام منفرد کوڈ ویلیوز اکٹھی کرنا
-  static Map<String, Set<String>> discoverAllDistinctValuesPerKey() {
-    final Map<String, Set<String>> discovered = {};
-    try {
-      final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-      for (final key in box.keys) {
-        final raw = box.get(key);
-        if (raw is Map) {
-          raw.forEach((k, v) {
-            if (v == null || v is List || v is Map) return;
-            final valStr = v.toString().trim();
-            if (valStr.isEmpty || valStr == 'null') return;
-            discovered.putIfAbsent(k.toString(), () => <String>{}).add(valStr);
-          });
-        }
-      }
-    } catch (_) {}
-    return discovered;
-  }
-  static bool supportsValueTranslation(
-    String rawKey,
-    PosMappingRule rule,
-    Set<String> observedValues,
-  ) {
-    if (rule.valueTranslations.isNotEmpty) return true;
-    final lowerKey = rawKey.toLowerCase();
-    if (lowerKey.startsWith('is') ||
-        lowerKey.startsWith('has') ||
-        lowerKey.contains('type') ||
-        lowerKey.contains('mode') ||
-        lowerKey.contains('status')) {
-      return true;
-    }
-    for (final val in observedValues) {
-      if (val == 'true' || val == 'false') return true;
-      if (RegExp(r'^[A-Z][A-Z0-9_]{1,}$').hasMatch(val)) return true;
-    }
-    return false;
-  }
-  /// قواعد کے مطابق خام POS آرڈر کو اردو فیلڈز میں تبدیل کرنا
-  static Map<String, String> translateOrderPayload(Map rawOrder) {
-    final rules = getAllRules();
-    final Map<String, String> translated = {};
-    rawOrder.forEach((key, rawVal) {
-      final k = key.toString();
-      final rule = rules[k];
-      if (rule == null || !rule.enabled) return;
-      final tagName = rule.urduTag.trim();
-      if (tagName.isEmpty) return;
-      if (rawVal == null) return;
-      String valStr = rawVal.toString().trim();
-      if (valStr.isEmpty || valStr == 'null') return;
-      if (rule.valueTranslations.containsKey(valStr)) {
-        valStr = rule.valueTranslations[valStr]!;
-      } else if (k == 'totalMonths' && !valStr.contains('ماہ')) {
-        valStr = '$valStr ماہ';
-      }
-      translated[tagName] = valStr;
-    });
-    return translated;
-  }
-}
-</file>
-
-<file path="lib/core/services/tags_bank_service.dart">
-import '../constants/box_names.dart';
-import '../database/hive_box_manager.dart';
-import '../models/tag_bank_item_model.dart';
-import '../time/time_status_service.dart';
-typedef TagRawMap = Map<String, dynamic>;
-class TagsBankService {
-  static Future<void> seedDefaultTagsIfEmpty() async {
-    final box = HiveBoxManager.getBox(BoxNames.tagsBox);
-    if (box.isNotEmpty) return;
-    final now = TimeStatusService.nowUtcIso();
-    final TagRawMap initialEntries = {};
-    int orderCounter = 0;
-    void addSeed(
-      String id,
-      String urdu,
-      TagSourceType src, {
-      String? rawKey,
-      bool enabled = true,
-      Map<String, String> trans = const {},
-    }) {
-      final item = TagBankItemModel(
-        id: id,
-        urduName: urdu,
-        source: src,
-        rawKey: rawKey,
-        isEnabled: enabled,
-        valueTranslations: trans,
-        isSynced: false,
-        updatedAt: now,
-      );
-      final map = item.toMap();
-      map['sortOrder'] = orderCounter++;
-      initialEntries[id] = map;
-    }
-    addSeed('pos_docId', 'دستاویز نمبر', TagSourceType.pos, rawKey: 'docId');
-    addSeed('pos_customerName', 'کسٹمر کا نام', TagSourceType.pos, rawKey: 'customerName');
-    addSeed('pos_customerPhone', 'رابطہ نمبر', TagSourceType.pos, rawKey: 'customerPhone');
-    addSeed('pos_customerCnic', 'شناختی کارڈ', TagSourceType.pos, rawKey: 'customerCnic');
-    addSeed('pos_guarantorName', 'ضامن کا نام', TagSourceType.pos, rawKey: 'guarantorName');
-    addSeed('pos_guarantorPhone', 'ضامن موبائل نمبر', TagSourceType.pos, rawKey: 'guarantorPhone');
-    addSeed('pos_itemName', 'موبائل ماڈل', TagSourceType.pos, rawKey: 'itemName');
-    addSeed('pos_imeiNo', 'IMEI نمبر', TagSourceType.pos, rawKey: 'imeiNo');
-    addSeed('pos_totalContractAmount', 'ٹوٹل رقم', TagSourceType.pos, rawKey: 'totalContractAmount');
-    addSeed('pos_advance', 'ایڈوانس رقم', TagSourceType.pos, rawKey: 'advance');
-    addSeed('pos_monthlyAmount', 'ماہانہ قسط', TagSourceType.pos, rawKey: 'monthlyAmount');
-    addSeed('pos_totalMonths', 'مدت', TagSourceType.pos, rawKey: 'totalMonths');
-    addSeed(
-      'pos_guaranteeType',
-      'ضمانت',
-      TagSourceType.pos,
-      rawKey: 'guaranteeType',
-      trans: {'LEGAL_STAMP': 'قانونی اشٹام و پرنوٹ', 'CHEQUE': 'بینک چیک'},
-    );
-    addSeed('pos_bankName', 'بینک کا نام', TagSourceType.pos, rawKey: 'bankName');
-    addSeed('pos_chequeNo', 'چیک نمبر', TagSourceType.pos, rawKey: 'chequeNo');
-    addSeed('pos_ramRom', 'میموری (RAM/ROM)', TagSourceType.pos, rawKey: 'ramRom');
-    addSeed('pos_color', 'موبائل رنگ', TagSourceType.pos, rawKey: 'color');
-    addSeed(
-      'pos_conditionType',
-      'موبائل حالت',
-      TagSourceType.pos,
-      rawKey: 'conditionType',
-      trans: {'NEW': 'نیا ڈبہ پیک', 'USED': 'استعمال شدہ'},
-    );
-    addSeed('pos_conditionRating', 'کنڈیشن ریٹنگ', TagSourceType.pos, rawKey: 'conditionRating');
-    addSeed('pos_warranty', 'وارنٹی (ماہ)', TagSourceType.pos, rawKey: 'warranty');
-    addSeed('pos_salePrice', 'نقد قیمت', TagSourceType.pos, rawKey: 'salePrice', enabled: false);
-    addSeed('cst_fatherName', 'ولدیت', TagSourceType.custom);
-    addSeed('cst_caste', 'قومیت', TagSourceType.custom);
-    addSeed('cst_address', 'مستقل پتہ', TagSourceType.custom);
-    addSeed('cst_witness1', 'گواہ 1 کا نام', TagSourceType.custom);
-    addSeed('cst_witness2', 'گواہ 2 کا نام', TagSourceType.custom);
-    addSeed('cst_dueDate', 'تاریخ ادائیگی', TagSourceType.custom);
-    await HiveBoxManager.putBatch(
-      boxName: BoxNames.tagsBox,
-      entries: initialEntries,
-    );
-  }
-  static TagRawMap enrichOrderWithStockByImei(Map rawOrder) {
-    final TagRawMap merged = TagRawMap.from(rawOrder);
-    final imei = merged['imeiNo']?.toString().trim() ?? '';
-    if (imei.isEmpty || imei == 'null') return merged;
-    try {
-      final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
-      for (final key in stockBox.keys) {
-        final rawStock = stockBox.get(key);
-        if (rawStock is Map) {
-          final stockImei = rawStock['imeiNo']?.toString().trim() ?? '';
-          if (stockImei == imei) {
-            rawStock.forEach((sKey, sVal) {
-              final kStr = sKey.toString();
-              // صرف وہ فیلڈز شامل کریں جو آرڈر میں پہلے سے خالی یا غائب ہوں
-              if (!merged.containsKey(kStr) ||
-                  merged[kStr] == null ||
-                  merged[kStr].toString().trim().isEmpty) {
-                merged[kStr] = sVal;
-              }
-            });
-            break;
-          }
-        }
-      }
-    } catch (_) {}
-    return merged;
-  }
-  /// تمام فعال ٹیگز کو ترتیب (sortOrder) کے مطابق نکالنا
-  static List<TagBankItemModel> getAllActiveTags() {
-    final box = HiveBoxManager.getBox(BoxNames.tagsBox);
-    final List<TagRawMap> rawList = [];
-    for (final key in box.keys) {
-      final raw = box.get(key);
-      if (raw is Map && raw.containsKey('urduName')) {
-        final map = TagRawMap.from(raw);
-        if (map['isDeleted'] == true) continue;
-        if (map['isEnabled'] == false) continue;
-        final name = map['urduName']?.toString().trim() ?? '';
-        if (name.isEmpty) continue;
-        rawList.add(map);
-      }
-    }
-    rawList.sort((a, b) {
-      final orderA = (a['sortOrder'] as num?)?.toInt() ?? 9999;
-      final orderB = (b['sortOrder'] as num?)?.toInt() ?? 9999;
-      return orderA.compareTo(orderB);
-    });
-    return rawList.map((m) => TagBankItemModel.fromMap(m)).toList();
-  }
-  static Future<void> saveReorderedTags(List<TagBankItemModel> orderedList) async {
-    final box = HiveBoxManager.getBox(BoxNames.tagsBox);
-    final now = TimeStatusService.nowUtcIso();
-    final TagRawMap batchUpdates = {};
-    for (int i = 0; i < orderedList.length; i++) {
-      final item = orderedList[i];
-      final existingRaw = box.get(item.id);
-      final TagRawMap updatedMap = existingRaw is Map
-          ? TagRawMap.from(existingRaw)
-          : item.toMap();
-      updatedMap['sortOrder'] = i;
-      updatedMap['updatedAt'] = now;
-      updatedMap['isSynced'] = false;
-      batchUpdates[item.id] = updatedMap;
-    }
-    if (batchUpdates.isNotEmpty) {
-      await HiveBoxManager.putBatch(
-        boxName: BoxNames.tagsBox,
-        entries: batchUpdates,
-      );
-    }
-  }
-  static List<TagBankItemModel> getAllPosRules() {
-    final box = HiveBoxManager.getBox(BoxNames.tagsBox);
-    final List<TagBankItemModel> list = [];
-    for (final key in box.keys) {
-      final raw = box.get(key);
-      if (raw is Map && raw.containsKey('urduName')) {
-        final item = TagBankItemModel.fromMap(raw);
-        if (!item.isDeleted && item.source == TagSourceType.pos) {
-          list.add(item);
-        }
-      }
-    }
-    return list;
-  }
-  static Future<void> saveTagItem(TagBankItemModel item) async {
-    final box = HiveBoxManager.getBox(BoxNames.tagsBox);
-    final existing = box.get(item.id);
-    final int currentOrder = (existing is Map && existing['sortOrder'] is num)
-        ? (existing['sortOrder'] as num).toInt()
-        : box.length;
-    final updated = TagBankItemModel(
-      id: item.id,
-      urduName: item.urduName.trim(),
-      source: item.source,
-      rawKey: item.rawKey,
-      isEnabled: item.isEnabled,
-      valueTranslations: item.valueTranslations,
-      isSynced: false,
-      updatedAt: TimeStatusService.nowUtcIso(),
-      isDeleted: item.isDeleted,
-    );
-    final map = updated.toMap();
-    map['sortOrder'] = currentOrder;
-    await HiveBoxManager.putBatch(
-      boxName: BoxNames.tagsBox,
-      entries: {updated.id: map},
-    );
-  }
-  static Map<String, String> translatePosOrder(Map rawOrder) {
-    final enrichedOrder = enrichOrderWithStockByImei(rawOrder);
-    final rules = getAllPosRules().where((r) => r.isEnabled).toList();
-    final Map<String, String> translated = {};
-    for (final rule in rules) {
-      final k = rule.rawKey;
-      if (k == null || !enrichedOrder.containsKey(k)) continue;
-      final rawVal = enrichedOrder[k];
-      if (rawVal == null) continue;
-      String valStr = rawVal.toString().trim();
-      if (valStr.isEmpty || valStr == 'null') continue;
-      if (rule.valueTranslations.containsKey(valStr)) {
-        valStr = rule.valueTranslations[valStr]!;
-      } else if (k == 'totalMonths' && !valStr.contains('ماہ')) {
-        valStr = '$valStr ماہ';
-      } else if (k == 'warranty' && !valStr.contains('ماہ')) {
-        valStr = '$valStr ماہ';
-      }
-      translated[rule.urduName] = valStr;
-    }
-    return translated;
-  }
-}
-</file>
-
-<file path="lib/core/time/time_status_service.dart">
-class TimeStatusService {
-  static String nowUtcIso() {
-    return DateTime.now().toUtc().toIso8601String();
-  }
-  static String get currentTimestamp => nowUtcIso();
-}
-</file>
-
-<file path="lib/core/utils/cnic_ocr_scanner.dart">
-import 'package:flutter/foundation.dart';
-class QrScanner {
-  static Future<String?> scan() async {
-    try {
-      return null;
-    } catch (e) {
-      debugPrint('QR Scan Error: $e');
-      return null;
-    }
-  }
-}
-</file>
-
-<file path="lib/core/utils/qr_scanner.dart">
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-class QrScanner {
-  static Future<String?> scan(BuildContext context, {String title = 'بارکوڈ / QR اسکین کریں'}) async {
-    return await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FullScreenScannerPage(title: title),
-      ),
-    );
-  }
-}
-class FullScreenScannerPage extends StatefulWidget {
-  final String title;
-  const FullScreenScannerPage({super.key, required this.title});
-  @override
-  State<FullScreenScannerPage> createState() => _FullScreenScannerPageState();
-}
-class _FullScreenScannerPageState extends State<FullScreenScannerPage> {
-  final MobileScannerController _controller = MobileScannerController();
-  final ImagePicker _picker = ImagePicker();
-  bool _isTorchOn = false;
-  Future<void> _pickImageFromGallery() async {
-    try {
-      final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
-      if (file == null) return;
-      final BarcodeCapture? barcodes = await _controller.analyzeImage(file.path);
-      if (barcodes != null && barcodes.barcodes.isNotEmpty) {
-        final val = barcodes.barcodes.first.rawValue;
-        if (mounted && val != null && val.isNotEmpty) {
-          Navigator.pop(context, val);
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('منتخب کردہ تصویر میں کوئی بارکوڈ یا QR کوڈ نہیں ملا'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Gallery barcode scan error: $e');
-    }
-  }
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: Text(
-            widget.title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.photo_library_outlined),
-              tooltip: 'گیلری سے تصویر منتخب کریں',
-              onPressed: _pickImageFromGallery,
-            ),
-            IconButton(
-              icon: Icon(_isTorchOn ? Icons.flash_on : Icons.flash_off),
-              tooltip: 'ٹارچ',
-              onPressed: () {
-                _controller.toggleTorch();
-                setState(() => _isTorchOn = !_isTorchOn);
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.flip_camera_ios),
-              tooltip: 'کیمرہ بدلیں',
-              onPressed: () => _controller.switchCamera(),
-            ),
-          ],
-        ),
-        body: Stack(
-          alignment: Alignment.center,
-          children: [
-            MobileScanner(
-              controller: _controller,
-              onDetect: (capture) {
-                final barcodes = capture.barcodes;
-                if (barcodes.isNotEmpty) {
-                  final String? val = barcodes.first.rawValue;
-                  if (val != null && val.trim().isNotEmpty) {
-                    Navigator.pop(context, val.trim());
-                  }
-                }
-              },
-            ),
-            Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white70, width: 2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/core/utils/smart_payload_parser.dart">
-import 'dart:convert';
-class SmartPayloadParser {
-  static Map<String, String> parseScannedInput(String raw) {
-    final clean = raw.trim();
-    if (clean.isEmpty) return {};
-    try {
-      final decoded = jsonDecode(clean);
-      if (decoded is Map) {
-        final Map<String, String> result = {};
-        decoded.forEach((key, value) {
-          final k = _normalizeKey(key.toString());
-          result[k] = value.toString().trim();
-        });
-        return result;
-      }
-    } catch (_) {}
-    final cnicRegex = RegExp(r'^\d{5}-?\d{7}-?\d{1}$');
-    if (cnicRegex.hasMatch(clean)) {
-      return {'شناختی کارڈ': _formatCnic(clean)};
-    }
-    if (clean.length == 15 && RegExp(r'^\d{15}$').hasMatch(clean)) {
-      return {'IMEI نمبر': clean};
-    }
-    return {'عمومی ان پٹ': clean};
-  }
-  static String _normalizeKey(String rawKey) {
-    final lower = rawKey.toLowerCase().trim();
-    if (lower.contains('model') || lower.contains('ماڈل')) return 'موبائل ماڈل';
-    if (lower.contains('imei') || lower.contains('آئی ایم ای آئی')) return 'IMEI نمبر';
-    if (lower.contains('total') || lower.contains('قیمت') || lower.contains('رقم')) return 'ٹوٹل رقم';
-    if (lower.contains('advance') || lower.contains('پیشگی') || lower.contains('ایڈوانس')) return 'ایڈوانس رقم';
-    if (lower.contains('installment') || lower.contains('قسط')) return 'ماہانہ قسط';
-    if (lower.contains('duration') || lower.contains('مدت')) return 'مدت';
-    if (lower.contains('name') || lower.contains('نام')) return 'کسٹمر کا نام';
-    if (lower.contains('father') || lower.contains('ولدیت')) return 'ولدیت';
-    if (lower.contains('cnic') || lower.contains('شناختی')) return 'شناختی کارڈ';
-    if (lower.contains('phone') || lower.contains('فون') || lower.contains('رابطہ')) return 'رابطہ نمبر';
-    if (lower.contains('address') || lower.contains('پتہ')) return 'مستقل پتہ';
-    return rawKey;
-  }
-  static String _formatCnic(String raw) {
-    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length == 13) {
-      return '${digits.substring(0, 5)}-${digits.substring(5, 12)}-${digits.substring(12, 13)}';
-    }
-    return raw;
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/args/bucket_view_args.dart">
-
-</file>
-
-<file path="lib/features/agreement_bucket_view/components/bucket_customer_block_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
-class BucketCustomerBlockUi extends StatelessWidget {
-  final Map<String, TextEditingController> controllers;
-  const BucketCustomerBlockUi({super.key, required this.controllers});
-  Widget _buildInfoRow(IconData icon, String label, String? value) {
-    if (value == null || value.trim().isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: AppColors.primaryEmerald),
-          const SizedBox(width: 6),
-          Text('$label: ', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  @override
-  Widget build(BuildContext context) {
-    final cnic = controllers['شناختی کارڈ']?.text;
-    final name = controllers['کسٹمر کا نام']?.text;
-    final phone = controllers['رابطہ نمبر']?.text;
-    final model = controllers['موبائل ماڈل']?.text;
-    final imei = controllers['IMEI نمبر']?.text;
-    final bool hasData = (cnic != null && cnic.isNotEmpty) ||
-        (name != null && name.isNotEmpty) ||
-        (model != null && model.isNotEmpty);
-    if (!hasData) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.badge_outlined, size: 16, color: AppColors.primaryEmerald),
-              SizedBox(width: 6),
-              Text(
-                'اسکین شدہ کسٹمر و موبائل خلاصہ:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: AppColors.primaryEmerald,
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 12),
-          _buildInfoRow(Icons.person, 'کسٹمر نام', name),
-          _buildInfoRow(Icons.credit_card, 'شناختی کارڈ', cnic),
-          _buildInfoRow(Icons.phone, 'فون نمبر', phone),
-          _buildInfoRow(Icons.phone_android, 'موبائل ماڈل', model),
-          _buildInfoRow(Icons.qr_code, 'IMEI', imei),
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/components/bucket_stats_header_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
-class BucketStatsHeaderUi extends StatelessWidget {
-  final int totalCount;
-  final int filledCount;
-  final int missingCount;
-  const BucketStatsHeaderUi({
-    super.key,
-    required this.totalCount,
-    required this.filledCount,
-    required this.missingCount,
-  });
-  Widget _buildStatBox(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withAlpha(20),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withAlpha(80)),
-        ),
-        child: Column(
-          children: [
-            Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
-            const SizedBox(height: 2),
-            Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          _buildStatBox('کل ضروری فیلڈز', '$totalCount', const Color(0xFF1E293B)),
-          const SizedBox(width: 8),
-          _buildStatBox('خودکار بھری ہوئی', '$filledCount', AppColors.successGreen),
-          const SizedBox(width: 8),
-          _buildStatBox('باقی خالی فیلڈز', '$missingCount', missingCount > 0 ? Colors.red.shade700 : AppColors.successGreen),
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/components/pos_payload_mapper_card_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/box_names.dart';
-import '../../../core/database/hive_box_manager.dart';
-import '../../../core/models/tag_bank_item_model.dart';
-import '../../../core/services/tags_bank_service.dart';
-import '../../../core/time/time_status_service.dart';
-class PosPayloadMapperCardUi extends StatefulWidget {
-  final VoidCallback onRulesSaved;
-  const PosPayloadMapperCardUi({
-    super.key,
-    required this.onRulesSaved,
-  });
-  @override
-  State<PosPayloadMapperCardUi> createState() => _PosPayloadMapperCardUiState();
-}
-class _PosPayloadMapperCardUiState extends State<PosPayloadMapperCardUi> {
-  bool _isExpanded = false;
-  late List<TagBankItemModel> _posItems;
-  late Map<String, dynamic> _samplePayload;
-  late Map<String, Set<String>> _discoveredValues;
-  final Map<String, TextEditingController> _nameControllers = {};
-  final Map<String, bool> _enabledStates = {};
-  final Map<String, Map<String, String>> _translationsMap = {};
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-  void _loadData() {
-    _posItems = TagsBankService.getAllPosRules();
-    _samplePayload = _getLatestSampleOrder();
-    _discoveredValues = _discoverDistinctValues();
-    final existingRawKeys = _posItems.map((e) => e.rawKey).toSet();
-    final now = TimeStatusService.nowUtcIso();
-    _samplePayload.forEach((k, _) {
-      final keyStr = k.toString();
-      if (!existingRawKeys.contains(keyStr)) {
-        _posItems.add(
-          TagBankItemModel(
-            id: 'pos_$keyStr',
-            urduName: keyStr,
-            source: TagSourceType.pos,
-            rawKey: keyStr,
-            isEnabled: false,
-            updatedAt: now,
-          ),
-        );
-      }
-    });
-    for (final ctrl in _nameControllers.values) {
-      ctrl.dispose();
-    }
-    _nameControllers.clear();
-    _enabledStates.clear();
-    _translationsMap.clear();
-    for (final item in _posItems) {
-      final key = item.rawKey ?? item.id;
-      _nameControllers[key] = TextEditingController(text: item.urduName);
-      _enabledStates[key] = item.isEnabled;
-      _translationsMap[key] = Map<String, String>.from(item.valueTranslations);
-    }
-  }
-  Map<String, dynamic> _getLatestSampleOrder() {
-    final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-    Map<String, dynamic>? latest;
-    String latestTime = '';
-    for (final key in box.keys) {
-      final raw = box.get(key);
-      if (raw is Map) {
-        final map = Map<String, dynamic>.from(raw);
-        final t = map['createdAt']?.toString() ?? '';
-        if (latest == null || t.compareTo(latestTime) >= 0) {
-          latest = map;
-          latestTime = t;
-        }
-      }
-    }
-    if (latest == null) return {};
-    // لوکل Hive کے stock_box سے IMEI کے ذریعے موبائل تفصیلات بھی جوڑ دیں
-    return TagsBankService.enrichOrderWithStockByImei(latest);
-  }
-  Map<String, Set<String>> _discoverDistinctValues() {
-    final Map<String, Set<String>> discovered = {};
-    final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-    for (final key in box.keys) {
-      final raw = box.get(key);
-      if (raw is Map) {
-        final enriched = TagsBankService.enrichOrderWithStockByImei(raw);
-        enriched.forEach((k, v) {
-          if (v == null || v is List || v is Map) return;
-          final valStr = v.toString().trim();
-          if (valStr.isEmpty || valStr == 'null') return;
-          discovered.putIfAbsent(k.toString(), () => <String>{}).add(valStr);
-        });
-      }
-    }
-    return discovered;
-  }
-  bool _supportsValueTranslation(
-    String rawKey,
-    Map<String, String> trans,
-    Set<String> observed,
-  ) {
-    if (trans.isNotEmpty) return true;
-    final lowerKey = rawKey.toLowerCase();
-    if (lowerKey.startsWith('is') ||
-        lowerKey.startsWith('has') ||
-        lowerKey.contains('type') ||
-        lowerKey.contains('mode') ||
-        lowerKey.contains('status')) {
-      return true;
-    }
-    for (final val in observed) {
-      if (val == 'true' || val == 'false') return true;
-      if (RegExp(r'^[A-Z][A-Z0-9_]{1,}$').hasMatch(val)) return true;
-    }
-    return false;
-  }
-  @override
-  void dispose() {
-    for (final ctrl in _nameControllers.values) {
-      ctrl.dispose();
-    }
-    super.dispose();
-  }
-  void _openValueTranslatorDialog(String rawKey) {
-    final trans = _translationsMap[rawKey]!;
-    final fromCtrl = TextEditingController();
-    final toCtrl = TextEditingController();
-    String? editingOldFromKey;
-    final Set<String> suggestions = {...(_discoveredValues[rawKey] ?? {})};
-    if (rawKey.toLowerCase().startsWith('is') ||
-        rawKey.toLowerCase().startsWith('has') ||
-        suggestions.contains('true') ||
-        suggestions.contains('false')) {
-      suggestions.addAll(['true', 'false']);
-    }
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            title: Text(
-              'ویلیو تبدیلی (=) برائے: $rawKey',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            content: SizedBox(
-              width: 380,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'جب POS سے بائیں طرف والا کوڈ آئے تو اسے دائیں طرف والے اردو مطلب سے بدل دیا جائے گا:',
-                      style: TextStyle(fontSize: 12, color: Colors.black54),
-                    ),
-                    if (suggestions.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      const Text(
-                        'آرڈرز و اسٹاک سے دریافت شدہ کوڈز (کلک کر کے منتخب کریں):',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryEmerald,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: suggestions.map((s) {
-                          return ActionChip(
-                            label: Text(
-                              s,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            backgroundColor: Colors.teal.shade50,
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () {
-                              setDialogState(() {
-                                editingOldFromKey = null;
-                                fromCtrl.text = s;
-                                toCtrl.text = trans[s] ?? '';
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: fromCtrl,
-                            textAlign: TextAlign.left,
-                            decoration: const InputDecoration(
-                              labelText: 'From (POS کوڈ)',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text(
-                            '=',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryEmerald,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: toCtrl,
-                            textAlign: TextAlign.right,
-                            decoration: const InputDecoration(
-                              labelText: 'To (اردو مطلب)',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              final f = fromCtrl.text.trim();
-                              final t = toCtrl.text.trim();
-                              if (f.isNotEmpty && t.isNotEmpty) {
-                                setDialogState(() {
-                                  if (editingOldFromKey != null &&
-                                      editingOldFromKey != f) {
-                                    trans.remove(editingOldFromKey);
-                                  }
-                                  trans[f] = t;
-                                  editingOldFromKey = null;
-                                  fromCtrl.clear();
-                                  toCtrl.clear();
-                                });
-                              }
-                            },
-                            icon: Icon(
-                              editingOldFromKey != null
-                                  ? Icons.check
-                                  : Icons.add,
-                              size: 16,
-                            ),
-                            label: Text(
-                              editingOldFromKey != null
-                                  ? 'تبدیلی محفوظ کریں'
-                                  : 'قانون شامل کریں',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: editingOldFromKey != null
-                                  ? Colors.orange.shade800
-                                  : AppColors.primaryEmerald,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ),
-                        if (editingOldFromKey != null) ...[
-                          const SizedBox(width: 6),
-                          TextButton(
-                            onPressed: () {
-                              setDialogState(() {
-                                editingOldFromKey = null;
-                                fromCtrl.clear();
-                                toCtrl.clear();
-                              });
-                            },
-                            child: const Text('منسوخ'),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const Divider(height: 18),
-                    if (trans.isEmpty)
-                      const Text(
-                        'ابھی کوئی ویلیو تبدیلی سیٹ نہیں ہے۔',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      )
-                    else
-                      ...trans.entries.map(
-                        (e) => Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${e.key}  =  ${e.value}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  size: 18,
-                                  color: AppColors.primaryEmerald,
-                                ),
-                                tooltip: 'ترمیم کریں',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
-                                  setDialogState(() {
-                                    editingOldFromKey = e.key;
-                                    fromCtrl.text = e.key;
-                                    toCtrl.text = e.value;
-                                  });
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 18,
-                                  color: AppColors.errorRed,
-                                ),
-                                tooltip: 'حذف کریں',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
-                                  setDialogState(() {
-                                    if (editingOldFromKey == e.key) {
-                                      editingOldFromKey = null;
-                                      fromCtrl.clear();
-                                      toCtrl.clear();
-                                    }
-                                    trans.remove(e.key);
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryEmerald,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('مکمل اور بند کریں'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ).then((_) => setState(() {}));
-  }
-  Future<void> _saveRules() async {
-    final now = TimeStatusService.nowUtcIso();
-    final Map<String, dynamic> batchEntries = {};
-    for (final item in _posItems) {
-      final key = item.rawKey ?? item.id;
-      final newName = _nameControllers[key]?.text.trim() ?? item.urduName;
-      final isEnabled = _enabledStates[key] ?? item.isEnabled;
-      final trans = _translationsMap[key] ?? item.valueTranslations;
-      final updated = TagBankItemModel(
-        id: item.id,
-        urduName: newName.isNotEmpty ? newName : item.urduName,
-        source: TagSourceType.pos,
-        rawKey: item.rawKey,
-        isEnabled: isEnabled,
-        valueTranslations: trans,
-        isSynced: false,
-        updatedAt: now,
-      );
-      batchEntries[updated.id] = updated.toMap();
-    }
-    await HiveBoxManager.putBatch(
-      boxName: BoxNames.tagsBox,
-      entries: batchEntries,
-    );
-    widget.onRulesSaved();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content:
-            Text('✅ POS و اسٹاک ٹیگ میپنگ محفوظ ہو گئی اور ٹیگز بینک میں سنک ہو گئی!'),
-        backgroundColor: AppColors.successGreen,
-      ),
-    );
-  }
-  @override
-  Widget build(BuildContext context) {
-    final activeCount =
-        _enabledStates.values.where((enabled) => enabled).length;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: _isExpanded ? AppColors.primaryEmerald : AppColors.borderLight,
-          width: _isExpanded ? 1.5 : 1.0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: () {
-              if (!_isExpanded) _loadData();
-              setState(() => _isExpanded = !_isExpanded);
-            },
-            borderRadius: BorderRadius.circular(10),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.account_tree_outlined,
-                    color: AppColors.primaryEmerald,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'POS پے لوڈ مرر اور ٹیگ میپنگ (مع IMEI اسٹاک لنک)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13.5,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                        Text(
-                          'کل ${_posItems.length} خام فیلڈز میں سے $activeCount فعال ٹیگز منتخب ہیں',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    _isExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: AppColors.primaryEmerald,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_isExpanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blueGrey.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'ٹِک (✅) لگائیں کہ کون سی آرڈر یا اسٹاک فیلڈ معاہدے کا ٹیگ بنے، اس کا اردو نام لکھیں، اور ٹائپ/بولین فیلڈز کے لیے (=) دبائیں:',
-                      style: TextStyle(fontSize: 11.5, color: Colors.black87),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ..._posItems.map((item) {
-                    final key = item.rawKey ?? item.id;
-                    final isEnabled = _enabledStates[key] ?? false;
-                    final trans = _translationsMap[key] ?? {};
-                    final sampleVal = _samplePayload[key];
-                    final samplePreview = (sampleVal == null ||
-                            sampleVal is List ||
-                            sampleVal is Map)
-                        ? ''
-                        : ' (مثال: $sampleVal)';
-                    final observed = _discoveredValues[key] ?? <String>{};
-                    final showEqualsBtn =
-                        _supportsValueTranslation(key, trans, observed);
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isEnabled
-                            ? Colors.teal.shade50.withAlpha(110)
-                            : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isEnabled
-                              ? AppColors.primaryEmerald.withAlpha(90)
-                              : Colors.grey.shade300,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: isEnabled,
-                            activeColor: AppColors.primaryEmerald,
-                            visualDensity: VisualDensity.compact,
-                            onChanged: (val) {
-                              setState(() {
-                                _enabledStates[key] = val ?? false;
-                              });
-                            },
-                          ),
-                          Expanded(
-                            flex: 4,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  key,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                if (samplePreview.isNotEmpty)
-                                  Text(
-                                    samplePreview,
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      color: Colors.black54,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            flex: 5,
-                            child: TextField(
-                              controller: _nameControllers[key],
-                              enabled: isEnabled,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'اردو ٹیگ نام',
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 7),
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                fillColor: Colors.white,
-                              ),
-                            ),
-                          ),
-                          if (showEqualsBtn) ...[
-                            const SizedBox(width: 4),
-                            Tooltip(
-                              message:
-                                  'ویلیو تبدیلی (=) مثلاً NEW/USED یا LEGAL_STAMP',
-                              child: InkWell(
-                                onTap: isEnabled
-                                    ? () => _openValueTranslatorDialog(key)
-                                    : null,
-                                borderRadius: BorderRadius.circular(6),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: trans.isNotEmpty
-                                        ? Colors.amber.shade700
-                                        : (isEnabled
-                                            ? Colors.blueGrey.shade700
-                                            : Colors.grey.shade300),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Text(
-                                    '=',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: _saveRules,
-                    icon: const Icon(Icons.check_circle_outline, size: 18),
-                    label: const Text(
-                      'ٹیگ میپنگ محفوظ کریں اور لاگو کریں',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryEmerald,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/components/whatsapp_dispatcher_card_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-class WhatsappDispatcherCardUi extends StatelessWidget {
-  final TextEditingController phoneController;
-  final VoidCallback onSendQuestions;
-  final VoidCallback onPasteAnswers;
-  const WhatsappDispatcherCardUi({
-    super.key,
-    required this.phoneController,
-    required this.onSendQuestions,
-    required this.onPasteAnswers,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'گاہک سے بذریعہ واٹس ایپ کوائف منگوائیں',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-              Icon(Icons.chat_bubble_outline, color: Colors.green, size: 22),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: phoneController,
-            keyboardType: TextInputType.phone,
-            textAlign: TextAlign.left,
-            decoration: InputDecoration(
-              labelText: 'گاہک کا واٹس ایپ نمبر (اختیاری)',
-              hintText: '03001234567',
-              prefixIcon: const Icon(Icons.phone_android, size: 20),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: onSendQuestions,
-                  icon: const Icon(Icons.send_rounded, size: 18),
-                  label: const Text('سوالات واٹس ایپ کریں', style: TextStyle(fontSize: 13)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade700,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onPasteAnswers,
-                  icon: const Icon(Icons.content_paste, size: 18),
-                  label: const Text('جواب آٹو فل کریں', style: TextStyle(fontSize: 13)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/services/bucket_payload_builder.dart">
-class BucketPayloadBuilder {
-  static Map<String, dynamic> buildDraft({
-    required Map<String, String> fieldValues,
-    required String templateTitle,
-    required String paperSize,
-    required double fontSize,
-    String? stampFileName,
-  }) {
-    return {
-      'selectedTemplateTitle': templateTitle,
-      'paperSize': paperSize,
-      'fontSize': fontSize,
-      'fieldValues': fieldValues,
-      'stampFileName': stampFileName,
-      'updatedAt': DateTime.now().toUtc().toIso8601String(),
-      'isSynced': false,
-    };
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/services/bucket_storage_handler_service.dart">
-import 'package:flutter/foundation.dart';
-import '../../../core/constants/box_names.dart';
-import '../../../core/database/hive_box_manager.dart';
-class BucketStorageHandlerService {
-  static Map<String, dynamic> getDraft() {
-    try {
-      final box = HiveBoxManager.getBox(BoxNames.agreementDraftBox);
-      final Map<String, dynamic> draft = {};
-      for (var key in box.keys) {
-        final val = box.get(key);
-        if (val is Map) {
-          draft[key.toString()] = Map<String, dynamic>.from(val);
-        } else {
-          draft[key.toString()] = val;
-        }
-      }
-      return draft;
-    } catch (_) {
-      return {};
-    }
-  }
-  static Future<void> saveDraftBatch(Map<String, dynamic> payload) async {
-    try {
-      final box = HiveBoxManager.getBox(BoxNames.agreementDraftBox);
-      await box.putAll(payload);
-    } catch (e) {
-      debugPrint('Error saving bucket draft: $e');
-    }
-  }
-  static ValueListenable listenToDraft() {
-    return HiveBoxManager.listenToBox(BoxNames.agreementDraftBox);
-  }
-}
-</file>
-
-<file path="lib/core/models/overlay_box_model.dart">
-class OverlayBoxModel {
-  final String id;
-  final String tag;
-  final double x;
-  final double y;
-  final double width;
-  final double height;
-  final double fontSize;
-  final bool isBold;
-  final bool isUnderline;
-  final bool isMultiLine;
-  const OverlayBoxModel({
-    required this.id,
-    required this.tag,
-    required this.x,
-    required this.y,
-    required this.width,
-    required this.height,
-    this.fontSize = 13.5,
-    this.isBold = false,
-    this.isUnderline = false,
-    this.isMultiLine = false,
-  });
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'tag': tag,
-      'x': x,
-      'y': y,
-      'width': width,
-      'height': height,
-      'fontSize': fontSize,
-      'isBold': isBold,
-      'isUnderline': isUnderline,
-      'isMultiLine': isMultiLine,
-    };
-  }
-  factory OverlayBoxModel.fromMap(Map<String, dynamic> map) {
-    return OverlayBoxModel(
-      id: map['id']?.toString() ?? '',
-      tag: map['tag']?.toString() ?? '',
-      x: (map['x'] as num?)?.toDouble() ?? 0.0,
-      y: (map['y'] as num?)?.toDouble() ?? 0.0,
-      width: (map['width'] as num?)?.toDouble() ?? 180.0,
-      height: (map['height'] as num?)?.toDouble() ?? 32.0,
-      fontSize: (map['fontSize'] as num?)?.toDouble() ?? 13.5,
-      isBold: map['isBold'] as bool? ?? false,
-      isUnderline: map['isUnderline'] as bool? ?? false,
-      isMultiLine: map['isMultiLine'] as bool? ?? false,
-    );
-  }
-  OverlayBoxModel copyWith({
-    String? id,
-    String? tag,
-    double? x,
-    double? y,
-    double? width,
-    double? height,
-    double? fontSize,
-    bool? isBold,
-    bool? isUnderline,
-    bool? isMultiLine,
-  }) {
-    return OverlayBoxModel(
-      id: id ?? this.id,
-      tag: tag ?? this.tag,
-      x: x ?? this.x,
-      y: y ?? this.y,
-      width: width ?? this.width,
-      height: height ?? this.height,
-      fontSize: fontSize ?? this.fontSize,
-      isBold: isBold ?? this.isBold,
-      isUnderline: isUnderline ?? this.isUnderline,
-      isMultiLine: isMultiLine ?? this.isMultiLine,
-    );
-  }
-}
-</file>
-
-<file path="lib/core/utils/tag_extraction_helper.dart">
-class TemplateService {
-  static final Map<String, String> defaultPresets = {
-    'موبائل اقساط کا معاہدہ': '''نایاب قسط پوائنٹ حاصل پور
-اقرار نامہ و معاہدہ بیع بالاقساط
-منکہ {{کسٹمر کا نام}} ولد {{ولدیت}} قوم {{قومیت}} شناختی کارڈ نمبر {{شناختی کارڈ}} رہائشی {{مستقل پتہ}} موبائل نمبر {{رابطہ نمبر}} نے نایاب قسط پوائنٹ سے ایک عدد موبائل بمطابق تفصیل ذیل قسطوں پر خریدا ہے:
-- موبائل کمپنی و ماڈل: {{موبائل ماڈل}}
-- آئی ایم ای آئی نمبر: {{IMEI نمبر}}
-- کل قیمت طے شدہ: {{ٹوٹل رقم}} روپے
-- پیشگی ادائیگی (ایڈوانس): {{ایڈوانس رقم}} روپے
-- ماہانہ قسط: {{ماہانہ قسط}} روپے
-- اقساط کی کل مدت: {{مدت}}
-مقررہ تاریخ سے پہلے ہر ماہ کی قسط ادا کرنے کا پابند رہوں گا/رہوں گی۔ بصورت دیگر کمپنی کو قانونی کارروائی کا حق حاصل ہوگا۔''',
-    'بیان حلفی اقساط': '''حلف نامہ / بیان حلفی
-میں مسمی {{کسٹمر کا نام}} ولد {{ولدیت}} ساکن {{مستقل پتہ}} شناختی کارڈ نمبر {{شناختی کارڈ}} کا رہائشی ہوں اور حلفاً بیان کرتا ہوں کہ:
-1. میں نے نایاب قسط پوائنٹ سے {{موبائل ماڈل}} کل قیمت {{ٹوٹل رقم}} روپے میں خریدا ہے۔
-2. میں ہر ماہ کی {{تاریخ ادائیگی}} کو ماہانہ قسط مبلغ {{ماہانہ قسط}} روپے بروقت ادا کرنے کا پابند رہوں گا۔
-3. بقایا رقم کی مکمل ادائیگی تک موبائل سیٹ نایاب قسط پوائنٹ کی ملکیت تصور ہوگا۔
-المحلف: {{کسٹمر کا نام}}'''
-  };
-  static Map<String, String> get presetTemplates => defaultPresets;
-  static List<String> extractFields(String template) {
-    if (template.isEmpty) return [];
-    final regex = RegExp(r'\{\{([^{}]+?)\}\}');
-    final matches = regex.allMatches(template);
-    final Set<String> uniqueKeys = {};
-    for (final m in matches) {
-      final key = m.group(1)!.trim();
-      if (key.isNotEmpty) {
-        uniqueKeys.add(key);
-      }
-    }
-    return uniqueKeys.toList();
-  }
-  /// ٹیگز کو ویلیوز سے بدلتا ہے اور آگے موجود انڈر سکور/ڈیش کی لکیروں کو سمارٹ انداز میں ایڈجسٹ کرتا ہے
-  static String replaceTags(String template, Map<String, String> values) {
-    if (template.isEmpty) return '';
-    // ریجیکس: ٹیگ اور اس کے فوری بعد جڑی ہوئی انڈر سکور یا ڈیش کی لکیریں
-    final combinedRegex = RegExp(r'\{\{([^{}]+?)\}\}([_\-\s]*)');
-    return template.replaceAllMapped(combinedRegex, (match) {
-      final key = match.group(1)!.trim();
-      final trailingDashes = match.group(2) ?? '';
-      final val = values[key]?.trim() ?? '';
-      // اگر گاہک کا ڈیٹا موجود نہیں ہے تو معیاری خالی لکیر برقرار رکھیں
-      if (val.isEmpty) {
-        if (trailingDashes.isNotEmpty) {
-          return '__________$trailingDashes';
-        }
-        return '__________';
-      }
-      if (trailingDashes.isNotEmpty) {
-        final dashCount = trailingDashes.length;
-        final remainingDashesCount = (dashCount - val.length).clamp(0, dashCount);
-        final remainingDashes = trailingDashes.substring(0, remainingDashesCount);
-        return '$val$remainingDashes';
-      }
-      return val;
-    });
-  }
-}
-</file>
-
-<file path="lib/core/database/hive_box_manager.dart">
+<file path="../nayab_shop_pos/lib/core/database/hive_box_manager.dart">
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/box_names.dart';
@@ -2089,15 +112,10 @@ class HiveBoxManager {
   static Future<void> initialize() async {
     await Hive.initFlutter();
     await Future.wait([
-      Hive.openBox<dynamic>(BoxNames.agreementDraftBox),
-      Hive.openBox<dynamic>(BoxNames.templatesBox),
-      Hive.openBox<dynamic>(BoxNames.customerProfilesBox),
-      Hive.openBox<dynamic>(BoxNames.customerDealsBox),
-      Hive.openBox<dynamic>(BoxNames.tagsBox),
-      Hive.openBox<dynamic>(BoxNames.syncStatusBox),
-      Hive.openBox<dynamic>(BoxNames.appConfigBox),
       Hive.openBox<dynamic>(BoxNames.stockBox),
+      Hive.openBox<dynamic>(BoxNames.appConfigBox),
       Hive.openBox<dynamic>(BoxNames.shopOrdersBox),
+      Hive.openBox<dynamic>(BoxNames.syncStatusBox),
     ]);
   }
   static Box<dynamic> getBox(String boxName) {
@@ -2107,10 +125,66 @@ class HiveBoxManager {
     required String boxName,
     required Map<String, dynamic> entries,
   }) async {
-    if (entries.isEmpty) return;
     final box = getBox(boxName);
     await box.putAll(entries);
-    _logUrduBoxWrite(boxName, entries);
+    _logPayloadInUrdu(boxName, entries);
+  }
+  static void _logPayloadInUrdu(
+    String boxName,
+    Map<String, dynamic> entries,
+  ) {
+    debugPrint('══════════════════════════════════════════════════════');
+    debugPrint('📦 ہائیو باکس میں نیا ڈیٹا محفوظ ہوا: [$boxName]');
+    entries.forEach((key, value) {
+      debugPrint('🔑 ریکارڈ ID / ٹوکن: $key');
+      if (value is Map) {
+        value.forEach((fieldKey, fieldVal) {
+          final String urduLabel = _translateFieldToUrdu(fieldKey.toString());
+          if (fieldKey == 'installments' && fieldVal is List) {
+            debugPrint('   • $urduLabel: کل ${fieldVal.length} اقساط کا شیڈول');
+          } else {
+            debugPrint('   • $urduLabel ($fieldKey): $fieldVal');
+          }
+        });
+      } else {
+        debugPrint('   • تفصیل: $value');
+      }
+    });
+    debugPrint('══════════════════════════════════════════════════════');
+  }
+  static String _translateFieldToUrdu(String key) {
+    const Map<String, String> labels = {
+      'id': 'شناختی کوڈ',
+      'docId': 'دستاویز نمبر',
+      'customerName': 'کسٹمر کا نام',
+      'customerPhone': 'کسٹمر موبائل نمبر',
+      'customerCnic': 'کسٹمر شناختی کارڈ',
+      'guarantorName': 'ضامن کا نام',
+      'guarantorPhone': 'ضامن موبائل نمبر',
+      'sourceMode': 'بکنگ کا ذریعہ',
+      'itemName': 'موبائل ماڈل',
+      'imeiNo': 'IMEI نمبر',
+      'guaranteeType': 'ضمانت کی قسم',
+      'bankName': 'بینک کا نام',
+      'chequeNo': 'چیک نمبر',
+      'totalMonths': 'کل مدت (ماہ)',
+      'advance': 'ایڈوانس رقم',
+      'monthlyAmount': 'ماہانہ قسط',
+      'totalContractAmount': 'کل معاہدہ رقم',
+      'status': 'اسٹیٹس',
+      'installments': 'اقساط کا شیڈول',
+      'isSynced': 'کلاؤڈ سنک اسٹیٹس',
+      'updatedAt': 'آخری اپڈیٹ وقت',
+      'createdAt': 'تیاری کا وقت',
+      'syncedAt': 'کلاؤڈ اپلوڈ وقت',
+      'isDeleted': 'حذف شدہ اسٹیٹس',
+      'salePrice': 'نقد قیمت فروخت',
+      'ramRom': 'میموری (RAM/ROM)',
+      'conditionType': 'حالت (نیا/استعمال شدہ)',
+      'warranty': 'وارنٹی (ماہ)',
+      'color': 'رنگ',
+    };
+    return labels[key] ?? key;
   }
   static Future<void> deleteKey({
     required String boxName,
@@ -2118,707 +192,611 @@ class HiveBoxManager {
   }) async {
     final box = getBox(boxName);
     await box.delete(key);
-    debugPrint('🗑️ ہائیو باکس [$boxName] سے کلید حذف ہوئی: $key');
   }
   static Future<void> clearBox(String boxName) async {
     final box = getBox(boxName);
     await box.clear();
   }
-  static ValueListenable<Box<dynamic>> listenToBox(String boxName) {
-    return getBox(boxName).listenable();
-  }
-  static void _logUrduBoxWrite(String boxName, Map<String, dynamic> entries) {
-    debugPrint('══════════════════════════════════════════════════════');
-    debugPrint('📦 ہائیو باکس میں نیا ڈیٹا محفوظ ہوا: [$boxName]');
-    entries.forEach((key, value) {
-      debugPrint('🔑 ریکارڈ ID / ٹوکن: $key');
-      if (value is Map) {
-        value.forEach((k, v) {
-          if (k == 'base64Pdf' || k == 'images') {
-            debugPrint('   • $k: [میڈیا / فائل ڈیٹا]');
-          } else {
-            debugPrint('   • $k: $v');
-          }
-        });
-      }
-    });
-    debugPrint('══════════════════════════════════════════════════════');
-  }
-}
-</file>
-
-<file path="lib/core/models/document_template_model.dart">
-import 'overlay_box_model.dart';
-enum DocumentMode {
-  stampOverlay,
-  formFiller,
-  plainDocument,
-}
-class DocumentTemplateModel {
-  final String id;
-  final String title;
-  final String content;
-  final DocumentMode mode;
-  final String paperSize;
-  final double topMargin;
-  final double subsequentTopMargin;
-  final double bottomMargin;
-  final double subsequentBottomMargin;
-  final double sideMargin;
-  final double fontSize;
-  final String? base64Pdf;
-  final String? stampFileName;
-  final List<OverlayBoxModel> floatingBoxes;
-  final List<String> fields;
-  final List<String> pages;
-  DocumentTemplateModel({
-    required this.id,
-    required this.title,
-    required this.content,
-    this.mode = DocumentMode.stampOverlay,
-    this.paperSize = 'Legal',
-    this.topMargin = 320.0,
-    this.subsequentTopMargin = 65.0,
-    this.bottomMargin = 270.0,
-    this.subsequentBottomMargin = 65.0,
-    this.sideMargin = 40.0,
-    this.fontSize = 14.0,
-    this.base64Pdf,
-    this.stampFileName,
-    this.floatingBoxes = const [],
-    this.fields = const [],
-    this.pages = const [],
-  });
-  factory DocumentTemplateModel.fromMap(Map<dynamic, dynamic> map) {
-    final modeStr = map['mode']?.toString() ?? 'stampOverlay';
-    final parsedMode = DocumentMode.values.firstWhere(
-      (e) => e.name == modeStr,
-      orElse: () => DocumentMode.stampOverlay,
-    );
-    final rawBoxes = map['floatingBoxes'];
-    final List<OverlayBoxModel> parsedBoxes = [];
-    if (rawBoxes is List) {
-      for (var item in rawBoxes) {
-        if (item is Map) {
-          parsedBoxes.add(OverlayBoxModel.fromMap(Map<String, dynamic>.from(item)));
-        }
-      }
-    }
-    final rawFields = map['fields'];
-    final List<String> parsedFields = rawFields is List
-        ? rawFields.map((e) => e.toString()).toList()
-        : [];
-    final rawPages = map['pages'];
-    final List<String> parsedPages = rawPages is List
-        ? rawPages.map((e) => e.toString()).toList()
-        : [];
-    final double baseBottom = (map['bottomMargin'] as num?)?.toDouble() ?? 270.0;
-    return DocumentTemplateModel(
-      id: map['id']?.toString() ?? map['title']?.toString() ?? '',
-      title: map['title']?.toString() ?? '',
-      content: map['content']?.toString() ?? '',
-      mode: parsedMode,
-      paperSize: map['paperSize']?.toString() ?? 'Legal',
-      topMargin: (map['topMargin'] as num?)?.toDouble() ?? 320.0,
-      subsequentTopMargin: (map['subsequentTopMargin'] as num?)?.toDouble() ?? 65.0,
-      bottomMargin: baseBottom,
-      subsequentBottomMargin: (map['subsequentBottomMargin'] as num?)?.toDouble() ?? 65.0,
-      sideMargin: (map['sideMargin'] as num?)?.toDouble() ?? 40.0,
-      fontSize: (map['fontSize'] as num?)?.toDouble() ?? 14.0,
-      base64Pdf: map['base64Pdf']?.toString(),
-      stampFileName: map['stampFileName']?.toString(),
-      floatingBoxes: parsedBoxes,
-      fields: parsedFields,
-      pages: parsedPages,
-    );
-  }
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'title': title,
-      'content': content,
-      'mode': mode.name,
-      'paperSize': paperSize,
-      'topMargin': topMargin,
-      'subsequentTopMargin': subsequentTopMargin,
-      'bottomMargin': bottomMargin,
-      'subsequentBottomMargin': subsequentBottomMargin,
-      'sideMargin': sideMargin,
-      'fontSize': fontSize,
-      'base64Pdf': base64Pdf,
-      'stampFileName': stampFileName,
-      'floatingBoxes': floatingBoxes.map((b) => b.toMap()).toList(),
-      'fields': fields,
-      'pages': pages,
-    };
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/components/dynamic_bucket_field_list_ui.dart">
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-class DynamicBucketFieldListUi extends StatelessWidget {
-  final List<String> fields;
-  final Map<String, TextEditingController> controllers;
-  final Map<String, dynamic> qrSourceData;
-  final Set<String> posFilledFields;
-  final VoidCallback onFieldChanged;
-  const DynamicBucketFieldListUi({
-    super.key,
-    required this.fields,
-    required this.controllers,
-    required this.qrSourceData,
-    this.posFilledFields = const {},
-    required this.onFieldChanged,
-  });
-  @override
-  Widget build(BuildContext context) {
-    if (fields.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: const Center(
-          child: Text(
-            'کوئی فیلڈز موجود نہیں۔ پہلے کوئی معاہدہ منتخب کریں۔',
-            style: TextStyle(fontSize: 15, color: AppColors.textMuted),
-          ),
-        ),
-      );
-    }
-    return Column(
-      children: fields.map((field) {
-        final isPosFilled = posFilledFields.contains(field);
-        final isQrFilled = qrSourceData.containsKey(field);
-        final ctrl = controllers[field];
-        String? helperText;
-        Color fillColor = Colors.white;
-        IconData prefixIcon = Icons.edit_outlined;
-        Color iconColor = AppColors.primaryEmerald;
-        if (isPosFilled) {
-          helperText = 'POS آرڈر سے موصول شدہ (صرف معاہدے کیلئے قابلِ ترمیم)';
-          fillColor = const Color(0xFFECFDF5);
-          prefixIcon = Icons.point_of_sale_rounded;
-          iconColor = AppColors.successGreen;
-        } else if (isQrFilled) {
-          helperText = 'کیو آر کوڈ سے خودکار درج شدہ';
-          fillColor = Colors.teal.shade50;
-          prefixIcon = Icons.qr_code_2;
-          iconColor = AppColors.primaryEmerald;
-        }
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10.0),
-          child: TextField(
-            controller: ctrl,
-            textAlign: TextAlign.right,
-            onChanged: (_) => onFieldChanged(),
-            style: const TextStyle(fontSize: 16),
-            decoration: InputDecoration(
-              labelText: field,
-              prefixIcon: Icon(prefixIcon, color: iconColor, size: 20),
-              helperText: helperText,
-              helperStyle: TextStyle(
-                color: isPosFilled ? AppColors.successGreen : Colors.black54,
-                fontWeight: isPosFilled ? FontWeight.bold : FontWeight.normal,
-              ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              filled: true,
-              fillColor: fillColor,
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-</file>
-
-<file path="lib/core/constants/box_names.dart">
-class BoxNames {
-  static const String agreementDraftBox = 'agreement_draft_box';
-  static const String templatesBox = 'templates_box';
-  static const String customersBox = 'customers_box';
-  static const String customerProfilesBox = 'customers_box';
-  static const String customerDealsBox = 'customer_deals_box';
-  static const String tagsBox = 'tags_box';
-  static const String syncStatusBox = 'sync_status_box';
-  static const String appConfigBox = 'app_config_box';
-  static const String stockBox = 'stock_box';
-  static const String shopOrdersBox = 'shop_orders_box';
-}
-</file>
-
-<file path="lib/core/utils/paper_pagination_helper.dart">
-import 'package:flutter/material.dart';
-class AgreementPaginationService {
-  static List<String> paginate({
-    required String fullText,
-    required double fontSize,
-    required double p1TopMargin,
-    required double subsequentTopMargin,
-    required double bottomMargin,
-    double? subsequentBottomMargin,
-    required double sideMargin,
-    String paperSize = 'Legal',
+  static ValueListenable<Box<dynamic>> listenToBox(
+    String boxName, {
+    List<dynamic>? keys,
   }) {
-    if (fullText.trim().isEmpty) return [""];
-    final bool isA4 = paperSize.toUpperCase() == 'A4';
-    final double sheetWidth = isA4 ? 595.0 : 612.0;
-    final double sheetHeight = isA4 ? 842.0 : 1008.0;
-    final double effectiveSubBottom = subsequentBottomMargin ?? 65.0;
-    const double innerHorizontalPadding = 24.0;
-    const double innerVerticalPadding = 16.0;
-    final double boxW = (sheetWidth - (sideMargin * 2) - innerHorizontalPadding).clamp(80.0, sheetWidth);
-    final double p1BoxH = (sheetHeight - p1TopMargin - bottomMargin - innerVerticalPadding).clamp(40.0, sheetHeight);
-    final double subBoxH = (sheetHeight - subsequentTopMargin - effectiveSubBottom - innerVerticalPadding).clamp(40.0, sheetHeight);
-    final baseStyle = TextStyle(
-      fontFamily: 'JameelNoori',
-      fontSize: fontSize,
-      height: 1.85,
-      fontWeight: FontWeight.w600,
+    return getBox(boxName).listenable(keys: keys);
+  }
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/core/network/connectivity_service.dart">
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
+class ConnectivityService {
+  static final Connectivity _connectivity = Connectivity();
+  static Future<bool> get isOnline async {
+    final results = await _connectivity.checkConnectivity();
+    if (results.contains(ConnectivityResult.none)) {
+      return false;
+    }
+    return results.any(
+      (r) =>
+          r == ConnectivityResult.mobile ||
+          r == ConnectivityResult.wifi ||
+          r == ConnectivityResult.ethernet,
     );
-    final paragraphs = fullText.split('\n');
-    final List<String> pages = [];
-    StringBuffer currentPageBuffer = StringBuffer();
-    double currentHeight = 0.0;
-    bool isFirstPage = true;
-    for (int pIdx = 0; pIdx < paragraphs.length; pIdx++) {
-      final para = paragraphs[pIdx];
-      final double targetH = isFirstPage ? p1BoxH : subBoxH;
-      if (para.trim().isEmpty) {
-        const double emptyLineH = 24.0;
-        if (currentHeight + emptyLineH <= targetH || currentPageBuffer.isEmpty) {
-          if (currentPageBuffer.isNotEmpty) currentPageBuffer.write('\n');
-          currentPageBuffer.write('');
-          currentHeight += emptyLineH;
-        } else {
-          pages.add(currentPageBuffer.toString());
-          currentPageBuffer.clear();
-          currentHeight = emptyLineH;
-          isFirstPage = false;
-        }
-        continue;
+  }
+  static Stream<bool> get onConnectivityChanged {
+    return _connectivity.onConnectivityChanged.map((results) {
+      if (results.contains(ConnectivityResult.none)) {
+        return false;
       }
-      final textPainter = TextPainter(
-        text: TextSpan(text: para, style: baseStyle),
-        textAlign: TextAlign.right,
-        textDirection: TextDirection.rtl,
+      return results.any(
+        (r) =>
+            r == ConnectivityResult.mobile ||
+            r == ConnectivityResult.wifi ||
+            r == ConnectivityResult.ethernet,
       );
-      textPainter.layout(maxWidth: boxW);
-      if (currentHeight + textPainter.height <= targetH || currentPageBuffer.isEmpty) {
-        if (currentPageBuffer.isNotEmpty) currentPageBuffer.write('\n');
-        currentPageBuffer.write(para);
-        currentHeight += textPainter.height;
-      } else {
-        final words = para.split(' ');
-        StringBuffer currentParaBuffer = StringBuffer();
-        for (int wIdx = 0; wIdx < words.length; wIdx++) {
-          final testText = currentParaBuffer.isEmpty
-              ? words[wIdx]
-              : '${currentParaBuffer.toString()} ${words[wIdx]}';
-          final testPainter = TextPainter(
-            text: TextSpan(text: testText, style: baseStyle),
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-          );
-          testPainter.layout(maxWidth: boxW);
-          if (currentHeight + testPainter.height <= targetH || currentPageBuffer.isEmpty) {
-            currentParaBuffer.clear();
-            currentParaBuffer.write(testText);
-          } else {
-            if (currentPageBuffer.isNotEmpty) currentPageBuffer.write('\n');
-            currentPageBuffer.write(currentParaBuffer.toString());
-            pages.add(currentPageBuffer.toString());
-            currentPageBuffer.clear();
-            currentParaBuffer.clear();
-            currentParaBuffer.write(words[wIdx]);
-            isFirstPage = false;
-            final nextPainter = TextPainter(
-              text: TextSpan(text: words[wIdx], style: baseStyle),
-              textAlign: TextAlign.right,
-              textDirection: TextDirection.rtl,
-            );
-            nextPainter.layout(maxWidth: boxW);
-            currentHeight = nextPainter.height;
-          }
-        }
-        if (currentParaBuffer.isNotEmpty) {
-          if (currentPageBuffer.isNotEmpty) currentPageBuffer.write('\n');
-          currentPageBuffer.write(currentParaBuffer.toString());
-          final finalPainter = TextPainter(
-            text: TextSpan(text: currentParaBuffer.toString(), style: baseStyle),
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-          );
-          finalPainter.layout(maxWidth: boxW);
-          currentHeight += finalPainter.height;
-        }
-      }
-    }
-    if (currentPageBuffer.isNotEmpty) {
-      pages.add(currentPageBuffer.toString());
-    }
-    return pages.isEmpty ? [""] : pages;
-  }
-}
-</file>
-
-<file path="lib/features/agreement_bucket_view/bucket_view_page.dart">
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
-import 'bucket_view_controller.dart';
-import 'components/bucket_customer_block_ui.dart';
-import 'components/bucket_stats_header_ui.dart';
-import 'components/dynamic_bucket_field_list_ui.dart';
-import 'components/pos_payload_mapper_card_ui.dart';
-import 'components/whatsapp_dispatcher_card_ui.dart';
-class BucketViewPage extends StatefulWidget {
-  const BucketViewPage({super.key});
-  @override
-  State<BucketViewPage> createState() => _BucketViewPageState();
-}
-class _BucketViewPageState extends State<BucketViewPage> {
-  late final BucketViewController _controller;
-  @override
-  void initState() {
-    super.initState();
-    _controller = BucketViewController();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
     });
-    _controller.init();
-  }
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-  Map<String, dynamic> _parseQrData(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) {
-        return Map<String, dynamic>.from(decoded);
-      }
-    } catch (_) {}
-    return {'raw': raw};
-  }
-  @override
-  Widget build(BuildContext context) {
-    final int total = _controller.fields.length;
-    final int filled = _controller.fields
-        .where((f) => (_controller.controllers[f]?.text.trim() ?? '').isNotEmpty)
-        .length;
-    final int missing = total > filled ? (total - filled) : 0;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundLight,
-        appBar: AppBar(
-          title: const Text(
-            'معلومات کی بالٹی (ڈیٹا بکٹ)',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          backgroundColor: AppColors.primaryEmerald,
-          foregroundColor: Colors.white,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: 'تمام ڈیٹا صاف کریں',
-              onPressed: () {
-                _controller.clearAllFields();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('بالٹی کا تمام ڈیٹا صاف کر دیا گیا ہے')),
-                );
-              },
-            ),
-          ],
-        ),
-        body: _controller.isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                    color: AppColors.primaryEmerald))
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  children: [
-                    BucketStatsHeaderUi(
-                      totalCount: total,
-                      filledCount: filled,
-                      missingCount: missing,
-                    ),
-                    PosPayloadMapperCardUi(
-                      onRulesSaved: () {
-                        _controller.reapplyActivePosOrderRules();
-                      },
-                    ),
-                    BucketCustomerBlockUi(controllers: _controller.controllers),
-                    WhatsappDispatcherCardUi(
-                      phoneController: _controller.phoneController,
-                      onSendQuestions: () =>
-                          _controller.sendQuestionsOnWhatsapp(),
-                      onPasteAnswers: () =>
-                          _controller.pasteAndParseFromClipboard(),
-                    ),
-                    const SizedBox(height: 12),
-                    DynamicBucketFieldListUi(
-                      fields: _controller.fields,
-                      controllers: _controller.controllers,
-                      qrSourceData: _parseQrData(_controller.qrSourceData),
-                      posFilledFields: _controller.posFilledFields,
-                      onFieldChanged: () {
-                        _controller.persistDraft();
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                _controller.persistDraft();
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.check_circle_outline, size: 22),
-              label: const Text(
-                'معلومات محفوظ کریں اور کاؤنٹر پر جائیں',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryEmerald,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 </file>
 
-<file path="lib/features/agreement_bucket_view/bucket_view_controller.dart">
-import 'package:flutter/material.dart';
+<file path="../nayab_shop_pos/lib/core/security/screen_protector_service.dart">
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
+class ScreenProtectorService {
+  static const MethodChannel _channel =
+      MethodChannel('nayab.shop.pos/screen_security');
+  static Future<void> enableSecureFlag() async {
+    if (kIsWeb) return;
+    try {
+      await _channel.invokeMethod('enableSecure');
+    } catch (e) {
+      debugPrint('ScreenProtectorService: Native flag notice ($e)');
+    }
+  }
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/core/time/time_status_service.dart">
+class TimeStatusService {
+  static String nowUtcIso() {
+    return DateTime.now().toUtc().toIso8601String();
+  }
+  static String get currentTimestamp => nowUtcIso();
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/sync/pull/config_pull_service.dart">
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
-import '../../core/models/document_template_model.dart';
-import '../../core/services/tags_bank_service.dart';
-import 'services/bucket_payload_builder.dart';
-import 'services/bucket_storage_handler_service.dart';
-class BucketViewController extends ChangeNotifier {
-  final TextEditingController phoneController = TextEditingController();
-  final Map<String, TextEditingController> controllers = {};
-  List<String> fields = [];
-  Set<String> posFilledFields = {};
-  String? qrSourceData;
-  String? activePosOrderId;
-  String selectedTemplateTitle = '';
-  List<String> selectedTemplatesBundle = [];
-  String paperSize = 'Legal';
-  double fontSize = 13.5;
-  String? stampFileName;
-  bool isLoading = false;
-  void init() {
-    loadFromDraft();
+import '../../core/network/connectivity_service.dart';
+import '../../core/time/time_status_service.dart';
+import '../status/sync_status_service.dart';
+class ConfigPullService {
+  static const String configDocKey = 'calculator_config';
+  static StreamSubscription? _configSub;
+  static DataMap _defaultConfigPayload() {
+    return {
+      'id': configDocKey,
+      'addProcessingFeeToPrincipal': false,
+      'advancePercentage': 0.8,
+      'allowedDurations': [6, 7, 8, 9, 10, 11, 12],
+      'gracePeriodDays': 15,
+      'installmentDueDay': 5,
+      'isCompoundingProfit': false,
+      'perMonthIncrement': 0.05,
+      'processingFee': 0,
+      'profitWithCheck': 0.25,
+      'profitWithoutCheck': 0.35,
+      'roundToNearest': 100,
+      'status': 'approved',
+      'isSynced': true,
+      'updatedAt': TimeStatusService.nowUtcIso(),
+    };
   }
-  void loadFromDraft() {
-    isLoading = true;
-    notifyListeners();
-    final draft = BucketStorageHandlerService.getDraft();
-    selectedTemplateTitle = draft['selectedTemplateTitle']?.toString() ?? '';
-    paperSize = draft['paperSize']?.toString() ?? 'Legal';
-    fontSize = (draft['fontSize'] as num?)?.toDouble() ?? 13.5;
-    stampFileName = draft['stampFileName']?.toString();
-    qrSourceData = draft['qrSourceData']?.toString();
-    activePosOrderId = draft['activePosOrderId']?.toString();
-    if (draft.containsKey('selected_templates_bundle') &&
-        draft['selected_templates_bundle'] is List) {
-      selectedTemplatesBundle =
-          List<String>.from(draft['selected_templates_bundle']);
-    } else if (selectedTemplateTitle.isNotEmpty) {
-      selectedTemplatesBundle = [selectedTemplateTitle];
+  static Future<void> pullConfig() async {
+    try {
+      final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
+      if (!box.containsKey(configDocKey)) {
+        await HiveBoxManager.putBatch(
+          boxName: BoxNames.appConfigBox,
+          entries: {configDocKey: _defaultConfigPayload()},
+        );
+      }
+      if (!await ConnectivityService.isOnline) return;
+      final collection =
+          FirebaseFirestore.instance.collection(BoxNames.appConfigBox);
+      final docRef = collection.doc(configDocKey);
+      final snapshot = await docRef.get();
+      if (snapshot.exists && snapshot.data() != null) {
+        final cloudData = Map<String, dynamic>.from(snapshot.data()!);
+        cloudData['id'] = configDocKey;
+        cloudData['isSynced'] = true;
+        await HiveBoxManager.putBatch(
+          boxName: BoxNames.appConfigBox,
+          entries: {configDocKey: cloudData},
+        );
+      } else {
+        final rawLocal = box.get(configDocKey);
+        final payload = rawLocal is Map
+            ? Map<String, dynamic>.from(rawLocal)
+            : _defaultConfigPayload();
+        payload['isSynced'] = true;
+        final batch = FirebaseFirestore.instance.batch();
+        batch.set(docRef, payload, SetOptions(merge: true));
+        await batch.commit();
+      }
+    } catch (e) {
+      debugPrint('ConfigPullService Error: $e');
     }
-    final Set<String> templateRequiredFields = {};
-    final templatesBox = HiveBoxManager.getBox(BoxNames.templatesBox);
-    for (final title in selectedTemplatesBundle) {
-      final raw = templatesBox.get(title);
-      if (raw != null && raw is Map) {
-        final doc =
-            DocumentTemplateModel.fromMap(Map<String, dynamic>.from(raw));
-        for (final f in doc.fields) {
-          if (f.trim().isNotEmpty) {
-            templateRequiredFields.add(f.trim());
+  }
+  static void startRealtimeListener() {
+    _configSub?.cancel();
+    _configSub = FirebaseFirestore.instance
+        .collection(BoxNames.appConfigBox)
+        .snapshots()
+        .listen(
+      (snapshot) async {
+        try {
+          if (snapshot.docs.isEmpty) return;
+          final Map<String, DataMap> fullBatch = {};
+          for (final doc in snapshot.docs) {
+            final data = Map<String, dynamic>.from(doc.data());
+            data['id'] = doc.id;
+            data['isSynced'] = true;
+            fullBatch[doc.id] = data;
           }
-        }
-      }
-    }
-    final Map<String, String> existingValues = {};
-    if (draft.containsKey('fieldValues') && draft['fieldValues'] is Map) {
-      final Map rawFields = draft['fieldValues'] as Map;
-      for (var entry in rawFields.entries) {
-        existingValues[entry.key.toString()] = entry.value?.toString() ?? '';
-      }
-    }
-    posFilledFields.clear();
-    if (activePosOrderId != null && activePosOrderId!.isNotEmpty) {
-      final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-      final rawOrder = ordersBox.get(activePosOrderId);
-      if (rawOrder is Map) {
-        final translated = TagsBankService.translatePosOrder(rawOrder);
-        posFilledFields.addAll(translated.keys);
-        if (phoneController.text.trim().isEmpty &&
-            translated['رابطہ نمبر'] != null) {
-          phoneController.text = translated['رابطہ نمبر']!;
-        }
-      }
-    }
-    controllers.clear();
-    fields.clear();
-    final List<String> allKeys = templateRequiredFields.toList();
-    for (var key in allKeys) {
-      fields.add(key);
-      final val = existingValues[key] ?? '';
-      controllers[key] = TextEditingController(text: val);
-    }
-    if (draft.containsKey('phone') &&
-        draft['phone'].toString().trim().isNotEmpty) {
-      phoneController.text = draft['phone'].toString();
-    }
-    isLoading = false;
-    notifyListeners();
-  }
-  void reapplyActivePosOrderRules() {
-    if (activePosOrderId != null && activePosOrderId!.isNotEmpty) {
-      final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-      final rawOrder = ordersBox.get(activePosOrderId);
-      if (rawOrder is Map) {
-        final translated = TagsBankService.translatePosOrder(rawOrder);
-        posFilledFields = translated.keys.toSet();
-        translated.forEach((k, v) {
-          if (controllers.containsKey(k)) {
-            controllers[k]!.text = v;
+          if (fullBatch.isNotEmpty) {
+            await HiveBoxManager.putBatch(
+              boxName: BoxNames.appConfigBox,
+              entries: fullBatch,
+            );
+            SyncStatusService.setState(SyncState.synced);
+            debugPrint(
+              'ConfigPullService [LIVE]: Updated ${fullBatch.length} config docs in Hive',
+            );
           }
-        });
-        persistDraft();
-      }
-    }
-    notifyListeners();
-  }
-  void updateField(String key, String value) {
-    if (!controllers.containsKey(key)) {
-      controllers[key] = TextEditingController(text: value);
-      if (!fields.contains(key)) fields.add(key);
-    } else {
-      controllers[key]!.text = value;
-    }
-    persistDraft();
-    notifyListeners();
-  }
-  void removeField(String key) {
-    fields.remove(key);
-    controllers[key]?.dispose();
-    controllers.remove(key);
-    persistDraft();
-    notifyListeners();
-  }
-  void clearAllFields() {
-    for (var c in controllers.values) {
-      c.clear();
-    }
-    posFilledFields.clear();
-    activePosOrderId = null;
-    persistDraft();
-    notifyListeners();
-  }
-  Map<String, String> get currentFieldValues {
-    final Map<String, String> map = {};
-    for (var entry in controllers.entries) {
-      map[entry.key] = entry.value.text.trim();
-    }
-    return map;
-  }
-  void persistDraft() {
-    final payload = BucketPayloadBuilder.buildDraft(
-      fieldValues: currentFieldValues,
-      templateTitle: selectedTemplateTitle,
-      paperSize: paperSize,
-      fontSize: fontSize,
-      stampFileName: stampFileName,
+        } catch (e) {
+          debugPrint('ConfigPullService Snapshot Parse Error: $e');
+        }
+      },
+      onError: (e) {
+        debugPrint('ConfigPullService Stream Error: $e');
+        SyncStatusService.setState(SyncState.offline);
+      },
     );
-    if (selectedTemplatesBundle.isNotEmpty) {
-      payload['selected_templates_bundle'] = selectedTemplatesBundle;
-    }
-    if (phoneController.text.trim().isNotEmpty) {
-      payload['phone'] = phoneController.text.trim();
-    }
-    if (qrSourceData != null) {
-      payload['qrSourceData'] = qrSourceData;
-    }
-    payload['activePosOrderId'] = activePosOrderId;
-    BucketStorageHandlerService.saveDraftBatch(payload);
   }
-  Future<void> sendQuestionsOnWhatsapp() async {
-    final phone =
-        phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.isEmpty) return;
-    final formattedPhone =
-        phone.startsWith('0') ? '92${phone.substring(1)}' : phone;
-    final buffer = StringBuffer(
-        'السلام علیکم! معاہدہ مکمل کرنے کیلئے برائے مہربانی درج ذیل بقایا معلومات فراہم کریں:\n\n');
-    final missingFields = fields
-        .where((f) => (controllers[f]?.text.trim() ?? '').isEmpty)
-        .toList();
-    final targetFields = missingFields.isNotEmpty ? missingFields : fields;
-    for (var f in targetFields) {
-      buffer.writeln('$f: ______');
+  static Future<void> stopRealtimeListener() async {
+    await _configSub?.cancel();
+    _configSub = null;
+  }
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/sync/pull/stock_pull_service.dart">
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/box_names.dart';
+import '../../core/database/hive_box_manager.dart';
+import '../../core/network/connectivity_service.dart';
+import '../../core/time/time_status_service.dart';
+import '../status/sync_status_service.dart';
+class StockPullService {
+  static StreamSubscription? _stockSub;
+  static Map<String, DataMap> _defaultSeedStock() {
+    final now = TimeStatusService.nowUtcIso();
+    return {
+      'STK_001': {
+        'id': 'STK_001',
+        'itemId': 'STK_001',
+        'itemName': 'Vivo Y200',
+        'salePrice': 52000,
+        'ramRom': '8GB / 256GB',
+        'conditionType': 'NEW',
+        'conditionRating': '10/10',
+        'warranty': 12,
+        'color': 'Emerald Green',
+        'imeiNo': '354892104567891',
+        'status': 'available',
+        'images': <String>[],
+        'isSynced': true,
+        'isDeleted': false,
+        'updatedAt': now,
+      },
+      'STK_002': {
+        'id': 'STK_002',
+        'itemId': 'STK_002',
+        'itemName': 'Infinix Note 40 Pro',
+        'salePrice': 65000,
+        'ramRom': '12GB / 256GB',
+        'conditionType': 'NEW',
+        'conditionRating': '10/10',
+        'warranty': 12,
+        'color': 'Titan Gold',
+        'imeiNo': '354892104567892',
+        'status': 'available',
+        'images': <String>[],
+        'isSynced': true,
+        'isDeleted': false,
+        'updatedAt': now,
+      },
+      'STK_003': {
+        'id': 'STK_003',
+        'itemId': 'STK_003',
+        'itemName': 'Samsung Galaxy A15',
+        'salePrice': 44000,
+        'ramRom': '6GB / 128GB',
+        'conditionType': 'USED',
+        'conditionRating': '9.5/10',
+        'warranty': 6,
+        'color': 'Blue Black',
+        'imeiNo': '354892104567893',
+        'status': 'available',
+        'images': <String>[],
+        'isSynced': true,
+        'isDeleted': false,
+        'updatedAt': now,
+      },
+    };
+  }
+  static Future<void> _applyFullSnapshotToHive(List docs) async {
+    final box = HiveBoxManager.getBox(BoxNames.stockBox);
+    final Map<String, DataMap> fullMirrorBatch = {};
+    final Set<String> activeCloudIds = {};
+    for (final doc in docs) {
+      final rawData = doc.data();
+      if (rawData is! Map) continue;
+      final data = Map<String, dynamic>.from(rawData);
+      if (data['isDeleted'] == true) continue;
+      final String docId = doc.id.toString();
+      data['id'] = docId;
+      data['itemId'] = data['itemId'] ?? docId;
+      data['isSynced'] = true;
+      fullMirrorBatch[docId] = data;
+      activeCloudIds.add(docId);
     }
-    final encodedMsg = Uri.encodeComponent(buffer.toString());
-    final url = Uri.parse('https://wa.me/$formattedPhone?text=$encodedMsg');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+    for (final existingKey in box.keys.toList()) {
+      final keyStr = existingKey.toString();
+      if (!activeCloudIds.contains(keyStr)) {
+        await HiveBoxManager.deleteKey(
+          boxName: BoxNames.stockBox,
+          key: keyStr,
+        );
+      }
+    }
+    if (fullMirrorBatch.isNotEmpty) {
+      await HiveBoxManager.putBatch(
+        boxName: BoxNames.stockBox,
+        entries: fullMirrorBatch,
+      );
     }
   }
-  Future<void> pasteAndParseFromClipboard() async {
-    final data = await Clipboard.getData('text/plain');
-    if (data == null || data.text == null || data.text!.trim().isEmpty) return;
-    final lines = data.text!.split('\n');
-    for (var line in lines) {
-      if (line.contains(':') || line.contains('-')) {
-        final parts = line.split(RegExp(r'[:\-]'));
-        if (parts.length >= 2) {
-          final k = parts[0].trim();
-          final v = parts.sublist(1).join(':').trim();
-          if (k.isNotEmpty && v.isNotEmpty && v != "______") {
-            updateField(k, v);
+  static Future<void> pullStock() async {
+    try {
+      final box = HiveBoxManager.getBox(BoxNames.stockBox);
+      if (box.isEmpty) {
+        await HiveBoxManager.putBatch(
+          boxName: BoxNames.stockBox,
+          entries: _defaultSeedStock(),
+        );
+      }
+      if (!await ConnectivityService.isOnline) return;
+      final collection =
+          FirebaseFirestore.instance.collection(BoxNames.stockBox);
+      final querySnap = await collection.get();
+      if (querySnap.docs.isNotEmpty) {
+        await _applyFullSnapshotToHive(querySnap.docs);
+      } else {
+        final batch = FirebaseFirestore.instance.batch();
+        for (final key in box.keys) {
+          final raw = box.get(key);
+          if (raw is Map) {
+            final payload = Map<String, dynamic>.from(raw);
+            payload['id'] = key.toString();
+            payload['isSynced'] = true;
+            batch.set(
+              collection.doc(key.toString()),
+              payload,
+              SetOptions(merge: true),
+            );
+          }
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      debugPrint('StockPullService Error: $e');
+    }
+  }
+  static void startRealtimeListener() {
+    _stockSub?.cancel();
+    _stockSub = FirebaseFirestore.instance
+        .collection(BoxNames.stockBox)
+        .snapshots()
+        .listen(
+      (snapshot) async {
+        try {
+          if (snapshot.docs.isEmpty) return;
+          await _applyFullSnapshotToHive(snapshot.docs);
+          SyncStatusService.setState(SyncState.synced);
+          debugPrint(
+            'StockPullService [LIVE]: Mirror synced ${snapshot.docs.length} stock docs to Hive',
+          );
+        } catch (e) {
+          debugPrint('StockPullService Snapshot Parse Error: $e');
+        }
+      },
+      onError: (e) {
+        debugPrint('StockPullService Stream Error: $e');
+        SyncStatusService.setState(SyncState.offline);
+      },
+    );
+  }
+  static Future<void> stopRealtimeListener() async {
+    await _stockSub?.cancel();
+    _stockSub = null;
+  }
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/sync/push/orders_push_service.dart">
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/box_names.dart';
+import '../../core/database/hive_box_manager.dart';
+import '../../core/time/time_status_service.dart';
+class OrdersPushService {
+  static Future<void> pushUnsyncedOrders() async {
+    try {
+      final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
+      final Map<String, DataMap> pendingPayloads = {};
+      for (final key in box.keys) {
+        final raw = box.get(key);
+        if (raw is Map) {
+          final data = Map<String, dynamic>.from(raw);
+          if (data['isSynced'] != true) {
+            final docId = key.toString();
+            data['id'] = docId;
+            data['isSynced'] = true;
+            data['syncedAt'] = TimeStatusService.nowUtcIso();
+            pendingPayloads[docId] = data;
           }
         }
       }
+      if (pendingPayloads.isEmpty) return;
+      final collection =
+          FirebaseFirestore.instance.collection(BoxNames.shopOrdersBox);
+      final WriteBatch firestoreBatch = FirebaseFirestore.instance.batch();
+      pendingPayloads.forEach((docId, payload) {
+        firestoreBatch.set(
+          collection.doc(docId),
+          payload,
+          SetOptions(merge: true),
+        );
+      });
+      await firestoreBatch.commit();
+      await HiveBoxManager.putBatch(
+        boxName: BoxNames.shopOrdersBox,
+        entries: pendingPayloads,
+      );
+      debugPrint(
+        'OrdersPushService: Atomic batch pushed ${pendingPayloads.length} orders to Firestore',
+      );
+    } catch (e) {
+      debugPrint('OrdersPushService Error: $e');
     }
-    persistDraft();
-    notifyListeners();
   }
-  @override
-  void dispose() {
-    phoneController.dispose();
-    for (var c in controllers.values) {
-      c.dispose();
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/sync/status/sync_status_service.dart">
+import 'package:flutter/foundation.dart';
+enum SyncState { idle, syncing, synced, offline }
+class SyncStatusService {
+  static final ValueNotifier<SyncState> currentState =
+      ValueNotifier<SyncState>(SyncState.idle);
+  static void setState(SyncState state) {
+    currentState.value = state;
+  }
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/sync/master_sync_hub.dart">
+import 'package:flutter/foundation.dart';
+import '../core/constants/box_names.dart';
+import '../core/database/hive_box_manager.dart';
+import '../core/network/connectivity_service.dart';
+import 'pull/config_pull_service.dart';
+import 'pull/stock_pull_service.dart';
+import 'push/orders_push_service.dart';
+import 'status/sync_status_service.dart';
+class MasterSyncHub {
+  static bool _watcherStarted = false;
+  static bool _isSyncing = false;
+  static void startWatcher() {
+    if (_watcherStarted) return;
+    _watcherStarted = true;
+    HiveBoxManager.listenToBox(BoxNames.shopOrdersBox).addListener(() {
+      syncAll();
+    });
+    ConfigPullService.startRealtimeListener();
+    StockPullService.startRealtimeListener();
+  }
+  static Future<void> syncAll() async {
+    if (_isSyncing) return;
+    _isSyncing = true;
+    try {
+      SyncStatusService.setState(SyncState.syncing);
+      await ConfigPullService.pullConfig();
+      await StockPullService.pullStock();
+      final online = await ConnectivityService.isOnline;
+      if (!online) {
+        SyncStatusService.setState(SyncState.offline);
+        return;
+      }
+      await OrdersPushService.pushUnsyncedOrders();
+      SyncStatusService.setState(SyncState.synced);
+    } catch (e) {
+      debugPrint('MasterSyncHub Error: $e');
+      SyncStatusService.setState(SyncState.offline);
+    } finally {
+      _isSyncing = false;
     }
-    super.dispose();
+  }
+  static Future<void> dispose() async {
+    await ConfigPullService.stopRealtimeListener();
+    await StockPullService.stopRealtimeListener();
+    _watcherStarted = false;
+  }
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/firebase_options.dart">
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      return web;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        return ios;
+      case TargetPlatform.macOS:
+        return macos;
+      case TargetPlatform.windows:
+        return windows;
+      case TargetPlatform.linux:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for linux - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      default:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not supported for this platform.',
+        );
+    }
+  }
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAEv2XjKkmS9p_aMPlr7-Vu-3xo8nUJQf8',
+    appId: '1:957880195307:web:e804d8f12389ca578886ae',
+    messagingSenderId: '957880195307',
+    projectId: 'nayabsoppos',
+    authDomain: 'nayabsoppos.firebaseapp.com',
+    storageBucket: 'nayabsoppos.firebasestorage.app',
+  );
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyCb8102lGNepKj-7iBg0Hi4I-phPb-Ffeg',
+    appId: '1:957880195307:android:e49c2999ed526c598886ae',
+    messagingSenderId: '957880195307',
+    projectId: 'nayabsoppos',
+    storageBucket: 'nayabsoppos.firebasestorage.app',
+  );
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyA9Mdf0S-044BIB8mEiQqVyzi5BPcEDbtw',
+    appId: '1:957880195307:ios:65076135803a29c08886ae',
+    messagingSenderId: '957880195307',
+    projectId: 'nayabsoppos',
+    storageBucket: 'nayabsoppos.firebasestorage.app',
+    iosBundleId: 'com.example.nayabShopPos',
+  );
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyA9Mdf0S-044BIB8mEiQqVyzi5BPcEDbtw',
+    appId: '1:957880195307:ios:65076135803a29c08886ae',
+    messagingSenderId: '957880195307',
+    projectId: 'nayabsoppos',
+    storageBucket: 'nayabsoppos.firebasestorage.app',
+    iosBundleId: 'com.example.nayabShopPos',
+  );
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAEv2XjKkmS9p_aMPlr7-Vu-3xo8nUJQf8',
+    appId: '1:957880195307:web:0bd993a176ef9fb98886ae',
+    messagingSenderId: '957880195307',
+    projectId: 'nayabsoppos',
+    authDomain: 'nayabsoppos.firebaseapp.com',
+    storageBucket: 'nayabsoppos.firebasestorage.app',
+  );
+}
+</file>
+
+<file path="../nayab_shop_pos/lib/main.dart">
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'core/constants/app_colors.dart';
+import 'core/database/hive_box_manager.dart';
+import 'core/security/screen_protector_service.dart';
+import 'features/purchase_market/purchase_market_page.dart';
+import 'firebase_options.dart';
+import 'sync/master_sync_hub.dart';
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await HiveBoxManager.initialize();
+  await ScreenProtectorService.enableSecureFlag();
+  MasterSyncHub.startWatcher();
+  await MasterSyncHub.syncAll();
+  runApp(const NayabShopPosApp());
+}
+class NayabShopPosApp extends StatelessWidget {
+  const NayabShopPosApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'نایاب قسط پوائنٹ - شاپ پلانز',
+      debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: const TextScaler.linear(1.22),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      theme: ThemeData(
+        fontFamily: 'JameelNoori',
+        primaryColor: AppColors.primaryEmerald,
+        scaffoldBackgroundColor: AppColors.backgroundLight,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primaryEmerald,
+          primary: AppColors.primaryEmerald,
+        ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textDark,
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textDark,
+          ),
+          bodySmall: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 16.5,
+            fontWeight: FontWeight.w900,
+            color: AppColors.textDark,
+          ),
+        ),
+        useMaterial3: true,
+      ),
+      home: const PurchaseMarketPage(),
+    );
   }
 }
 </file>

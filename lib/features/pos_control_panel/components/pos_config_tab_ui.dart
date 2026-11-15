@@ -18,10 +18,19 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
   late final TextEditingController _feeCtrl;
   late final TextEditingController _roundCtrl;
 
+  // سیکیورٹی و بیریئر کنٹرولرز
+  late final TextEditingController _mdmFeeCtrl;
+  late final TextEditingController _openBoxValCtrl;
+  late final TextEditingController _maxRiskLimitCtrl;
+  late final TextEditingController _adminPinCtrl;
+  String _openBoxType = 'PERCENT';
+
   bool _isCompounding = false;
   bool _addFeeToPrincipal = false;
   List<int> _selectedDurations = [6, 7, 8, 9, 10, 11, 12];
-  int _maxMonthLimit = 15; // 3 ماہ سے لے کر اس حد تک مسلسل بٹن بنیں گے
+  int _maxMonthLimit = 15;
+  String? _inlineSaveMessage;
+  bool _isSaveError = false;
 
   @override
   void initState() {
@@ -53,6 +62,25 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
     _roundCtrl = TextEditingController(
       text: ((cfg['roundToNearest'] as num?)?.toInt() ?? 100).toString(),
     );
+
+    _mdmFeeCtrl = TextEditingController(
+      text: ((cfg['mdmLockFee'] as num?)?.toInt() ?? 1000).toString(),
+    );
+    _openBoxType =
+        (cfg['openBoxDeductionType']?.toString() ?? 'PERCENT') == 'FIXED'
+            ? 'FIXED'
+            : 'PERCENT';
+    _openBoxValCtrl = TextEditingController(
+      text: ((cfg['openBoxDeductionValue'] as num?)?.toInt() ?? 10).toString(),
+    );
+    _maxRiskLimitCtrl = TextEditingController(
+      text:
+          ((cfg['zeroAdvanceMaxLimit'] as num?)?.toInt() ?? 40000).toString(),
+    );
+    _adminPinCtrl = TextEditingController(
+      text: cfg['adminOverridePin']?.toString() ?? '7860',
+    );
+
     _isCompounding = cfg['isCompoundingProfit'] == true;
     _addFeeToPrincipal = cfg['addProcessingFeeToPrincipal'] == true;
 
@@ -80,17 +108,23 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
     _graceDaysCtrl.dispose();
     _feeCtrl.dispose();
     _roundCtrl.dispose();
+    _mdmFeeCtrl.dispose();
+    _openBoxValCtrl.dispose();
+    _maxRiskLimitCtrl.dispose();
+    _adminPinCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _saveConfig() async {
     if (_selectedDurations.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('کم از کم ایک مدت (ماہ) منتخب کریں!')),
-      );
+      setState(() {
+        _isSaveError = true;
+        _inlineSaveMessage = '⚠️ کم از کم ایک مدت (ماہ) منتخب کریں!';
+      });
       return;
     }
-    await PosControlStorageService.saveCalculatorConfig(
+    final sortedDurations = List<int>.from(_selectedDurations)..sort();
+    final saved = await PosControlStorageService.saveCalculatorConfig(
       advancePercentage: double.tryParse(_advanceCtrl.text.trim()) ?? 0.8,
       profitWithCheck: double.tryParse(_profitCheckCtrl.text.trim()) ?? 0.25,
       profitWithoutCheck:
@@ -102,16 +136,26 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       roundToNearest: int.tryParse(_roundCtrl.text.trim()) ?? 100,
       isCompoundingProfit: _isCompounding,
       addProcessingFeeToPrincipal: _addFeeToPrincipal,
-      allowedDurations: _selectedDurations..sort(),
+      allowedDurations: sortedDurations,
+      mdmLockFee: int.tryParse(_mdmFeeCtrl.text.trim()) ?? 1000,
+      openBoxDeductionType: _openBoxType,
+      openBoxDeductionValue: int.tryParse(_openBoxValCtrl.text.trim()) ?? 10,
+      zeroAdvanceMaxLimit:
+          int.tryParse(_maxRiskLimitCtrl.text.trim()) ?? 40000,
+      adminOverridePin: _adminPinCtrl.text.trim(),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content:
-            Text('✅ کیلکولیٹر سیٹنگز محفوظ ہو کر POS ایپ پر سنک ہو گئیں!'),
-        backgroundColor: AppColors.successGreen,
-      ),
-    );
+    setState(() {
+      if (saved) {
+        _isSaveError = false;
+        _inlineSaveMessage =
+            '✅ تمام ریٹس اور سیکیورٹی رسک سیٹنگز محفوظ ہو کر POS ایپ پر سنک ہو گئیں!';
+      } else {
+        _isSaveError = true;
+        _inlineSaveMessage =
+            '⚠️ سیٹنگز محفوظ کرتے وقت مسئلہ پیش آیا، دوبارہ کوشش کریں۔';
+      }
+    });
   }
 
   Widget _buildNumberField(
@@ -275,7 +319,124 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
           ),
           const SizedBox(height: 16),
 
-          // ڈائنامک اقساط کے مہینے (3 ماہ سے لے کر کنٹرول شدہ حد تک مسلسل ترتیب)
+          // سیکیورٹی و بیریئر کنٹرولز کارڈ
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade600, width: 1.3),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.shield_outlined,
+                        color: Colors.amber.shade900, size: 20),
+                    const SizedBox(width: 6),
+                    Text(
+                      'سیکیورٹی لاک، کٹوتی اور زیادہ سے زیادہ رسک حد:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildNumberField(
+                        'MDM لاک فیس (روپے)',
+                        _mdmFeeCtrl,
+                        helper: 'فی موبائل لاک فیس (مثلاً 1000)',
+                        isDecimal: false,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildNumberField(
+                        'زیادہ سے زیادہ رسک حد (Max Risk Limit)',
+                        _maxRiskLimitCtrl,
+                        helper: '(قیمت - ایڈوانس) اس سے اوپر منظوری لازمی',
+                        isDecimal: false,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _openBoxType,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'ڈبہ کھلنے پر کٹوتی کی قسم',
+                          labelStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 14),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'PERCENT',
+                              child: Text('فیصد (%) کٹوتی',
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold))),
+                          DropdownMenuItem(
+                              value: 'FIXED',
+                              child: Text('فکس روپے کٹوتی',
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold))),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setState(() => _openBoxType = v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: _buildNumberField(
+                        _openBoxType == 'PERCENT'
+                            ? 'کٹوتی شرح (%)'
+                            : 'کٹوتی رقم (Rs)',
+                        _openBoxValCtrl,
+                        isDecimal: false,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildNumberField(
+                  'انتظامی خصوصی منظوری خفیہ پن (Admin Override PIN)',
+                  _adminPinCtrl,
+                  helper:
+                      'رسک حد سے زائد آرڈر موقع پر پاس کرنے کیلئے خفیہ کوڈ',
+                  isDecimal: false,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ڈائنامک اقساط کے مہینے
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -298,7 +459,6 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
                         ),
                       ),
                     ),
-                    // بٹنوں کی تعداد کم یا زیادہ کرنے کا کنٹرول
                     Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
@@ -410,12 +570,39 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
             activeTrackColor: AppColors.primaryEmerald,
             onChanged: (v) => setState(() => _addFeeToPrincipal = v),
           ),
+          if (_inlineSaveMessage != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: _isSaveError
+                    ? const Color(0xFFFEF2F2)
+                    : const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _isSaveError
+                      ? AppColors.errorRed
+                      : AppColors.primaryEmerald,
+                ),
+              ),
+              child: Text(
+                _inlineSaveMessage!,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: _isSaveError
+                      ? AppColors.errorRed
+                      : AppColors.primaryEmerald,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _saveConfig,
             icon: const Icon(Icons.cloud_upload_outlined),
             label: const Text(
-              'کیلکولیٹر سیٹنگز محفوظ اور سنک کریں',
+              'کیلکولیٹر اور سیکیورٹی سیٹنگز محفوظ کریں',
               style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(

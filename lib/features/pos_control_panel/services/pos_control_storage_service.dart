@@ -27,11 +27,16 @@ class PosControlStorageService {
       'isCompoundingProfit': false,
       'addProcessingFeeToPrincipal': false,
       'allowedDurations': [6, 7, 8, 9, 10, 11, 12],
+      'mdmLockFee': 1000,
+      'openBoxDeductionType': 'PERCENT',
+      'openBoxDeductionValue': 10,
+      'zeroAdvanceMaxLimit': 40000,
+      'adminOverridePin': '7860',
       'status': 'approved',
     };
   }
 
-  static Future<void> saveCalculatorConfig({
+  static Future<bool> saveCalculatorConfig({
     required double advancePercentage,
     required double profitWithCheck,
     required double profitWithoutCheck,
@@ -43,32 +48,47 @@ class PosControlStorageService {
     required bool isCompoundingProfit,
     required bool addProcessingFeeToPrincipal,
     required List<int> allowedDurations,
+    int mdmLockFee = 1000,
+    String openBoxDeductionType = 'PERCENT',
+    int openBoxDeductionValue = 10,
+    int zeroAdvanceMaxLimit = 40000,
+    String adminOverridePin = '7860',
   }) async {
-    final now = TimeStatusService.nowUtcIso();
-    final payload = <String, dynamic>{
-      'id': configDocId,
-      'advancePercentage': advancePercentage,
-      'profitWithCheck': profitWithCheck,
-      'profitWithoutCheck': profitWithoutCheck,
-      'perMonthIncrement': perMonthIncrement,
-      'gracePeriodDays': gracePeriodDays,
-      'installmentDueDay': installmentDueDay,
-      'processingFee': processingFee,
-      'roundToNearest': roundToNearest,
-      'isCompoundingProfit': isCompoundingProfit,
-      'addProcessingFeeToPrincipal': addProcessingFeeToPrincipal,
-      'allowedDurations': allowedDurations,
-      'status': 'approved',
-      'isSynced': false,
-      'updatedAt': now,
-    };
-    await HiveBoxManager.putBatch(
-      boxName: BoxNames.appConfigBox,
-      entries: {configDocId: payload},
-    );
+    try {
+      final now = TimeStatusService.nowUtcIso();
+      final payload = <String, dynamic>{
+        'id': configDocId,
+        'advancePercentage': advancePercentage,
+        'profitWithCheck': profitWithCheck,
+        'profitWithoutCheck': profitWithoutCheck,
+        'perMonthIncrement': perMonthIncrement,
+        'gracePeriodDays': gracePeriodDays,
+        'installmentDueDay': installmentDueDay,
+        'processingFee': processingFee,
+        'roundToNearest': roundToNearest,
+        'isCompoundingProfit': isCompoundingProfit,
+        'addProcessingFeeToPrincipal': addProcessingFeeToPrincipal,
+        'allowedDurations': List<int>.from(allowedDurations),
+        'mdmLockFee': mdmLockFee,
+        'openBoxDeductionType': openBoxDeductionType,
+        'openBoxDeductionValue': openBoxDeductionValue,
+        'zeroAdvanceMaxLimit': zeroAdvanceMaxLimit,
+        'adminOverridePin':
+            adminOverridePin.trim().isEmpty ? '7860' : adminOverridePin.trim(),
+        'status': 'approved',
+        'isSynced': false,
+        'updatedAt': now,
+      };
+      await HiveBoxManager.putBatch(
+        boxName: BoxNames.appConfigBox,
+        entries: {configDocId: payload},
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
-  /// تمام غیر حذف شدہ اسٹاک آئٹمز نکالنا (DELETED مکمل غائب رہیں گے)
   static List<ControlDataMap> getAllStockItems() {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final List<ControlDataMap> list = [];
@@ -95,7 +115,6 @@ class PosControlStorageService {
     return list;
   }
 
-  /// اگلا خودکار اسٹاک کوڈ جنریٹ کرنا
   static String generateNextStockId() {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     int maxNum = 0;
@@ -164,7 +183,6 @@ class PosControlStorageService {
     );
   }
 
-  /// صرف AVAILABLE اسٹاک کو سافٹ ڈیلیٹ کرنا
   static Future<bool> softDeleteStockItem(String stockId) async {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final raw = box.get(stockId);
@@ -188,7 +206,6 @@ class PosControlStorageService {
     return false;
   }
 
-  /// تمام isDeleted ریکارڈز کو لوکل Hive اور Firestore دونوں سے مستقل حذف (Hard Purge) کرنا
   static Future<int> purgeAllDeletedRecords() async {
     int purgedCount = 0;
     final firestore = FirebaseFirestore.instance;
