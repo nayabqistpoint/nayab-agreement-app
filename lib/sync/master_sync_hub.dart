@@ -21,11 +21,12 @@ class MasterSyncHub {
     // 1. کلاؤڈ سے لائیو ڈیٹا سننا شروع کریں
     PosLivePullService.startRealtimeListeners();
 
-    // 2. لوکل باکسز میں تبدیلی پر فوری پش ٹریگر کریں
+    // 2. لوکل باکسز میں تبدیلی پر فوری پش ٹریگر کریں (مع tagsBox)
     for (final boxName in [
       BoxNames.appConfigBox,
       BoxNames.stockBox,
       BoxNames.shopOrdersBox,
+      BoxNames.tagsBox,
     ]) {
       HiveBoxManager.getBox(boxName).watch().listen((event) {
         final val = event.value;

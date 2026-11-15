@@ -7,12 +7,54 @@ import '../services/counter_pos_order_service.dart';
 class CounterPendingOrdersBarUi extends StatelessWidget {
   final String? activeOrderId;
   final Function(PosOrderMap order) onSelectOrder;
+  final Function(String orderId) onDismissOrder;
 
   const CounterPendingOrdersBarUi({
     super.key,
     required this.activeOrderId,
     required this.onSelectOrder,
+    required this.onDismissOrder,
   });
+
+  void _confirmDismiss(
+    BuildContext context,
+    String orderId,
+    String customerName,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text(
+            'آرڈر پینڈنگ لسٹ سے ہٹائیں؟',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          content: Text(
+            'کیا آپ "$customerName" کا یہ آرڈر کاؤنٹر کی پینڈنگ لسٹ سے ختم کرنا چاہتے ہیں؟ (ریکارڈ ہسٹری میں محفوظ رہے گا)',
+            style: const TextStyle(fontSize: 13.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('منسوخ'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                onDismissOrder(orderId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('ہاں، ختم کریں'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showOrdersBottomSheet(
     BuildContext context,
@@ -26,7 +68,7 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
         textDirection: TextDirection.rtl,
         child: Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.72,
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
           ),
           decoration: const BoxDecoration(
             color: AppColors.backgroundLight,
@@ -57,7 +99,7 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'POS پینڈنگ آرڈرز (${orders.length})',
+                    'زیرِ التواء POS آرڈرز (${orders.length})',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -68,7 +110,7 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               const Text(
-                'کسی بھی آرڈر پر کلک کریں، تمام کوائف خودکار ایگریمنٹ بالٹی میں بھر جائیں گے:',
+                'کسٹمر کے نام پر کلک کریں تاکہ معاہدے کی معلومات بالٹی میں بھر جائیں:',
                 style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
               const SizedBox(height: 12),
@@ -80,10 +122,10 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                     final order = orders[index];
                     final id = order['id']?.toString() ?? '';
                     final customer =
-                        order['customerName']?.toString() ?? 'کسٹمر';
+                        order['customerName']?.toString() ?? 'نامعلوم کسٹمر';
+                    final cnic = order['customerCnic']?.toString() ?? '';
                     final phone = order['customerPhone']?.toString() ?? '';
                     final model = order['itemName']?.toString() ?? 'موبائل';
-                    final advance = order['advance']?.toString() ?? '0';
                     final monthly = order['monthlyAmount']?.toString() ?? '0';
                     final months = order['totalMonths']?.toString() ?? '';
                     final isCurrent = id == activeOrderId;
@@ -109,19 +151,20 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                           backgroundColor:
                               AppColors.primaryEmerald.withAlpha(25),
                           child: const Icon(
-                            Icons.receipt_long,
+                            Icons.person_outline,
                             color: AppColors.primaryEmerald,
-                            size: 20,
+                            size: 22,
                           ),
                         ),
                         title: Row(
                           children: [
                             Expanded(
                               child: Text(
-                                '$customer ($model)',
+                                customer,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 15,
+                                  color: Color(0xFF0F172A),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -136,7 +179,7 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                id,
+                                model,
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -148,18 +191,39 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            'فون: $phone | ایڈوانس: $advance | قسط: $monthly × $months ماہ',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black87,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'شناختی کارڈ: ${cnic.isNotEmpty ? cnic : "درج نہیں"}  |  فون: $phone',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'ماہانہ قسط: $monthly × $months ماہ  (حوالہ: $id)',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 14,
-                          color: AppColors.primaryEmerald,
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: Colors.red.shade600,
+                            size: 20,
+                          ),
+                          tooltip: 'پینڈنگ لسٹ سے ختم کریں',
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _confirmDismiss(context, id, customer);
+                          },
                         ),
                       ),
                     );
@@ -180,9 +244,20 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
       builder: (context, box, _) {
         final pendingOrders = CounterPosOrderService.getPendingOrders();
         final int count = pendingOrders.length;
-
         if (count == 0) {
           return const SizedBox.shrink();
+        }
+
+        // اگر کوئی آرڈر لوڈ ہے تو اس کے کسٹمر کا نام بار پر دکھائیں
+        String activeCustomerLabel = '';
+        if (activeOrderId != null) {
+          final match = pendingOrders.where((o) => o['id'] == activeOrderId);
+          if (match.isNotEmpty) {
+            final o = match.first;
+            final cName = o['customerName']?.toString() ?? '';
+            final cModel = o['itemName']?.toString() ?? '';
+            activeCustomerLabel = '$cName ($cModel)';
+          }
         }
 
         return Padding(
@@ -223,9 +298,9 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      activeOrderId != null
-                          ? 'لوڈ شدہ POS آرڈر: $activeOrderId (تبدیل کرنے کیلئے کلک کریں)'
-                          : 'POS ایپ سے $count نیا معاہدہ آرڈر موصول ہوا ہے — آٹو فل کیلئے کلک کریں',
+                      activeCustomerLabel.isNotEmpty
+                          ? 'منتخب کسٹمر: $activeCustomerLabel — تبدیل کرنے کیلئے کلک کریں'
+                          : 'POS سے $count کسٹمر آرڈر موصول ہوئے ہیں — انتخاب کیلئے کلک کریں',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -235,7 +310,7 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                     ),
                   ),
                   const Icon(
-                    Icons.download_for_offline_outlined,
+                    Icons.people_alt_outlined,
                     size: 19,
                     color: AppColors.primaryEmerald,
                   ),

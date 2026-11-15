@@ -11,10 +11,15 @@ class CustomerMediaViewerModalUi extends StatelessWidget {
     required this.imagePath,
   });
 
-  static void show(BuildContext context, {required String title, required String imagePath}) {
+  static void show(
+    BuildContext context, {
+    required String title,
+    required String imagePath,
+  }) {
     showDialog(
       context: context,
-      builder: (_) => CustomerMediaViewerModalUi(title: title, imagePath: imagePath),
+      builder: (_) =>
+          CustomerMediaViewerModalUi(title: title, imagePath: imagePath),
     );
   }
 
@@ -50,7 +55,11 @@ class CustomerMediaViewerModalUi extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(

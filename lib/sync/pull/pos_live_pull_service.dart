@@ -11,29 +11,19 @@ class PosLivePullService {
   static void startRealtimeListeners() {
     stopListeners();
 
-    // 1. کیلکولیٹر کنفیگ لائیو سنک
-    _subscriptions.add(
-      _firestore.collection(BoxNames.appConfigBox).snapshots().listen(
-        (snapshot) => _mirrorSnapshotToHive(BoxNames.appConfigBox, snapshot),
-        onError: (e) => debugPrint('ConfigPull Error: $e'),
-      ),
-    );
-
-    // 2. موبائل اسٹاک لائیو سنک
-    _subscriptions.add(
-      _firestore.collection(BoxNames.stockBox).snapshots().listen(
-        (snapshot) => _mirrorSnapshotToHive(BoxNames.stockBox, snapshot),
-        onError: (e) => debugPrint('StockPull Error: $e'),
-      ),
-    );
-
-    // 3. شاپ آرڈرز لائیو سنک
-    _subscriptions.add(
-      _firestore.collection(BoxNames.shopOrdersBox).snapshots().listen(
-        (snapshot) => _mirrorSnapshotToHive(BoxNames.shopOrdersBox, snapshot),
-        onError: (e) => debugPrint('OrdersPull Error: $e'),
-      ),
-    );
+    for (final boxName in [
+      BoxNames.appConfigBox,
+      BoxNames.stockBox,
+      BoxNames.shopOrdersBox,
+      BoxNames.tagsBox,
+    ]) {
+      _subscriptions.add(
+        _firestore.collection(boxName).snapshots().listen(
+          (snapshot) => _mirrorSnapshotToHive(boxName, snapshot),
+          onError: (e) => debugPrint('LivePull Error [$boxName]: $e'),
+        ),
+      );
+    }
   }
 
   static Future<void> _mirrorSnapshotToHive(
@@ -56,7 +46,6 @@ class PosLivePullService {
       final localRaw = box.get(doc.id);
       if (localRaw is Map) {
         if (localRaw['isSynced'] == false) continue;
-
         final localUpdated = localRaw['updatedAt']?.toString() ?? '';
         final cloudUpdated = cloudData['updatedAt']?.toString() ?? '';
         if (localUpdated == cloudUpdated && localRaw['isSynced'] == true) {
@@ -68,7 +57,6 @@ class PosLivePullService {
 
     if (updates.isNotEmpty) {
       await HiveBoxManager.putBatch(boxName: boxName, entries: updates);
-      debugPrint('☁️ کلاؤڈ سے [${updates.length}] ریکارڈز [$boxName] میں اپڈیٹ ہوئے');
     }
   }
 

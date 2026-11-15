@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
 import '../../core/models/document_template_model.dart';
+import '../../core/services/tags_bank_service.dart';
 import 'services/bucket_payload_builder.dart';
 import 'services/bucket_storage_handler_service.dart';
 
@@ -11,7 +12,9 @@ class BucketViewController extends ChangeNotifier {
   final TextEditingController phoneController = TextEditingController();
   final Map<String, TextEditingController> controllers = {};
   List<String> fields = [];
+  Set<String> posFilledFields = {};
   String? qrSourceData;
+  String? activePosOrderId;
   String selectedTemplateTitle = '';
   List<String> selectedTemplatesBundle = [];
   String paperSize = 'Legal';
@@ -33,20 +36,23 @@ class BucketViewController extends ChangeNotifier {
     fontSize = (draft['fontSize'] as num?)?.toDouble() ?? 13.5;
     stampFileName = draft['stampFileName']?.toString();
     qrSourceData = draft['qrSourceData']?.toString();
+    activePosOrderId = draft['activePosOrderId']?.toString();
 
-    if (draft.containsKey('selected_templates_bundle') && draft['selected_templates_bundle'] is List) {
-      selectedTemplatesBundle = List<String>.from(draft['selected_templates_bundle']);
+    if (draft.containsKey('selected_templates_bundle') &&
+        draft['selected_templates_bundle'] is List) {
+      selectedTemplatesBundle =
+          List<String>.from(draft['selected_templates_bundle']);
     } else if (selectedTemplateTitle.isNotEmpty) {
       selectedTemplatesBundle = [selectedTemplateTitle];
     }
 
-    // تمام منتخب کردہ ٹیمپلیٹس کے تازہ ترین ٹیگز نکالیں
     final Set<String> templateRequiredFields = {};
     final templatesBox = HiveBoxManager.getBox(BoxNames.templatesBox);
     for (final title in selectedTemplatesBundle) {
       final raw = templatesBox.get(title);
       if (raw != null && raw is Map) {
-        final doc = DocumentTemplateModel.fromMap(Map<String, dynamic>.from(raw));
+        final doc =
+            DocumentTemplateModel.fromMap(Map<String, dynamic>.from(raw));
         for (final f in doc.fields) {
           if (f.trim().isNotEmpty) {
             templateRequiredFields.add(f.trim());
@@ -63,13 +69,24 @@ class BucketViewController extends ChangeNotifier {
       }
     }
 
+    posFilledFields.clear();
+    if (activePosOrderId != null && activePosOrderId!.isNotEmpty) {
+      final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
+      final rawOrder = ordersBox.get(activePosOrderId);
+      if (rawOrder is Map) {
+        final translated = TagsBankService.translatePosOrder(rawOrder);
+        posFilledFields.addAll(translated.keys);
+        if (phoneController.text.trim().isEmpty &&
+            translated['رابطہ نمبر'] != null) {
+          phoneController.text = translated['رابطہ نمبر']!;
+        }
+      }
+    }
+
     controllers.clear();
     fields.clear();
 
-    // اگر ٹیمپلیٹس سے فیلڈز مل گئی ہیں تو وہ پہلی ترجیح ہوں گی
-    final List<String> allKeys = templateRequiredFields.isNotEmpty
-        ? templateRequiredFields.toList()
-        : existingValues.keys.toList();
+    final List<String> allKeys = templateRequiredFields.toList();
 
     for (var key in allKeys) {
       fields.add(key);
@@ -77,11 +94,31 @@ class BucketViewController extends ChangeNotifier {
       controllers[key] = TextEditingController(text: val);
     }
 
-    if (draft.containsKey('phone')) {
+    if (draft.containsKey('phone') &&
+        draft['phone'].toString().trim().isNotEmpty) {
       phoneController.text = draft['phone'].toString();
     }
 
     isLoading = false;
+    notifyListeners();
+  }
+
+  /// میپنگ قواعد بدلنے کے بعد ایکٹیو POS آرڈر پر نئے قواعد دوبارہ لاگو کرنا
+  void reapplyActivePosOrderRules() {
+    if (activePosOrderId != null && activePosOrderId!.isNotEmpty) {
+      final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
+      final rawOrder = ordersBox.get(activePosOrderId);
+      if (rawOrder is Map) {
+        final translated = TagsBankService.translatePosOrder(rawOrder);
+        posFilledFields = translated.keys.toSet();
+        translated.forEach((k, v) {
+          if (controllers.containsKey(k)) {
+            controllers[k]!.text = v;
+          }
+        });
+        persistDraft();
+      }
+    }
     notifyListeners();
   }
 
@@ -108,6 +145,8 @@ class BucketViewController extends ChangeNotifier {
     for (var c in controllers.values) {
       c.clear();
     }
+    posFilledFields.clear();
+    activePosOrderId = null;
     persistDraft();
     notifyListeners();
   }
@@ -137,19 +176,32 @@ class BucketViewController extends ChangeNotifier {
     if (qrSourceData != null) {
       payload['qrSourceData'] = qrSourceData;
     }
+    payload['activePosOrderId'] = activePosOrderId;
     BucketStorageHandlerService.saveDraftBatch(payload);
   }
 
+  /// صرف بقایا خالی فیلڈز کے سوالات واٹس ایپ پر بھیجنا
   Future<void> sendQuestionsOnWhatsapp() async {
-    final phone = phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+    final phone =
+        phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
     if (phone.isEmpty) return;
-    final formattedPhone = phone.startsWith('0') ? '92${phone.substring(1)}' : phone;
-    final buffer = StringBuffer('السلام علیکم! برائے مہربانی درج ذیل معلومات فراہم کریں:\n\n');
-    for (var f in fields) {
-      final val = controllers[f]?.text.trim() ?? '';
-      buffer.writeln('$f: ${val.isNotEmpty ? val : "______"}');
+
+    final formattedPhone =
+        phone.startsWith('0') ? '92${phone.substring(1)}' : phone;
+    final buffer = StringBuffer(
+        'السلام علیکم! معاہدہ مکمل کرنے کیلئے برائے مہربانی درج ذیل بقایا معلومات فراہم کریں:\n\n');
+
+    final missingFields = fields
+        .where((f) => (controllers[f]?.text.trim() ?? '').isEmpty)
+        .toList();
+
+    final targetFields = missingFields.isNotEmpty ? missingFields : fields;
+    for (var f in targetFields) {
+      buffer.writeln('$f: ______');
     }
-    final url = Uri.parse('https://wa.me/$formattedPhone?text=${Uri.encodeComponent(buffer.toString())}');
+
+    final encodedMsg = Uri.encodeComponent(buffer.toString());
+    final url = Uri.parse('https://wa.me/$formattedPhone?text=$encodedMsg');
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }

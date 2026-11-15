@@ -42,48 +42,6 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
     super.dispose();
   }
 
-  void _showAddCustomTagDialog() {
-    final textCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            title: const Text(
-              'نیا کسٹم ٹیگ شامل کریں',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            content: TextField(
-              controller: textCtrl,
-              autofocus: true,
-              textAlign: TextAlign.right,
-              decoration: const InputDecoration(
-                hintText: 'مثلاً: والد کا نام یا گواہ کا فون',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('منسوخ'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  if (textCtrl.text.trim().isNotEmpty) {
-                    _controller.addCustomTag(textCtrl.text.trim());
-                    Navigator.pop(ctx);
-                  }
-                },
-                child: const Text('شامل کریں'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _handleSave() async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -126,14 +84,10 @@ class _PdfEditorPageState extends State<PdfEditorPage> {
               loadedFileName: _controller.loadedFileName,
               onPickPdf: _controller.pickPdf,
               onScanCamera: _controller.scanDocumentFromCamera,
-              availableTags: _controller.availableTags,
               activePendingTag: _controller.pendingStampTag,
               isPendingStatic: _controller.isPendingStatic,
               onSelectTagToStamp: (t) =>
                   _controller.setPendingStamp(t, isStatic: false),
-              onDeleteTag: _controller.removeCustomTag,
-              onReorderTags: _controller.reorderTags,
-              onShowAddCustomTagDialog: _showAddCustomTagDialog,
               onSelectStaticToStamp: () =>
                   _controller.setPendingStamp('', isStatic: true),
               onSelectEmptyTagToStamp: () =>

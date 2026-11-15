@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'components/stamp_canvas_viewport_ui.dart';
-import 'components/stamp_custom_tag_dialog_ui.dart';
 import 'components/stamp_editing_toolbar_ui.dart';
 import 'components/stamp_header_toolbar_ui.dart';
 import 'components/stamp_margin_sheet_ui.dart';
@@ -8,7 +7,6 @@ import 'components/stamp_studio_app_bar_ui.dart';
 import 'components/stamp_tags_toolbar_ui.dart';
 import 'services/stamp_alignment_service.dart';
 import 'services/stamp_paragraph_service.dart';
-import 'services/stamp_tag_service.dart';
 import 'services/stamp_text_format_service.dart';
 import 'stamp_studio_controller.dart';
 
@@ -125,7 +123,6 @@ class _StampStudioPageState extends State<StampStudioPage> {
               },
             ),
             StampTagsToolbarUi(
-              pinnedTags: _controller.pinnedTags,
               activePendingTag: _controller.pendingOverlayTag,
               isPendingStatic: _controller.isPendingOverlayStatic,
               onSelectStaticToStamp: () =>
@@ -141,14 +138,6 @@ class _StampStudioPageState extends State<StampStudioPage> {
                 StampTextFormatService.insertTag(_controller.bodyController, t);
                 _controller.notify();
               },
-              onDeleteTag: (t) {
-                StampTagService.removeTag(_controller.pinnedTags, t);
-                _controller.notify();
-              },
-              onShowAddCustomTag: () => StampCustomTagDialogUi.show(context, (t) {
-                StampTagService.addTag(_controller.pinnedTags, t);
-                _controller.setPendingOverlay(t, isStatic: false);
-              }),
             ),
             Expanded(
               child: StampCanvasViewportUi(

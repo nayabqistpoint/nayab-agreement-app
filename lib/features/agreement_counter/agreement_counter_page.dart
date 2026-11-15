@@ -61,17 +61,19 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   }
 
   Future<void> _handleDeleteTemplate(String title) async {
+    final messenger = ScaffoldMessenger.of(context);
     final ok = await CounterStorageHandlerService.deleteTemplate(title);
-    if (ok && mounted) {
+    if (!mounted) return;
+    if (ok) {
       _c.loadTemplates();
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('ٹیمپلیٹ "$title" کامیابی سے ڈیلیٹ ہو گیا')),
       );
     }
   }
 
+  /// پرنٹ کرنے سے آرڈر فائنل نہیں ہوگا، صرف کاغذ پرنٹ ہوگا
   Future<void> _printLegalTray() async {
-    await _c.commitDeal();
     final List<int> indexes = [];
     for (int i = 0; i < _c.bundlePages.length; i++) {
       if (_c.bundlePages[i].originalPaperSize.toLowerCase().contains('legal')) {
@@ -87,7 +89,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   }
 
   Future<void> _printA4Tray() async {
-    await _c.commitDeal();
     final List<int> indexes = [];
     for (int i = 0; i < _c.bundlePages.length; i++) {
       if (!_c.bundlePages[i].originalPaperSize.toLowerCase().contains('legal')) {
@@ -103,7 +104,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   }
 
   Future<void> _printAllPagesAsA4() async {
-    await _c.commitDeal();
     final List<int> allIndexes = List.generate(_c.bundlePages.length, (i) => i);
     await CounterRenderService.printSelectivePages(
       allKeys: _canvasKeys,
@@ -113,22 +113,60 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     );
   }
 
+  /// حوالگی کارڈ سے مکمل کرنے پر ڈیل محفوظ ہوگی اور POS آرڈر پینڈنگ سے ختم ہوگا
   void _openDeliveryModalManually() {
     final customerName = _c.currentFieldValues['کسٹمر کا نام'] ?? 'گاہک';
-    CounterDeliveryModalUi.show(
+    final messenger = ScaffoldMessenger.of(context);
+
+    showModalBottomSheet(
       context: context,
-      dealId: _c.activeDeal?.id ?? 'NEW_DEAL',
-      customerName: customerName,
-      deliveryPhotoPath: _c.activeDeal?.deliveryPhotoPath,
-      signedDocPhotoPath: _c.activeDeal?.signedDocPhotoPath,
-      onCaptureDeliveryPhoto: () async {
-        await _c.captureDeliveryPhoto();
-        setState(() {});
-      },
-      onCaptureSignedDocPhoto: () async {
-        await _c.captureSignedDocPhoto();
-        setState(() {});
-      },
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+      builder: (modalCtx) => StatefulBuilder(
+        builder: (builderCtx, setModalState) => CounterDeliveryModalUi(
+          dealId: _c.activeDeal?.id ?? 'NEW_DEAL',
+          customerName: customerName,
+          deliveryPhotoPath:
+              _c.tempDeliveryPhotoPath ?? _c.activeDeal?.deliveryPhotoPath,
+          signedDocPhotoPath:
+              _c.tempSignedDocPhotoPath ?? _c.activeDeal?.signedDocPhotoPath,
+          onCaptureDeliveryPhoto: () async {
+            await _c.captureDeliveryPhoto();
+            if (builderCtx.mounted) setModalState(() {});
+            if (mounted) setState(() {});
+          },
+          onCaptureSignedDocPhoto: () async {
+            await _c.captureSignedDocPhoto();
+            if (builderCtx.mounted) setModalState(() {});
+            if (mounted) setState(() {});
+          },
+          onDone: () async {
+            final modalNavigator = Navigator.of(builderCtx);
+            try {
+              await _c.finalizeAndCompleteHandover();
+              if (builderCtx.mounted) modalNavigator.pop();
+              if (!mounted) return;
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      '✅ معاہدہ و حوالگی مکمل محفوظ ہو گئی اور آرڈر پینڈنگ سے ہٹا دیا گیا!'),
+                  backgroundColor: AppColors.successGreen,
+                ),
+              );
+            } catch (e) {
+              if (builderCtx.mounted) modalNavigator.pop();
+              if (!mounted) return;
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                  backgroundColor: AppColors.errorRed,
+                ),
+              );
+            }
+          },
+        ),
+      ),
     );
   }
 
@@ -142,6 +180,9 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     for (var t in _c.availableTemplates) {
       hasStampsMap[t] = _c.customTemplateStamps.containsKey(t);
     }
+
+    final bool isCompleted = _c.activeDeal != null;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -169,12 +210,25 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     activeOrderId: _c.activePosOrderId,
                     onSelectOrder: (order) {
                       _c.applyPosOrder(order);
+                      final cName =
+                          order['customerName']?.toString() ?? 'کسٹمر';
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'آرڈر ${order['id']} کی معلومات بالٹی میں بھر دی گئی ہیں!',
+                            '$cName کی معلومات بالٹی میں بھر دی گئی ہیں!',
                           ),
                           backgroundColor: AppColors.primaryEmerald,
+                        ),
+                      );
+                    },
+                    onDismissOrder: (orderId) async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      await _c.dismissPendingOrder(orderId);
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('آرڈر پینڈنگ لسٹ سے ختم کر دیا گیا ہے'),
                         ),
                       );
                     },
@@ -223,14 +277,14 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                            horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
-                          color: _c.activeDeal?.deliveryPhotoPath != null
+                          color: isCompleted
                               ? AppColors.successGreen.withAlpha(20)
                               : Colors.amber.shade50,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: _c.activeDeal?.deliveryPhotoPath != null
+                            color: isCompleted
                                 ? AppColors.successGreen
                                 : Colors.amber.shade700,
                           ),
@@ -238,28 +292,29 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                         child: Row(
                           children: [
                             Icon(
-                              _c.activeDeal?.deliveryPhotoPath != null
+                              isCompleted
                                   ? Icons.verified
                                   : Icons.camera_alt_outlined,
                               size: 18,
-                              color: _c.activeDeal?.deliveryPhotoPath != null
+                              color: isCompleted
                                   ? AppColors.successGreen
                                   : Colors.amber.shade900,
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              _c.activeDeal?.deliveryPhotoPath != null
-                                  ? 'تصاویر محفوظ ہیں (دوبارہ دیکھنے یا بدلنے کے لیے کلک کریں)'
-                                  : 'موبائل حوالگی / سائن شدہ اسٹامپ کی تصویر بنائیں (اختیاری)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                color: _c.activeDeal?.deliveryPhotoPath != null
-                                    ? AppColors.successGreen
-                                    : Colors.amber.shade900,
+                            Expanded(
+                              child: Text(
+                                isCompleted
+                                    ? 'معاہدہ و حوالگی مکمل محفوظ ہے (دوبارہ دیکھنے کیلئے کلک کریں)'
+                                    : 'موبائل حوالگی / سائن شدہ اسٹامپ محفوظ کر کے آرڈر مکمل کریں',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isCompleted
+                                      ? AppColors.successGreen
+                                      : Colors.amber.shade900,
+                                ),
                               ),
                             ),
-                            const Spacer(),
                             const Icon(Icons.arrow_forward_ios,
                                 size: 12, color: Colors.black45),
                           ],

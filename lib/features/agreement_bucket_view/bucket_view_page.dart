@@ -5,11 +5,11 @@ import 'bucket_view_controller.dart';
 import 'components/bucket_customer_block_ui.dart';
 import 'components/bucket_stats_header_ui.dart';
 import 'components/dynamic_bucket_field_list_ui.dart';
+import 'components/pos_payload_mapper_card_ui.dart';
 import 'components/whatsapp_dispatcher_card_ui.dart';
 
 class BucketViewPage extends StatefulWidget {
   const BucketViewPage({super.key});
-
   @override
   State<BucketViewPage> createState() => _BucketViewPageState();
 }
@@ -47,7 +47,9 @@ class _BucketViewPageState extends State<BucketViewPage> {
   @override
   Widget build(BuildContext context) {
     final int total = _controller.fields.length;
-    final int filled = _controller.fields.where((f) => (_controller.controllers[f]?.text.trim() ?? '').isNotEmpty).length;
+    final int filled = _controller.fields
+        .where((f) => (_controller.controllers[f]?.text.trim() ?? '').isNotEmpty)
+        .length;
     final int missing = total > filled ? (total - filled) : 0;
 
     return Directionality(
@@ -68,14 +70,17 @@ class _BucketViewPageState extends State<BucketViewPage> {
               onPressed: () {
                 _controller.clearAllFields();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('بالٹی کا تمام ڈیٹا صاف کر دیا گیا ہے')),
+                  const SnackBar(
+                      content: Text('بالٹی کا تمام ڈیٹا صاف کر دیا گیا ہے')),
                 );
               },
             ),
           ],
         ),
         body: _controller.isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryEmerald))
+            ? const Center(
+                child: CircularProgressIndicator(
+                    color: AppColors.primaryEmerald))
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
@@ -85,17 +90,25 @@ class _BucketViewPageState extends State<BucketViewPage> {
                       filledCount: filled,
                       missingCount: missing,
                     ),
+                    PosPayloadMapperCardUi(
+                      onRulesSaved: () {
+                        _controller.reapplyActivePosOrderRules();
+                      },
+                    ),
                     BucketCustomerBlockUi(controllers: _controller.controllers),
                     WhatsappDispatcherCardUi(
                       phoneController: _controller.phoneController,
-                      onSendQuestions: () => _controller.sendQuestionsOnWhatsapp(),
-                      onPasteAnswers: () => _controller.pasteAndParseFromClipboard(),
+                      onSendQuestions: () =>
+                          _controller.sendQuestionsOnWhatsapp(),
+                      onPasteAnswers: () =>
+                          _controller.pasteAndParseFromClipboard(),
                     ),
                     const SizedBox(height: 12),
                     DynamicBucketFieldListUi(
                       fields: _controller.fields,
                       controllers: _controller.controllers,
                       qrSourceData: _parseQrData(_controller.qrSourceData),
+                      posFilledFields: _controller.posFilledFields,
                       onFieldChanged: () {
                         _controller.persistDraft();
                         setState(() {});
@@ -122,7 +135,8 @@ class _BucketViewPageState extends State<BucketViewPage> {
                 backgroundColor: AppColors.primaryEmerald,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),

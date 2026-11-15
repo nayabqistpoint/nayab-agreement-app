@@ -14,6 +14,7 @@ class PosAtomicPushService {
     await _pushBoxToFirestore(BoxNames.appConfigBox);
     await _pushBoxToFirestore(BoxNames.stockBox);
     await _pushBoxToFirestore(BoxNames.shopOrdersBox);
+    await _pushBoxToFirestore(BoxNames.tagsBox);
   }
 
   static Future<void> _pushBoxToFirestore(String boxName) async {
@@ -45,7 +46,6 @@ class PosAtomicPushService {
           boxName: boxName,
           entries: syncedLocalUpdates,
         );
-        debugPrint('✅ ایٹامک بیچ پش مکمل: [$boxName] کی $count فائلیں کلاؤڈ پر محفوظ ہو گئیں');
       }
     } catch (e) {
       debugPrint('❌ PosAtomicPushService Error [$boxName]: $e');
