@@ -4,7 +4,6 @@ import '../services/pos_control_storage_service.dart';
 
 class PosConfigTabUi extends StatefulWidget {
   const PosConfigTabUi({super.key});
-
   @override
   State<PosConfigTabUi> createState() => _PosConfigTabUiState();
 }
@@ -22,13 +21,12 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
   bool _isCompounding = false;
   bool _addFeeToPrincipal = false;
   List<int> _selectedDurations = [6, 7, 8, 9, 10, 11, 12];
-  final List<int> _allPossibleMonths = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 24];
+  int _maxMonthLimit = 15; // 3 ماہ سے لے کر اس حد تک مسلسل بٹن بنیں گے
 
   @override
   void initState() {
     super.initState();
     final cfg = PosControlStorageService.getCalculatorConfig();
-
     _advanceCtrl = TextEditingController(
       text: ((cfg['advancePercentage'] as num?)?.toDouble() ?? 0.8).toString(),
     );
@@ -36,10 +34,12 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       text: ((cfg['profitWithCheck'] as num?)?.toDouble() ?? 0.25).toString(),
     );
     _profitNoCheckCtrl = TextEditingController(
-      text: ((cfg['profitWithoutCheck'] as num?)?.toDouble() ?? 0.35).toString(),
+      text:
+          ((cfg['profitWithoutCheck'] as num?)?.toDouble() ?? 0.35).toString(),
     );
     _incrementCtrl = TextEditingController(
-      text: ((cfg['perMonthIncrement'] as num?)?.toDouble() ?? 0.05).toString(),
+      text:
+          ((cfg['perMonthIncrement'] as num?)?.toDouble() ?? 0.05).toString(),
     );
     _dueDayCtrl = TextEditingController(
       text: ((cfg['installmentDueDay'] as num?)?.toInt() ?? 5).toString(),
@@ -53,7 +53,6 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
     _roundCtrl = TextEditingController(
       text: ((cfg['roundToNearest'] as num?)?.toInt() ?? 100).toString(),
     );
-
     _isCompounding = cfg['isCompoundingProfit'] == true;
     _addFeeToPrincipal = cfg['addProcessingFeeToPrincipal'] == true;
 
@@ -61,9 +60,13 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
     if (rawDurations is List && rawDurations.isNotEmpty) {
       _selectedDurations = rawDurations
           .map((e) => int.tryParse(e.toString()) ?? 0)
-          .where((e) => e > 0)
+          .where((e) => e >= 3)
           .toList()
         ..sort();
+      if (_selectedDurations.isNotEmpty &&
+          _selectedDurations.last > _maxMonthLimit) {
+        _maxMonthLimit = _selectedDurations.last;
+      }
     }
   }
 
@@ -87,11 +90,11 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       );
       return;
     }
-
     await PosControlStorageService.saveCalculatorConfig(
       advancePercentage: double.tryParse(_advanceCtrl.text.trim()) ?? 0.8,
       profitWithCheck: double.tryParse(_profitCheckCtrl.text.trim()) ?? 0.25,
-      profitWithoutCheck: double.tryParse(_profitNoCheckCtrl.text.trim()) ?? 0.35,
+      profitWithoutCheck:
+          double.tryParse(_profitNoCheckCtrl.text.trim()) ?? 0.35,
       perMonthIncrement: double.tryParse(_incrementCtrl.text.trim()) ?? 0.05,
       gracePeriodDays: int.tryParse(_graceDaysCtrl.text.trim()) ?? 15,
       installmentDueDay: int.tryParse(_dueDayCtrl.text.trim()) ?? 5,
@@ -101,11 +104,11 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       addProcessingFeeToPrincipal: _addFeeToPrincipal,
       allowedDurations: _selectedDurations..sort(),
     );
-
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('✅ کیلکولیٹر سیٹنگز محفوظ ہو کر POS ایپ پر سنک ہو گئیں!'),
+        content:
+            Text('✅ کیلکولیٹر سیٹنگز محفوظ ہو کر POS ایپ پر سنک ہو گئیں!'),
         backgroundColor: AppColors.successGreen,
       ),
     );
@@ -121,12 +124,33 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       controller: ctrl,
       keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
       textAlign: TextAlign.left,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF0F172A),
+      ),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF1E293B),
+        ),
+        floatingLabelBehavior: FloatingLabelBehavior.always,
         helperText: helper,
+        helperStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF475569),
+        ),
         helperMaxLines: 2,
-        isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF94A3B8), width: 1.2),
+        ),
         filled: true,
         fillColor: Colors.white,
       ),
@@ -135,6 +159,11 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
 
   @override
   Widget build(BuildContext context) {
+    final List<int> continuousMonths = List.generate(
+      (_maxMonthLimit - 3) + 1,
+      (index) => 3 + index,
+    );
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -154,13 +183,14 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
                 Expanded(
                   child: Text(
                     'یہاں سے محفوظ کی گئی شرائط فوری طور پر دکان کی POS کیلکولیٹر ایپ پر لاگو ہو جائیں گی۔',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                    style:
+                        TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -180,12 +210,12 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: _buildNumberField(
-                  'منافع مع چیک (With Check)',
+                  'منافع مع چیک',
                   _profitCheckCtrl,
                   helper: 'مثلاً 0.25 = 25%',
                 ),
@@ -193,19 +223,19 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
               const SizedBox(width: 10),
               Expanded(
                 child: _buildNumberField(
-                  'منافع بغیر چیک (Without Check)',
+                  'منافع بغیر چیک',
                   _profitNoCheckCtrl,
                   helper: 'مثلاً 0.35 = 35%',
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: _buildNumberField(
-                  'قسط کی مقررہ تاریخ (Due Day)',
+                  'قسط کی مقررہ تاریخ',
                   _dueDayCtrl,
                   helper: 'ہر ماہ کی تاریخ (مثلاً 5)',
                   isDecimal: false,
@@ -222,7 +252,7 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -243,38 +273,103 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
+          // ڈائنامک اقساط کے مہینے (3 ماہ سے لے کر کنٹرول شدہ حد تک مسلسل ترتیب)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.borderLight),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF94A3B8), width: 1.2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'اجازت شدہ اقساط کے مہینے (Allowed Durations):',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'اجازت شدہ اقساط کے مہینے:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    // بٹنوں کی تعداد کم یا زیادہ کرنے کا کنٹرول
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove, size: 18),
+                            tooltip: 'کم کریں',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _maxMonthLimit > 6
+                                ? () {
+                                    setState(() {
+                                      _maxMonthLimit--;
+                                      _selectedDurations
+                                          .removeWhere((m) => m > _maxMonthLimit);
+                                    });
+                                  }
+                                : null,
+                          ),
+                          Text(
+                            '3 تا $_maxMonthLimit ماہ',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryEmerald,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add, size: 18),
+                            tooltip: 'مزید مہینے بڑھائیں',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _maxMonthLimit < 36
+                                ? () {
+                                    setState(() {
+                                      _maxMonthLimit++;
+                                    });
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _allPossibleMonths.map((month) {
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: continuousMonths.map((month) {
                     final isSelected = _selectedDurations.contains(month);
                     return FilterChip(
                       label: Text(
                         '$month ماہ',
                         style: TextStyle(
+                          fontSize: 13.5,
                           fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : Colors.black87,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                       selected: isSelected,
                       selectedColor: AppColors.primaryEmerald,
                       checkmarkColor: Colors.white,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 4),
                       onSelected: (val) {
                         setState(() {
                           if (val) {
@@ -290,11 +385,14 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SwitchListTile(
             title: const Text(
               'کمپاؤنڈنگ منافع (Compounding Profit)',
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A)),
             ),
             value: _isCompounding,
             activeTrackColor: AppColors.primaryEmerald,
@@ -303,7 +401,10 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
           SwitchListTile(
             title: const Text(
               'پروسیسنگ فیس اصل رقم میں شامل کریں',
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A)),
             ),
             value: _addFeeToPrincipal,
             activeTrackColor: AppColors.primaryEmerald,
@@ -315,12 +416,12 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
             icon: const Icon(Icons.cloud_upload_outlined),
             label: const Text(
               'کیلکولیٹر سیٹنگز محفوظ اور سنک کریں',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryEmerald,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),

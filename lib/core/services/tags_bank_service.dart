@@ -37,19 +37,28 @@ class TagsBankService {
       initialEntries[id] = map;
     }
 
-    // 1. POS آرڈر ٹیگز
     addSeed('pos_docId', 'دستاویز نمبر', TagSourceType.pos, rawKey: 'docId');
-    addSeed('pos_customerName', 'کسٹمر کا نام', TagSourceType.pos, rawKey: 'customerName');
-    addSeed('pos_customerPhone', 'رابطہ نمبر', TagSourceType.pos, rawKey: 'customerPhone');
-    addSeed('pos_customerCnic', 'شناختی کارڈ', TagSourceType.pos, rawKey: 'customerCnic');
-    addSeed('pos_guarantorName', 'ضامن کا نام', TagSourceType.pos, rawKey: 'guarantorName');
-    addSeed('pos_guarantorPhone', 'ضامن موبائل نمبر', TagSourceType.pos, rawKey: 'guarantorPhone');
-    addSeed('pos_itemName', 'موبائل ماڈل', TagSourceType.pos, rawKey: 'itemName');
+    addSeed('pos_customerName', 'کسٹمر کا نام', TagSourceType.pos,
+        rawKey: 'customerName');
+    addSeed('pos_customerPhone', 'رابطہ نمبر', TagSourceType.pos,
+        rawKey: 'customerPhone');
+    addSeed('pos_customerCnic', 'شناختی کارڈ', TagSourceType.pos,
+        rawKey: 'customerCnic');
+    addSeed('pos_guarantorName', 'ضامن کا نام', TagSourceType.pos,
+        rawKey: 'guarantorName');
+    addSeed('pos_guarantorPhone', 'ضامن موبائل نمبر', TagSourceType.pos,
+        rawKey: 'guarantorPhone');
+    addSeed('pos_itemName', 'موبائل ماڈل', TagSourceType.pos,
+        rawKey: 'itemName');
     addSeed('pos_imeiNo', 'IMEI نمبر', TagSourceType.pos, rawKey: 'imeiNo');
-    addSeed('pos_totalContractAmount', 'ٹوٹل رقم', TagSourceType.pos, rawKey: 'totalContractAmount');
-    addSeed('pos_advance', 'ایڈوانس رقم', TagSourceType.pos, rawKey: 'advance');
-    addSeed('pos_monthlyAmount', 'ماہانہ قسط', TagSourceType.pos, rawKey: 'monthlyAmount');
-    addSeed('pos_totalMonths', 'مدت', TagSourceType.pos, rawKey: 'totalMonths');
+    addSeed('pos_totalContractAmount', 'ٹوٹل رقم', TagSourceType.pos,
+        rawKey: 'totalContractAmount');
+    addSeed('pos_advance', 'ایڈوانس رقم', TagSourceType.pos,
+        rawKey: 'advance');
+    addSeed('pos_monthlyAmount', 'ماہانہ قسط', TagSourceType.pos,
+        rawKey: 'monthlyAmount');
+    addSeed('pos_totalMonths', 'مدت', TagSourceType.pos,
+        rawKey: 'totalMonths');
     addSeed(
       'pos_guaranteeType',
       'ضمانت',
@@ -57,11 +66,12 @@ class TagsBankService {
       rawKey: 'guaranteeType',
       trans: {'LEGAL_STAMP': 'قانونی اشٹام و پرنوٹ', 'CHEQUE': 'بینک چیک'},
     );
-    addSeed('pos_bankName', 'بینک کا نام', TagSourceType.pos, rawKey: 'bankName');
-    addSeed('pos_chequeNo', 'چیک نمبر', TagSourceType.pos, rawKey: 'chequeNo');
-
-    // 2. اسٹاک باکس سے IMEI کے ذریعے جڑنے والی موبائل تفصیلات
-    addSeed('pos_ramRom', 'میموری (RAM/ROM)', TagSourceType.pos, rawKey: 'ramRom');
+    addSeed('pos_bankName', 'بینک کا نام', TagSourceType.pos,
+        rawKey: 'bankName');
+    addSeed('pos_chequeNo', 'چیک نمبر', TagSourceType.pos,
+        rawKey: 'chequeNo');
+    addSeed('pos_ramRom', 'میموری (RAM/ROM)', TagSourceType.pos,
+        rawKey: 'ramRom');
     addSeed('pos_color', 'موبائل رنگ', TagSourceType.pos, rawKey: 'color');
     addSeed(
       'pos_conditionType',
@@ -70,11 +80,17 @@ class TagsBankService {
       rawKey: 'conditionType',
       trans: {'NEW': 'نیا ڈبہ پیک', 'USED': 'استعمال شدہ'},
     );
-    addSeed('pos_conditionRating', 'کنڈیشن ریٹنگ', TagSourceType.pos, rawKey: 'conditionRating');
-    addSeed('pos_warranty', 'وارنٹی (ماہ)', TagSourceType.pos, rawKey: 'warranty');
-    addSeed('pos_salePrice', 'نقد قیمت', TagSourceType.pos, rawKey: 'salePrice', enabled: false);
+    addSeed('pos_conditionRating', 'کنڈیشن ریٹنگ', TagSourceType.pos,
+        rawKey: 'conditionRating');
+    addSeed('pos_warranty', 'وارنٹی (ماہ)', TagSourceType.pos,
+        rawKey: 'warranty');
+    addSeed('pos_salePrice', 'نقد قیمت', TagSourceType.pos,
+        rawKey: 'salePrice', enabled: false);
+    addSeed('pos_purchasePrice', 'قیمت خرید', TagSourceType.pos,
+        rawKey: 'purchasePrice', enabled: false);
+    addSeed('pos_supplierInfo', 'سپلائر', TagSourceType.pos,
+        rawKey: 'supplierInfo', enabled: false);
 
-    // 3. کسٹم / دستی / واٹس ایپ ٹیگز
     addSeed('cst_fatherName', 'ولدیت', TagSourceType.custom);
     addSeed('cst_caste', 'قومیت', TagSourceType.custom);
     addSeed('cst_address', 'مستقل پتہ', TagSourceType.custom);
@@ -88,7 +104,7 @@ class TagsBankService {
     );
   }
 
-  /// آرڈر کے IMEI نمبر کی بنیاد پر لوکل Hive کے stock_box سے موبائل کی تمام فیلڈز جوڑنا
+  /// آرڈر میں موجود IMEI کے ذریعے stock_box کی تمام فیلڈز (نئی اور پرانی) ضم کرنا
   static TagRawMap enrichOrderWithStockByImei(Map rawOrder) {
     final TagRawMap merged = TagRawMap.from(rawOrder);
     final imei = merged['imeiNo']?.toString().trim() ?? '';
@@ -103,7 +119,6 @@ class TagsBankService {
           if (stockImei == imei) {
             rawStock.forEach((sKey, sVal) {
               final kStr = sKey.toString();
-              // صرف وہ فیلڈز شامل کریں جو آرڈر میں پہلے سے خالی یا غائب ہوں
               if (!merged.containsKey(kStr) ||
                   merged[kStr] == null ||
                   merged[kStr].toString().trim().isEmpty) {
@@ -115,8 +130,66 @@ class TagsBankService {
         }
       }
     } catch (_) {}
-
     return merged;
+  }
+
+  /// پورے shop_orders_box اور stock_box سے تمام خام کلیدیں اور ان کی تازہ ترین مثالی ویلیوز ڈائنامک نکالنا
+  static Map<String, dynamic> discoverAllDynamicPayloadSamples() {
+    final Map<String, dynamic> samples = {};
+
+    void scanBox(String boxName) {
+      try {
+        final box = HiveBoxManager.getBox(boxName);
+        for (final key in box.keys) {
+          final raw = box.get(key);
+          if (raw is Map) {
+            raw.forEach((k, v) {
+              final keyStr = k.toString();
+              if (!samples.containsKey(keyStr)) {
+                samples[keyStr] = v;
+              } else if (v != null &&
+                  v is! List &&
+                  v is! Map &&
+                  v.toString().trim().isNotEmpty &&
+                  v.toString().trim() != 'null') {
+                // اگر پہلے خالی ویلیو تھی تو تازہ غیر خالی مثالی ویلیو اپڈیٹ کر دیں
+                samples[keyStr] = v;
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
+    scanBox(BoxNames.shopOrdersBox);
+    scanBox(BoxNames.stockBox);
+    return samples;
+  }
+
+  /// پورے shop_orders_box اور stock_box سے ہر کلید کی تمام منفرد کوڈ ویلیوز اکٹھی کرنا
+  static Map<String, Set<String>> discoverAllDistinctValuesAcrossBoxes() {
+    final Map<String, Set<String>> discovered = {};
+
+    void scanBox(String boxName) {
+      try {
+        final box = HiveBoxManager.getBox(boxName);
+        for (final key in box.keys) {
+          final raw = box.get(key);
+          if (raw is Map) {
+            raw.forEach((k, v) {
+              if (v == null || v is List || v is Map) return;
+              final valStr = v.toString().trim();
+              if (valStr.isEmpty || valStr == 'null') return;
+              discovered.putIfAbsent(k.toString(), () => <String>{}).add(valStr);
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
+    scanBox(BoxNames.shopOrdersBox);
+    scanBox(BoxNames.stockBox);
+    return discovered;
   }
 
   /// تمام فعال ٹیگز کو ترتیب (sortOrder) کے مطابق نکالنا
@@ -145,8 +218,8 @@ class TagsBankService {
     return rawList.map((m) => TagBankItemModel.fromMap(m)).toList();
   }
 
-  /// ڈریگ اینڈ ڈراپ سے بدلی گئی نئی ترتیب ہائیو میں محفوظ کرنا
-  static Future<void> saveReorderedTags(List<TagBankItemModel> orderedList) async {
+  static Future<void> saveReorderedTags(
+      List<TagBankItemModel> orderedList) async {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final now = TimeStatusService.nowUtcIso();
     final TagRawMap batchUpdates = {};
@@ -157,7 +230,6 @@ class TagsBankService {
       final TagRawMap updatedMap = existingRaw is Map
           ? TagRawMap.from(existingRaw)
           : item.toMap();
-
       updatedMap['sortOrder'] = i;
       updatedMap['updatedAt'] = now;
       updatedMap['isSynced'] = false;
@@ -172,7 +244,6 @@ class TagsBankService {
     }
   }
 
-  /// تمام POS قواعد نکالنا (میپر کارڈ کیلئے)
   static List<TagBankItemModel> getAllPosRules() {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final List<TagBankItemModel> list = [];
@@ -189,7 +260,6 @@ class TagsBankService {
     return list;
   }
 
-  /// نیا کسٹم ٹیگ محفوظ کرنا یا حذف کرنا
   static Future<void> saveTagItem(TagBankItemModel item) async {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final existing = box.get(item.id);
@@ -218,7 +288,6 @@ class TagsBankService {
     );
   }
 
-  /// خام POS آرڈر (مع IMEI اسٹاک تفصیلات) کو فعال قواعد کے مطابق اردو فیلڈز میں بدلنا
   static Map<String, String> translatePosOrder(Map rawOrder) {
     final enrichedOrder = enrichOrderWithStockByImei(rawOrder);
     final rules = getAllPosRules().where((r) => r.isEnabled).toList();
@@ -227,9 +296,9 @@ class TagsBankService {
     for (final rule in rules) {
       final k = rule.rawKey;
       if (k == null || !enrichedOrder.containsKey(k)) continue;
-
       final rawVal = enrichedOrder[k];
       if (rawVal == null) continue;
+
       String valStr = rawVal.toString().trim();
       if (valStr.isEmpty || valStr == 'null') continue;
 
@@ -243,6 +312,7 @@ class TagsBankService {
 
       translated[rule.urduName] = valStr;
     }
+
     return translated;
   }
 }

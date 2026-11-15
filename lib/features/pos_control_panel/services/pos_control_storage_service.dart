@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
 import '../../../core/time/time_status_service.dart';
@@ -7,7 +8,6 @@ typedef ControlDataMap = Map<String, dynamic>;
 class PosControlStorageService {
   static const String configDocId = 'calculator_config';
 
-  /// کیلکولیٹر کنفیگ پڑھنا (اگر موجود نہ ہو تو ڈیفالٹ اقدار)
   static ControlDataMap getCalculatorConfig() {
     final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
     final raw = box.get(configDocId);
@@ -31,7 +31,6 @@ class PosControlStorageService {
     };
   }
 
-  /// کیلکولیٹر کنفیگ محفوظ کرنا (isSynced: false کے ساتھ تاکہ فوری کلاؤڈ پر پش ہو)
   static Future<void> saveCalculatorConfig({
     required double advancePercentage,
     required double profitWithCheck,
@@ -63,14 +62,13 @@ class PosControlStorageService {
       'isSynced': false,
       'updatedAt': now,
     };
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.appConfigBox,
       entries: {configDocId: payload},
     );
   }
 
-  /// تمام فعال اسٹاک آئٹمز نکالنا
+  /// تمام غیر حذف شدہ اسٹاک آئٹمز نکالنا (DELETED مکمل غائب رہیں گے)
   static List<ControlDataMap> getAllStockItems() {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final List<ControlDataMap> list = [];
@@ -79,8 +77,11 @@ class PosControlStorageService {
       final raw = box.get(key);
       if (raw is Map) {
         final item = ControlDataMap.from(raw);
-        if (item['isDeleted'] == true) continue;
+        final status = (item['status']?.toString() ?? '').trim().toUpperCase();
+        if (item['isDeleted'] == true || status == 'DELETED') continue;
+
         item['id'] = item['id']?.toString() ?? key.toString();
+        item['status'] = status.isEmpty ? 'AVAILABLE' : status;
         list.add(item);
       }
     }
@@ -90,15 +91,16 @@ class PosControlStorageService {
       final idB = b['id']?.toString() ?? '';
       return idB.compareTo(idA);
     });
+
     return list;
   }
 
-  /// اگلا خودکار اسٹاک کوڈ جنریٹ کرنا (مثلاً STK_004)
+  /// اگلا خودکار اسٹاک کوڈ جنریٹ کرنا
   static String generateNextStockId() {
-    final items = getAllStockItems();
+    final box = HiveBoxManager.getBox(BoxNames.stockBox);
     int maxNum = 0;
-    for (final item in items) {
-      final id = item['id']?.toString() ?? '';
+    for (final key in box.keys) {
+      final id = key.toString();
       final match = RegExp(r'STK_(\d+)').firstMatch(id);
       if (match != null) {
         final numVal = int.tryParse(match.group(1) ?? '0') ?? 0;
@@ -109,34 +111,48 @@ class PosControlStorageService {
     return 'STK_$next';
   }
 
-  /// نیا یا ترمیم شدہ اسٹاک آئٹم محفوظ کرنا
   static Future<void> saveStockItem({
     required String stockId,
     required String itemName,
     required String imeiNo,
     required String ramRom,
     required String color,
+    required int purchasePrice,
     required int salePrice,
+    required String supplierInfo,
     required String conditionType,
     required String conditionRating,
     required int warrantyMonths,
   }) async {
-    final cleanId = stockId.trim().isEmpty ? generateNextStockId() : stockId.trim();
+    final cleanId =
+        stockId.trim().isEmpty ? generateNextStockId() : stockId.trim();
     final now = TimeStatusService.nowUtcIso();
 
+    final box = HiveBoxManager.getBox(BoxNames.stockBox);
+    final rawExisting = box.get(cleanId);
+    final existingMap = rawExisting is Map
+        ? ControlDataMap.from(rawExisting)
+        : <String, dynamic>{};
+
+    final existingStatus =
+        (existingMap['status']?.toString() ?? 'AVAILABLE').toUpperCase();
+
     final payload = <String, dynamic>{
+      ...existingMap,
       'id': cleanId,
       'itemId': cleanId,
       'itemName': itemName.trim(),
       'imeiNo': imeiNo.trim(),
       'ramRom': ramRom.trim(),
       'color': color.trim(),
+      'purchasePrice': purchasePrice,
       'salePrice': salePrice,
+      'supplierInfo': supplierInfo.trim(),
       'conditionType': conditionType,
       'conditionRating': conditionRating.trim(),
       'warranty': warrantyMonths,
-      'status': 'available',
-      'images': [],
+      'status': existingStatus == 'DELETED' ? 'AVAILABLE' : existingStatus,
+      'images': existingMap['images'] ?? [],
       'isDeleted': false,
       'isSynced': false,
       'updatedAt': now,
@@ -148,14 +164,18 @@ class PosControlStorageService {
     );
   }
 
-  /// اسٹاک آئٹم کو سافٹ ڈیلیٹ کرنا (کلاؤڈ و POS دونوں سے ہٹانے کیلئے)
-  static Future<void> softDeleteStockItem(String stockId) async {
+  /// صرف AVAILABLE اسٹاک کو سافٹ ڈیلیٹ کرنا
+  static Future<bool> softDeleteStockItem(String stockId) async {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final raw = box.get(stockId);
     if (raw is Map) {
       final updated = ControlDataMap.from(raw);
+      final status = (updated['status']?.toString() ?? 'AVAILABLE').toUpperCase();
+      if (status == 'RESERVED' || status == 'SOLD') {
+        return false;
+      }
       updated['isDeleted'] = true;
-      updated['status'] = 'deleted';
+      updated['status'] = 'DELETED';
       updated['isSynced'] = false;
       updated['updatedAt'] = TimeStatusService.nowUtcIso();
 
@@ -163,6 +183,47 @@ class PosControlStorageService {
         boxName: BoxNames.stockBox,
         entries: {stockId: updated},
       );
+      return true;
     }
+    return false;
+  }
+
+  /// تمام isDeleted ریکارڈز کو لوکل Hive اور Firestore دونوں سے مستقل حذف (Hard Purge) کرنا
+  static Future<int> purgeAllDeletedRecords() async {
+    int purgedCount = 0;
+    final firestore = FirebaseFirestore.instance;
+
+    final boxCollectionPairs = <String, String>{
+      BoxNames.stockBox: 'stock_box',
+      BoxNames.shopOrdersBox: 'shop_orders_box',
+      BoxNames.customersBox: 'customers_box',
+      BoxNames.customerDealsBox: 'customer_deals_box',
+    };
+
+    for (final entry in boxCollectionPairs.entries) {
+      final box = HiveBoxManager.getBox(entry.key);
+      final collectionName = entry.value;
+      final List<dynamic> keysToDelete = [];
+
+      for (final key in box.keys) {
+        final raw = box.get(key);
+        if (raw is Map) {
+          final st = (raw['status']?.toString() ?? '').toUpperCase();
+          if (raw['isDeleted'] == true || st == 'DELETED') {
+            keysToDelete.add(key);
+          }
+        }
+      }
+
+      for (final key in keysToDelete) {
+        try {
+          await firestore.collection(collectionName).doc(key.toString()).delete();
+        } catch (_) {}
+        await box.delete(key);
+        purgedCount++;
+      }
+    }
+
+    return purgedCount;
   }
 }

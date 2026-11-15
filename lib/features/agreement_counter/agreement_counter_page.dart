@@ -72,7 +72,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     }
   }
 
-  /// پرنٹ کرنے سے آرڈر فائنل نہیں ہوگا، صرف کاغذ پرنٹ ہوگا
   Future<void> _printLegalTray() async {
     final List<int> indexes = [];
     for (int i = 0; i < _c.bundlePages.length; i++) {
@@ -113,7 +112,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     );
   }
 
-  /// حوالگی کارڈ سے مکمل کرنے پر ڈیل محفوظ ہوگی اور POS آرڈر پینڈنگ سے ختم ہوگا
   void _openDeliveryModalManually() {
     final customerName = _c.currentFieldValues['کسٹمر کا نام'] ?? 'گاہک';
     final messenger = ScaffoldMessenger.of(context);
@@ -208,27 +206,18 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                 children: [
                   CounterPendingOrdersBarUi(
                     activeOrderId: _c.activePosOrderId,
-                    onSelectOrder: (order) {
-                      _c.applyPosOrder(order);
-                      final cName =
-                          order['customerName']?.toString() ?? 'کسٹمر';
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '$cName کی معلومات بالٹی میں بھر دی گئی ہیں!',
-                          ),
-                          backgroundColor: AppColors.primaryEmerald,
-                        ),
-                      );
+                    currentBucketValues: _c.currentFieldValues,
+                    onOrderUpdatedFromPage: () {
+                      _c.activeDeal = null;
+                      _c.tempDeliveryPhotoPath = null;
+                      _c.tempSignedDocPhotoPath = null;
+                      _c.init();
                     },
-                    onDismissOrder: (orderId) async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      await _c.dismissPendingOrder(orderId);
-                      if (!mounted) return;
-                      messenger.showSnackBar(
+                    onClearActiveBucket: () {
+                      _c.clearActiveCustomerBucket();
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content:
-                              Text('آرڈر پینڈنگ لسٹ سے ختم کر دیا گیا ہے'),
+                          content: Text('بالٹی خالی کر دی گئی ہے'),
                         ),
                       );
                     },

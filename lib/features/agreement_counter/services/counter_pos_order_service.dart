@@ -6,7 +6,8 @@ import '../../../core/time/time_status_service.dart';
 typedef PosOrderMap = Map<String, dynamic>;
 
 class CounterPosOrderService {
-  static List<PosOrderMap> getPendingOrders() {
+  /// تمام غیر حذف شدہ آرڈرز نکالنا (تازہ ترین سب سے اوپر)
+  static List<PosOrderMap> getAllOrders() {
     try {
       final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
       final List<PosOrderMap> orders = [];
@@ -16,11 +17,8 @@ class CounterPosOrderService {
         if (raw is Map) {
           final map = PosOrderMap.from(raw);
           if (map['isDeleted'] == true) continue;
-          final status = map['status']?.toString() ?? '';
-          if (status == 'PENDING_AGREEMENT' || status.isEmpty) {
-            map['id'] = map['id']?.toString() ?? key.toString();
-            orders.add(map);
-          }
+          map['id'] = map['id']?.toString() ?? key.toString();
+          orders.add(map);
         }
       }
 
@@ -34,6 +32,16 @@ class CounterPosOrderService {
     } catch (_) {
       return [];
     }
+  }
+
+  /// صرف پینڈنگ آرڈرز نکالنا (جو ابھی مکمل یا ختم نہیں ہوئے)
+  static List<PosOrderMap> getPendingOrders() {
+    return getAllOrders().where((map) {
+      final status = (map['status']?.toString() ?? '').trim().toUpperCase();
+      return status != 'AGREEMENT_COMPLETED' &&
+          status != 'DISMISSED_BY_COUNTER' &&
+          status != 'CANCELLED';
+    }).toList();
   }
 
   static Map<String, String> mapOrderToBucketFields(PosOrderMap order) {

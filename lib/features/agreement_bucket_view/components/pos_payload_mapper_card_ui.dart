@@ -23,9 +23,20 @@ class _PosPayloadMapperCardUiState extends State<PosPayloadMapperCardUi> {
   late List<TagBankItemModel> _posItems;
   late Map<String, dynamic> _samplePayload;
   late Map<String, Set<String>> _discoveredValues;
+
   final Map<String, TextEditingController> _nameControllers = {};
   final Map<String, bool> _enabledStates = {};
   final Map<String, Map<String, String>> _translationsMap = {};
+
+  static const Map<String, String> _knownUrduHints = {
+    'supplierInfo': 'سپلائر',
+    'purchasePrice': 'قیمت خرید',
+    'soldToName': 'خریدار کا نام',
+    'soldToCnic': 'خریدار شناختی کارڈ',
+    'soldDealId': 'معاہدہ نمبر',
+    'reservedOrderId': 'بکنگ آرڈر نمبر',
+    'reservedCustomerInfo': 'بکنگ کسٹمر',
+  };
 
   @override
   void initState() {
@@ -35,20 +46,20 @@ class _PosPayloadMapperCardUiState extends State<PosPayloadMapperCardUi> {
 
   void _loadData() {
     _posItems = TagsBankService.getAllPosRules();
-    _samplePayload = _getLatestSampleOrder();
-    _discoveredValues = _discoverDistinctValues();
+    _samplePayload = TagsBankService.discoverAllDynamicPayloadSamples();
+    _discoveredValues = TagsBankService.discoverAllDistinctValuesAcrossBoxes();
 
     final existingRawKeys = _posItems.map((e) => e.rawKey).toSet();
     final now = TimeStatusService.nowUtcIso();
 
-    // آرڈر یا جڑے ہوئے اسٹاک ریکارڈ کی کوئی بھی نئی کلید خودکار مرر میں شامل کریں
+    // پورے shop_orders_box اور stock_box کی ہر نئی/پرانی فیلڈ کو ڈائنامک شامل کریں
     _samplePayload.forEach((k, _) {
       final keyStr = k.toString();
       if (!existingRawKeys.contains(keyStr)) {
         _posItems.add(
           TagBankItemModel(
             id: 'pos_$keyStr',
-            urduName: keyStr,
+            urduName: _knownUrduHints[keyStr] ?? keyStr,
             source: TagSourceType.pos,
             rawKey: keyStr,
             isEnabled: false,
@@ -71,44 +82,6 @@ class _PosPayloadMapperCardUiState extends State<PosPayloadMapperCardUi> {
       _enabledStates[key] = item.isEnabled;
       _translationsMap[key] = Map<String, String>.from(item.valueTranslations);
     }
-  }
-
-  Map<String, dynamic> _getLatestSampleOrder() {
-    final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-    Map<String, dynamic>? latest;
-    String latestTime = '';
-    for (final key in box.keys) {
-      final raw = box.get(key);
-      if (raw is Map) {
-        final map = Map<String, dynamic>.from(raw);
-        final t = map['createdAt']?.toString() ?? '';
-        if (latest == null || t.compareTo(latestTime) >= 0) {
-          latest = map;
-          latestTime = t;
-        }
-      }
-    }
-    if (latest == null) return {};
-    // لوکل Hive کے stock_box سے IMEI کے ذریعے موبائل تفصیلات بھی جوڑ دیں
-    return TagsBankService.enrichOrderWithStockByImei(latest);
-  }
-
-  Map<String, Set<String>> _discoverDistinctValues() {
-    final Map<String, Set<String>> discovered = {};
-    final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
-    for (final key in box.keys) {
-      final raw = box.get(key);
-      if (raw is Map) {
-        final enriched = TagsBankService.enrichOrderWithStockByImei(raw);
-        enriched.forEach((k, v) {
-          if (v == null || v is List || v is Map) return;
-          final valStr = v.toString().trim();
-          if (valStr.isEmpty || valStr == 'null') return;
-          discovered.putIfAbsent(k.toString(), () => <String>{}).add(valStr);
-        });
-      }
-    }
-    return discovered;
   }
 
   bool _supportsValueTranslation(
@@ -478,7 +451,7 @@ class _PosPayloadMapperCardUiState extends State<PosPayloadMapperCardUi> {
                           ),
                         ),
                         Text(
-                          'کل ${_posItems.length} خام فیلڈز میں سے $activeCount فعال ٹیگز منتخب ہیں',
+                          'کل ${_posItems.length} ڈائنامک فیلڈز میں سے $activeCount فعال ٹیگز منتخب ہیں',
                           style: const TextStyle(
                             fontSize: 11.5,
                             color: AppColors.textMuted,
@@ -523,10 +496,10 @@ class _PosPayloadMapperCardUiState extends State<PosPayloadMapperCardUi> {
                     final sampleVal = _samplePayload[key];
                     final samplePreview = (sampleVal == null ||
                             sampleVal is List ||
-                            sampleVal is Map)
+                            sampleVal is Map ||
+                            sampleVal.toString().trim().isEmpty)
                         ? ''
                         : ' (مثال: $sampleVal)';
-
                     final observed = _discoveredValues[key] ?? <String>{};
                     final showEqualsBtn =
                         _supportsValueTranslation(key, trans, observed);

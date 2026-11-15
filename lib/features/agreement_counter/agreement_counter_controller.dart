@@ -143,10 +143,11 @@ class AgreementCounterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// POS پینڈنگ آرڈر کو منتخب کر کے تمام فیلڈز بالٹی میں آٹو فل کرنا
+  /// نیا POS آرڈر منتخب کرنے پر پچھلی بالٹی صاف کر کے تازہ ڈیٹا بھرنا (تاکہ ڈیٹا مکس نہ ہو)
   void applyPosOrder(Map<String, dynamic> order) {
     final mappedFields = CounterPosOrderService.mapOrderToBucketFields(order);
     if (mappedFields.isNotEmpty) {
+      currentFieldValues.clear();
       activePosOrderId = order['id']?.toString();
       activeDeal = null;
       tempDeliveryPhotoPath = null;
@@ -158,12 +159,24 @@ class AgreementCounterController extends ChangeNotifier {
     }
   }
 
+  /// فعال کسٹمر کو ان-سلیکٹ کر کے پوری بالٹی صاف کرنا
+  void clearActiveCustomerBucket() {
+    activePosOrderId = null;
+    activeDeal = null;
+    tempDeliveryPhotoPath = null;
+    tempSignedDocPhotoPath = null;
+    currentFieldValues.clear();
+    recalculateBundle();
+    persistState();
+    notifyListeners();
+  }
+
   /// دستی طور پر آرڈر کو پینڈنگ لسٹ سے ختم کرنا
   Future<void> dismissPendingOrder(String orderId) async {
     await CounterPosOrderService.dismissOrderFromPending(orderId);
     if (activePosOrderId == orderId) {
-      activePosOrderId = null;
-      persistState();
+      clearActiveCustomerBucket();
+      return;
     }
     notifyListeners();
   }
