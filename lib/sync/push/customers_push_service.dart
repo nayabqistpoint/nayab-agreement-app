@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
 import '../../core/network/connectivity_service.dart';
+import '../../core/services/cloudinary_storage_service.dart';
 import '../../core/time/time_status_service.dart';
 
 class CustomersPushService {
@@ -26,6 +27,38 @@ class CustomersPushService {
         if (raw is Map && raw['isSynced'] == false) {
           final docId = key.toString();
           final payload = Map<String, dynamic>.from(raw);
+
+          if (boxName == BoxNames.customerDealsBox) {
+            final cnic = payload['customerCnic']?.toString() ?? '';
+            final delivPath = payload['deliveryPhotoPath']?.toString() ?? '';
+            if (delivPath.isNotEmpty && !delivPath.startsWith('http')) {
+              final url =
+                  await CloudinaryStorageService.uploadCustomerDealPhoto(
+                customerCnic: cnic,
+                dealId: docId,
+                filePath: delivPath,
+                photoType: 'delivery',
+              );
+              if (url != null) {
+                payload['deliveryPhotoUrl'] = url;
+              }
+            }
+
+            final signedPath = payload['signedDocPhotoPath']?.toString() ?? '';
+            if (signedPath.isNotEmpty && !signedPath.startsWith('http')) {
+              final url =
+                  await CloudinaryStorageService.uploadCustomerDealPhoto(
+                customerCnic: cnic,
+                dealId: docId,
+                filePath: signedPath,
+                photoType: 'signed_stamp',
+              );
+              if (url != null) {
+                payload['signedDocPhotoUrl'] = url;
+              }
+            }
+          }
+
           payload['id'] = docId;
           payload['isSynced'] = true;
           payload['syncedAt'] = TimeStatusService.nowUtcIso();
@@ -43,7 +76,8 @@ class CustomersPushService {
           boxName: boxName,
           entries: syncedLocalUpdates,
         );
-        debugPrint('✅ CustomersPushService [$boxName]: $count ریکارڈز کلاؤڈ پر سنک ہو گئے');
+        debugPrint(
+            '✅ CustomersPushService [$boxName]: $count ریکارڈز کلاؤڈ پر سنک ہو گئے');
       }
     } catch (e) {
       debugPrint('❌ CustomersPushService Error [$boxName]: $e');

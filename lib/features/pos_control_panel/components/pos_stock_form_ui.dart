@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/qr_scanner.dart';
 import '../services/pos_control_storage_service.dart';
+import 'pos_stock_photo_picker_ui.dart';
 
 class PosStockFormUi extends StatefulWidget {
   final ControlDataMap? editingItem;
@@ -25,6 +26,9 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
   final TextEditingController _purchasePriceCtrl = TextEditingController();
   final TextEditingController _salePriceCtrl = TextEditingController();
   final TextEditingController _supplierCtrl = TextEditingController();
+
+  List<String> _selectedImages = [];
+  bool _isSaving = false;
 
   static const List<String> _ramRomOptions = [
     '2GB / 32GB',
@@ -107,21 +111,23 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
         : (item['purchasePrice']?.toString() ?? '');
     _salePriceCtrl.text = item['salePrice']?.toString() ?? '';
     _supplierCtrl.text = item['supplierInfo']?.toString() ?? '';
-
+    final rawImgs = item['images'];
+    if (rawImgs is List) {
+      _selectedImages =
+          rawImgs.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+    } else {
+      _selectedImages = [];
+    }
     final ram = item['ramRom']?.toString() ?? '8GB / 256GB';
     _selectedRamRom =
         _ramRomOptions.contains(ram) ? ram : _ramRomOptions.first;
-
     final col = item['color']?.toString() ?? 'کالا (Black)';
     _selectedColor = _colorOptions.contains(col) ? col : _colorOptions.first;
-
     final cond = item['conditionType']?.toString() ?? 'NEW';
     _selectedCondition = (cond == 'USED') ? 'USED' : 'NEW';
-
     final rat = item['conditionRating']?.toString() ?? '10/10';
     _selectedRating =
         _ratingOptions.contains(rat) ? rat : _ratingOptions.first;
-
     final war = int.tryParse(item['warranty']?.toString() ?? '12') ?? 12;
     _selectedWarranty = _warrantyOptions.contains(war) ? war : 12;
   }
@@ -132,6 +138,7 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
     _purchasePriceCtrl.clear();
     _salePriceCtrl.clear();
     _supplierCtrl.clear();
+    _selectedImages = [];
     _selectedRamRom = '8GB / 256GB';
     _selectedColor = 'کالا (Black)';
     _selectedCondition = 'NEW';
@@ -160,11 +167,11 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
   }
 
   Future<void> _submit() async {
+    if (_isSaving) return;
     final model = _modelCtrl.text.trim();
     final imei = _imeiCtrl.text.trim();
     final purchasePrice = int.tryParse(_purchasePriceCtrl.text.trim()) ?? 0;
     final salePrice = int.tryParse(_salePriceCtrl.text.trim()) ?? 0;
-
     if (model.isEmpty || imei.isEmpty || salePrice <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -176,6 +183,7 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
       return;
     }
 
+    setState(() => _isSaving = true);
     final editingId = widget.editingItem?['id']?.toString();
     final stockId =
         editingId ?? PosControlStorageService.generateNextStockId();
@@ -192,16 +200,17 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
       conditionType: _selectedCondition,
       conditionRating: _selectedRating,
       warrantyMonths: _selectedWarranty,
+      images: _selectedImages,
     );
 
+    if (!mounted) return;
+    setState(() => _isSaving = false);
     _resetFields();
     widget.onSavedSuccess();
-
-    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            '✅ اسٹاک ($stockId - $model) محفوظ ہو کر POS ایپ پر سنک ہو گیا!'),
+            '✅ اسٹاک ($stockId - $model) مع تصاویر محفوظ ہو کر POS ایپ پر سنک ہو گیا!'),
         backgroundColor: AppColors.successGreen,
       ),
     );
@@ -230,7 +239,6 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
   @override
   Widget build(BuildContext context) {
     final editingId = widget.editingItem?['id']?.toString();
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -267,6 +275,11 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
                           color: Colors.red, fontWeight: FontWeight.bold)),
                 ),
             ],
+          ),
+          const SizedBox(height: 14),
+          PosStockPhotoPickerUi(
+            imagePaths: _selectedImages,
+            onImagesChanged: (imgs) => setState(() => _selectedImages = imgs),
           ),
           const SizedBox(height: 14),
           TextField(
@@ -478,12 +491,23 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: _submit,
-            icon: const Icon(Icons.save_outlined),
+            onPressed: _isSaving ? null : _submit,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.save_outlined),
             label: Text(
-              editingId != null
-                  ? 'تبدیلیاں محفوظ کریں'
-                  : 'اسٹاک میں شامل کریں اور POS پر بھیجیں',
+              _isSaving
+                  ? 'تصاویر اپلوڈ اور محفوظ ہو رہی ہیں...'
+                  : (editingId != null
+                      ? 'تبدیلیاں محفوظ کریں'
+                      : 'اسٹاک میں شامل کریں اور POS پر بھیجیں'),
               style:
                   const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/box_names.dart';
 import '../../core/database/hive_box_manager.dart';
 import '../../core/network/connectivity_service.dart';
+import '../../core/services/cloudinary_storage_service.dart';
 import '../../core/time/time_status_service.dart';
 
 class PosAtomicPushService {
@@ -10,7 +11,6 @@ class PosAtomicPushService {
 
   static Future<void> pushAllUnsynced() async {
     if (!await ConnectivityService.isOnline) return;
-
     await _pushBoxToFirestore(BoxNames.appConfigBox);
     await _pushBoxToFirestore(BoxNames.stockBox);
     await _pushBoxToFirestore(BoxNames.shopOrdersBox);
@@ -29,12 +29,29 @@ class PosAtomicPushService {
         if (raw is Map && raw['isSynced'] == false) {
           final docId = key.toString();
           final payload = Map<String, dynamic>.from(raw);
+
+          // اگر اسٹاک کی تصاویر ابھی لوکل پاتھ پر ہوں تو انہیں پہلے Cloudinary پر اپلوڈ کریں
+          if (boxName == BoxNames.stockBox && payload['images'] is List) {
+            final rawImgs = (payload['images'] as List)
+                .map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList();
+            final hasLocalFile =
+                rawImgs.any((p) => !p.startsWith('http'));
+            if (hasLocalFile) {
+              payload['images'] =
+                  await CloudinaryStorageService.uploadStockImages(
+                stockId: docId,
+                pathsOrUrls: rawImgs,
+              );
+            }
+          }
+
           payload['isSynced'] = true;
           payload['syncedAt'] = TimeStatusService.nowUtcIso();
 
           final docRef = _firestore.collection(boxName).doc(docId);
           batch.set(docRef, payload, SetOptions(merge: true));
-
           syncedLocalUpdates[docId] = payload;
           count++;
         }

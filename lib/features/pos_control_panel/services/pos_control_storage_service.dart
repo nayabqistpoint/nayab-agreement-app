@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
+import '../../../core/network/connectivity_service.dart';
+import '../../../core/services/cloudinary_storage_service.dart';
 import '../../../core/time/time_status_service.dart';
 
 typedef ControlDataMap = Map<String, dynamic>;
@@ -141,6 +143,7 @@ class PosControlStorageService {
     required String conditionType,
     required String conditionRating,
     required int warrantyMonths,
+    List<String> images = const [],
   }) async {
     final cleanId =
         stockId.trim().isEmpty ? generateNextStockId() : stockId.trim();
@@ -152,6 +155,15 @@ class PosControlStorageService {
         : <String, dynamic>{};
     final existingStatus =
         (existingMap['status']?.toString() ?? 'AVAILABLE').toUpperCase();
+
+    List<String> processedImages = List<String>.from(images);
+    if (processedImages.isNotEmpty && await ConnectivityService.isOnline) {
+      processedImages = await CloudinaryStorageService.uploadStockImages(
+        stockId: cleanId,
+        pathsOrUrls: processedImages,
+      );
+    }
+
     final payload = <String, dynamic>{
       ...existingMap,
       'id': cleanId,
@@ -167,7 +179,7 @@ class PosControlStorageService {
       'conditionRating': conditionRating.trim(),
       'warranty': warrantyMonths,
       'status': existingStatus == 'DELETED' ? 'AVAILABLE' : existingStatus,
-      'images': existingMap['images'] ?? [],
+      'images': processedImages,
       'isDeleted': false,
       'isSynced': false,
       'updatedAt': now,
