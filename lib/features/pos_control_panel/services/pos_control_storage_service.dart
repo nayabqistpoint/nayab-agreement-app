@@ -12,7 +12,10 @@ class PosControlStorageService {
     final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
     final raw = box.get(configDocId);
     if (raw is Map) {
-      return ControlDataMap.from(raw);
+      final map = ControlDataMap.from(raw);
+      map.remove('zeroAdvanceMaxLimit');
+      map['maxRiskLimit'] = (map['maxRiskLimit'] as num?)?.toInt() ?? 0;
+      return map;
     }
     return {
       'id': configDocId,
@@ -30,7 +33,7 @@ class PosControlStorageService {
       'mdmLockFee': 1000,
       'openBoxDeductionType': 'PERCENT',
       'openBoxDeductionValue': 10,
-      'zeroAdvanceMaxLimit': 40000,
+      'maxRiskLimit': 0,
       'adminOverridePin': '7860',
       'status': 'approved',
     };
@@ -51,7 +54,7 @@ class PosControlStorageService {
     int mdmLockFee = 1000,
     String openBoxDeductionType = 'PERCENT',
     int openBoxDeductionValue = 10,
-    int zeroAdvanceMaxLimit = 40000,
+    int maxRiskLimit = 0,
     String adminOverridePin = '7860',
   }) async {
     try {
@@ -72,7 +75,7 @@ class PosControlStorageService {
         'mdmLockFee': mdmLockFee,
         'openBoxDeductionType': openBoxDeductionType,
         'openBoxDeductionValue': openBoxDeductionValue,
-        'zeroAdvanceMaxLimit': zeroAdvanceMaxLimit,
+        'maxRiskLimit': maxRiskLimit < 0 ? 0 : maxRiskLimit,
         'adminOverridePin':
             adminOverridePin.trim().isEmpty ? '7860' : adminOverridePin.trim(),
         'status': 'approved',
@@ -92,26 +95,22 @@ class PosControlStorageService {
   static List<ControlDataMap> getAllStockItems() {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final List<ControlDataMap> list = [];
-
     for (final key in box.keys) {
       final raw = box.get(key);
       if (raw is Map) {
         final item = ControlDataMap.from(raw);
         final status = (item['status']?.toString() ?? '').trim().toUpperCase();
         if (item['isDeleted'] == true || status == 'DELETED') continue;
-
         item['id'] = item['id']?.toString() ?? key.toString();
         item['status'] = status.isEmpty ? 'AVAILABLE' : status;
         list.add(item);
       }
     }
-
     list.sort((a, b) {
       final idA = a['id']?.toString() ?? '';
       final idB = b['id']?.toString() ?? '';
       return idB.compareTo(idA);
     });
-
     return list;
   }
 
@@ -146,16 +145,13 @@ class PosControlStorageService {
     final cleanId =
         stockId.trim().isEmpty ? generateNextStockId() : stockId.trim();
     final now = TimeStatusService.nowUtcIso();
-
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final rawExisting = box.get(cleanId);
     final existingMap = rawExisting is Map
         ? ControlDataMap.from(rawExisting)
         : <String, dynamic>{};
-
     final existingStatus =
         (existingMap['status']?.toString() ?? 'AVAILABLE').toUpperCase();
-
     final payload = <String, dynamic>{
       ...existingMap,
       'id': cleanId,
@@ -176,7 +172,6 @@ class PosControlStorageService {
       'isSynced': false,
       'updatedAt': now,
     };
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.stockBox,
       entries: {cleanId: payload},
@@ -196,7 +191,6 @@ class PosControlStorageService {
       updated['status'] = 'DELETED';
       updated['isSynced'] = false;
       updated['updatedAt'] = TimeStatusService.nowUtcIso();
-
       await HiveBoxManager.putBatch(
         boxName: BoxNames.stockBox,
         entries: {stockId: updated},
@@ -209,19 +203,16 @@ class PosControlStorageService {
   static Future<int> purgeAllDeletedRecords() async {
     int purgedCount = 0;
     final firestore = FirebaseFirestore.instance;
-
     final boxCollectionPairs = <String, String>{
       BoxNames.stockBox: 'stock_box',
       BoxNames.shopOrdersBox: 'shop_orders_box',
       BoxNames.customersBox: 'customers_box',
       BoxNames.customerDealsBox: 'customer_deals_box',
     };
-
     for (final entry in boxCollectionPairs.entries) {
       final box = HiveBoxManager.getBox(entry.key);
       final collectionName = entry.value;
       final List<dynamic> keysToDelete = [];
-
       for (final key in box.keys) {
         final raw = box.get(key);
         if (raw is Map) {
@@ -231,7 +222,6 @@ class PosControlStorageService {
           }
         }
       }
-
       for (final key in keysToDelete) {
         try {
           await firestore.collection(collectionName).doc(key.toString()).delete();
@@ -240,7 +230,6 @@ class PosControlStorageService {
         purgedCount++;
       }
     }
-
     return purgedCount;
   }
 }

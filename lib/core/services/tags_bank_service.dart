@@ -40,14 +40,32 @@ class TagsBankService {
     addSeed('pos_docId', 'دستاویز نمبر', TagSourceType.pos, rawKey: 'docId');
     addSeed('pos_customerName', 'کسٹمر کا نام', TagSourceType.pos,
         rawKey: 'customerName');
+    addSeed('pos_customerFatherName', 'ولدیت', TagSourceType.pos,
+        rawKey: 'customerFatherName');
+    addSeed('pos_customerCaste', 'قومیت', TagSourceType.pos,
+        rawKey: 'customerCaste');
     addSeed('pos_customerPhone', 'رابطہ نمبر', TagSourceType.pos,
         rawKey: 'customerPhone');
     addSeed('pos_customerCnic', 'شناختی کارڈ', TagSourceType.pos,
         rawKey: 'customerCnic');
+    addSeed('pos_customerAddress', 'مستقل پتہ', TagSourceType.pos,
+        rawKey: 'customerAddress');
     addSeed('pos_guarantorName', 'ضامن کا نام', TagSourceType.pos,
         rawKey: 'guarantorName');
+    addSeed('pos_guarantorFatherName', 'ضامن ولدیت', TagSourceType.pos,
+        rawKey: 'guarantorFatherName');
+    addSeed('pos_guarantorCaste', 'ضامن قومیت', TagSourceType.pos,
+        rawKey: 'guarantorCaste');
     addSeed('pos_guarantorPhone', 'ضامن موبائل نمبر', TagSourceType.pos,
         rawKey: 'guarantorPhone');
+    addSeed('pos_guarantorCnic', 'ضامن شناختی کارڈ', TagSourceType.pos,
+        rawKey: 'guarantorCnic');
+    addSeed('pos_guarantorAddress', 'ضامن پتہ', TagSourceType.pos,
+        rawKey: 'guarantorAddress');
+    addSeed('pos_guarantorRelation', 'ضامن رشتہ', TagSourceType.pos,
+        rawKey: 'guarantorRelation');
+    addSeed('pos_guardianPhone', 'سرپرست فون', TagSourceType.pos,
+        rawKey: 'guardianPhone');
     addSeed('pos_itemName', 'موبائل ماڈل', TagSourceType.pos,
         rawKey: 'itemName');
     addSeed('pos_imeiNo', 'IMEI نمبر', TagSourceType.pos, rawKey: 'imeiNo');
@@ -70,6 +88,10 @@ class TagsBankService {
         rawKey: 'bankName');
     addSeed('pos_chequeNo', 'چیک نمبر', TagSourceType.pos,
         rawKey: 'chequeNo');
+    addSeed('pos_mdmLockFee', 'MDM لاک فیس', TagSourceType.pos,
+        rawKey: 'mdmLockFee');
+    addSeed('pos_openBoxDeductionRule', 'اوپن باکس کٹوتی', TagSourceType.pos,
+        rawKey: 'openBoxDeductionRule');
     addSeed('pos_ramRom', 'میموری (RAM/ROM)', TagSourceType.pos,
         rawKey: 'ramRom');
     addSeed('pos_color', 'موبائل رنگ', TagSourceType.pos, rawKey: 'color');
@@ -91,9 +113,6 @@ class TagsBankService {
     addSeed('pos_supplierInfo', 'سپلائر', TagSourceType.pos,
         rawKey: 'supplierInfo', enabled: false);
 
-    addSeed('cst_fatherName', 'ولدیت', TagSourceType.custom);
-    addSeed('cst_caste', 'قومیت', TagSourceType.custom);
-    addSeed('cst_address', 'مستقل پتہ', TagSourceType.custom);
     addSeed('cst_witness1', 'گواہ 1 کا نام', TagSourceType.custom);
     addSeed('cst_witness2', 'گواہ 2 کا نام', TagSourceType.custom);
     addSeed('cst_dueDate', 'تاریخ ادائیگی', TagSourceType.custom);
@@ -104,12 +123,10 @@ class TagsBankService {
     );
   }
 
-  /// آرڈر میں موجود IMEI کے ذریعے stock_box کی تمام فیلڈز (نئی اور پرانی) ضم کرنا
   static TagRawMap enrichOrderWithStockByImei(Map rawOrder) {
     final TagRawMap merged = TagRawMap.from(rawOrder);
     final imei = merged['imeiNo']?.toString().trim() ?? '';
     if (imei.isEmpty || imei == 'null') return merged;
-
     try {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
       for (final key in stockBox.keys) {
@@ -133,10 +150,8 @@ class TagsBankService {
     return merged;
   }
 
-  /// پورے shop_orders_box اور stock_box سے تمام خام کلیدیں اور ان کی تازہ ترین مثالی ویلیوز ڈائنامک نکالنا
   static Map<String, dynamic> discoverAllDynamicPayloadSamples() {
     final Map<String, dynamic> samples = {};
-
     void scanBox(String boxName) {
       try {
         final box = HiveBoxManager.getBox(boxName);
@@ -152,7 +167,6 @@ class TagsBankService {
                   v is! Map &&
                   v.toString().trim().isNotEmpty &&
                   v.toString().trim() != 'null') {
-                // اگر پہلے خالی ویلیو تھی تو تازہ غیر خالی مثالی ویلیو اپڈیٹ کر دیں
                 samples[keyStr] = v;
               }
             });
@@ -166,10 +180,8 @@ class TagsBankService {
     return samples;
   }
 
-  /// پورے shop_orders_box اور stock_box سے ہر کلید کی تمام منفرد کوڈ ویلیوز اکٹھی کرنا
   static Map<String, Set<String>> discoverAllDistinctValuesAcrossBoxes() {
     final Map<String, Set<String>> discovered = {};
-
     void scanBox(String boxName) {
       try {
         final box = HiveBoxManager.getBox(boxName);
@@ -192,11 +204,9 @@ class TagsBankService {
     return discovered;
   }
 
-  /// تمام فعال ٹیگز کو ترتیب (sortOrder) کے مطابق نکالنا
   static List<TagBankItemModel> getAllActiveTags() {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final List<TagRawMap> rawList = [];
-
     for (final key in box.keys) {
       final raw = box.get(key);
       if (raw is Map && raw.containsKey('urduName')) {
@@ -208,13 +218,11 @@ class TagsBankService {
         rawList.add(map);
       }
     }
-
     rawList.sort((a, b) {
       final orderA = (a['sortOrder'] as num?)?.toInt() ?? 9999;
       final orderB = (b['sortOrder'] as num?)?.toInt() ?? 9999;
       return orderA.compareTo(orderB);
     });
-
     return rawList.map((m) => TagBankItemModel.fromMap(m)).toList();
   }
 
@@ -223,7 +231,6 @@ class TagsBankService {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final now = TimeStatusService.nowUtcIso();
     final TagRawMap batchUpdates = {};
-
     for (int i = 0; i < orderedList.length; i++) {
       final item = orderedList[i];
       final existingRaw = box.get(item.id);
@@ -235,7 +242,6 @@ class TagsBankService {
       updatedMap['isSynced'] = false;
       batchUpdates[item.id] = updatedMap;
     }
-
     if (batchUpdates.isNotEmpty) {
       await HiveBoxManager.putBatch(
         boxName: BoxNames.tagsBox,
@@ -247,7 +253,6 @@ class TagsBankService {
   static List<TagBankItemModel> getAllPosRules() {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final List<TagBankItemModel> list = [];
-
     for (final key in box.keys) {
       final raw = box.get(key);
       if (raw is Map && raw.containsKey('urduName')) {
@@ -266,7 +271,6 @@ class TagsBankService {
     final int currentOrder = (existing is Map && existing['sortOrder'] is num)
         ? (existing['sortOrder'] as num).toInt()
         : box.length;
-
     final updated = TagBankItemModel(
       id: item.id,
       urduName: item.urduName.trim(),
@@ -278,10 +282,8 @@ class TagsBankService {
       updatedAt: TimeStatusService.nowUtcIso(),
       isDeleted: item.isDeleted,
     );
-
     final map = updated.toMap();
     map['sortOrder'] = currentOrder;
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.tagsBox,
       entries: {updated.id: map},
@@ -292,16 +294,13 @@ class TagsBankService {
     final enrichedOrder = enrichOrderWithStockByImei(rawOrder);
     final rules = getAllPosRules().where((r) => r.isEnabled).toList();
     final Map<String, String> translated = {};
-
     for (final rule in rules) {
       final k = rule.rawKey;
       if (k == null || !enrichedOrder.containsKey(k)) continue;
       final rawVal = enrichedOrder[k];
       if (rawVal == null) continue;
-
       String valStr = rawVal.toString().trim();
       if (valStr.isEmpty || valStr == 'null') continue;
-
       if (rule.valueTranslations.containsKey(valStr)) {
         valStr = rule.valueTranslations[valStr]!;
       } else if (k == 'totalMonths' && !valStr.contains('ماہ')) {
@@ -309,10 +308,8 @@ class TagsBankService {
       } else if (k == 'warranty' && !valStr.contains('ماہ')) {
         valStr = '$valStr ماہ';
       }
-
       translated[rule.urduName] = valStr;
     }
-
     return translated;
   }
 }

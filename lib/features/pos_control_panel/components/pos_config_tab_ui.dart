@@ -4,6 +4,7 @@ import '../services/pos_control_storage_service.dart';
 
 class PosConfigTabUi extends StatefulWidget {
   const PosConfigTabUi({super.key});
+
   @override
   State<PosConfigTabUi> createState() => _PosConfigTabUiState();
 }
@@ -17,14 +18,11 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
   late final TextEditingController _graceDaysCtrl;
   late final TextEditingController _feeCtrl;
   late final TextEditingController _roundCtrl;
-
-  // سیکیورٹی و بیریئر کنٹرولرز
   late final TextEditingController _mdmFeeCtrl;
   late final TextEditingController _openBoxValCtrl;
   late final TextEditingController _maxRiskLimitCtrl;
   late final TextEditingController _adminPinCtrl;
   String _openBoxType = 'PERCENT';
-
   bool _isCompounding = false;
   bool _addFeeToPrincipal = false;
   List<int> _selectedDurations = [6, 7, 8, 9, 10, 11, 12];
@@ -62,7 +60,6 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
     _roundCtrl = TextEditingController(
       text: ((cfg['roundToNearest'] as num?)?.toInt() ?? 100).toString(),
     );
-
     _mdmFeeCtrl = TextEditingController(
       text: ((cfg['mdmLockFee'] as num?)?.toInt() ?? 1000).toString(),
     );
@@ -74,16 +71,13 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       text: ((cfg['openBoxDeductionValue'] as num?)?.toInt() ?? 10).toString(),
     );
     _maxRiskLimitCtrl = TextEditingController(
-      text:
-          ((cfg['zeroAdvanceMaxLimit'] as num?)?.toInt() ?? 40000).toString(),
+      text: ((cfg['maxRiskLimit'] as num?)?.toInt() ?? 0).toString(),
     );
     _adminPinCtrl = TextEditingController(
       text: cfg['adminOverridePin']?.toString() ?? '7860',
     );
-
     _isCompounding = cfg['isCompoundingProfit'] == true;
     _addFeeToPrincipal = cfg['addProcessingFeeToPrincipal'] == true;
-
     final rawDurations = cfg['allowedDurations'];
     if (rawDurations is List && rawDurations.isNotEmpty) {
       _selectedDurations = rawDurations
@@ -140,8 +134,7 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       mdmLockFee: int.tryParse(_mdmFeeCtrl.text.trim()) ?? 1000,
       openBoxDeductionType: _openBoxType,
       openBoxDeductionValue: int.tryParse(_openBoxValCtrl.text.trim()) ?? 10,
-      zeroAdvanceMaxLimit:
-          int.tryParse(_maxRiskLimitCtrl.text.trim()) ?? 40000,
+      maxRiskLimit: int.tryParse(_maxRiskLimitCtrl.text.trim()) ?? 0,
       adminOverridePin: _adminPinCtrl.text.trim(),
     );
     if (!mounted) return;
@@ -207,7 +200,6 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
       (_maxMonthLimit - 3) + 1,
       (index) => 3 + index,
     );
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -318,8 +310,6 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
             ],
           ),
           const SizedBox(height: 16),
-
-          // سیکیورٹی و بیریئر کنٹرولز کارڈ
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -361,7 +351,7 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
                       child: _buildNumberField(
                         'زیادہ سے زیادہ رسک حد (Max Risk Limit)',
                         _maxRiskLimitCtrl,
-                        helper: '(قیمت - ایڈوانس) اس سے اوپر منظوری لازمی',
+                        helper: '(قیمت - ایڈوانس) اس سے اوپر منظوری لازمی (0 = کوئی حد نہیں)',
                         isDecimal: false,
                       ),
                     ),
@@ -433,10 +423,7 @@ class _PosConfigTabUiState extends State<PosConfigTabUi> {
               ],
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // ڈائنامک اقساط کے مہینے
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(

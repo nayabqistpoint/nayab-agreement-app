@@ -12,55 +12,77 @@ import 'push/templates_push_service.dart';
 
 class MasterSyncHub {
   static StreamSubscription? _connectivitySub;
+  static final List<StreamSubscription> _boxSubs = [];
   static bool _isWatcherStarted = false;
+  static bool _isSyncing = false;
 
   static void startWatcher() {
     if (_isWatcherStarted) return;
     _isWatcherStarted = true;
 
-    // 1. کلاؤڈ سے لائیو ڈیٹا سننا شروع کریں
     PosLivePullService.startRealtimeListeners();
 
-    // 2. لوکل باکسز میں تبدیلی پر فوری پش ٹریگر کریں (مع tagsBox)
     for (final boxName in [
       BoxNames.appConfigBox,
       BoxNames.stockBox,
       BoxNames.shopOrdersBox,
       BoxNames.tagsBox,
     ]) {
-      HiveBoxManager.getBox(boxName).watch().listen((event) {
-        final val = event.value;
-        if (val is Map && val['isSynced'] == false) {
-          PosAtomicPushService.pushAllUnsynced();
-        }
-      });
+      _boxSubs.add(
+        HiveBoxManager.getBox(boxName).watch().listen((event) {
+          final val = event.value;
+          if (val is Map && val['isSynced'] == false) {
+            PosAtomicPushService.pushAllUnsynced();
+          }
+        }),
+      );
     }
 
-    // 3. انٹرنیٹ آن ہوتے ہی بقایا ریکارڈز پش کریں
+    for (final boxName in [
+      BoxNames.customersBox,
+      BoxNames.customerDealsBox,
+    ]) {
+      _boxSubs.add(
+        HiveBoxManager.getBox(boxName).watch().listen((event) {
+          final val = event.value;
+          if (val is Map && val['isSynced'] == false) {
+            CustomersPushService.pushUnsynced();
+          }
+        }),
+      );
+    }
+
     _connectivitySub = ConnectivityService.onConnectivityChanged.listen((online) {
       if (online) {
         syncAll();
       }
     });
 
-    // ابتدائی سنک چلائیں
     syncAll();
   }
 
   static Future<void> syncAll() async {
+    if (_isSyncing) return;
+    _isSyncing = true;
     try {
       await PosAtomicPushService.pushAllUnsynced();
-      await TemplatesPushService.pushUnsynced();
       await CustomersPushService.pushUnsynced();
+      await TemplatesPushService.pushUnsynced();
       await TemplatesPullService.pullAll();
       await CustomersPullService.pullAll();
     } catch (e) {
       debugPrint('MasterSyncHub Error: $e');
+    } finally {
+      _isSyncing = false;
     }
   }
 
   static void dispose() {
     _connectivitySub?.cancel();
+    for (final sub in _boxSubs) {
+      sub.cancel();
+    }
+    _boxSubs.clear();
     PosLivePullService.stopListeners();
     _isWatcherStarted = false;
   }
