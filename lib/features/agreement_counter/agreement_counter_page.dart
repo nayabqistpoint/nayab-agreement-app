@@ -4,8 +4,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/qr_scanner.dart';
 import '../agreement_bucket_view/bucket_view_page.dart';
 import '../customer_directory/customer_directory_page.dart';
-import '../pos_control_panel/pos_control_panel_page.dart';
+import '../pos_remote_control/pos_remote_page.dart';
 import '../stamp_agreement/stamp_studio_page.dart';
+import '../stock_inventory/stock_inventory_page.dart';
 import 'agreement_counter_controller.dart';
 import 'components/counter_app_bar_ui.dart';
 import 'components/counter_bucket_badge_ui.dart';
@@ -23,6 +24,7 @@ import 'services/counter_storage_handler_service.dart';
 
 class AgreementCounterPage extends StatefulWidget {
   const AgreementCounterPage({super.key});
+
   @override
   State<AgreementCounterPage> createState() => _AgreementCounterPageState();
 }
@@ -115,7 +117,6 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
   void _openDeliveryModalManually() {
     final customerName = _c.currentFieldValues['کسٹمر کا نام'] ?? 'گاہک';
     final messenger = ScaffoldMessenger.of(context);
-
     showModalBottomSheet(
       context: context,
       isDismissible: true,
@@ -125,17 +126,19 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
         builder: (builderCtx, setModalState) => CounterDeliveryModalUi(
           dealId: _c.activeDeal?.id ?? 'NEW_DEAL',
           customerName: customerName,
-          deliveryPhotoPath:
-              _c.tempDeliveryPhotoPath ?? _c.activeDeal?.deliveryPhotoPath,
-          signedDocPhotoPath:
-              _c.tempSignedDocPhotoPath ?? _c.activeDeal?.signedDocPhotoPath,
-          onCaptureDeliveryPhoto: () async {
-            await _c.captureDeliveryPhoto();
+          deliveryPhotoPaths: _c.tempDeliveryPhotoPaths.isNotEmpty
+              ? _c.tempDeliveryPhotoPaths
+              : (_c.activeDeal?.deliveryPhotoPaths ?? []),
+          signedDocPhotoPaths: _c.tempSignedDocPhotoPaths.isNotEmpty
+              ? _c.tempSignedDocPhotoPaths
+              : (_c.activeDeal?.signedDocPhotoPaths ?? []),
+          onDeliveryPhotosChanged: (list) async {
+            await _c.updateDeliveryPhotos(list);
             if (builderCtx.mounted) setModalState(() {});
             if (mounted) setState(() {});
           },
-          onCaptureSignedDocPhoto: () async {
-            await _c.captureSignedDocPhoto();
+          onSignedDocPhotosChanged: (list) async {
+            await _c.updateSignedDocPhotos(list);
             if (builderCtx.mounted) setModalState(() {});
             if (mounted) setState(() {});
           },
@@ -178,17 +181,19 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
     for (var t in _c.availableTemplates) {
       hasStampsMap[t] = _c.customTemplateStamps.containsKey(t);
     }
-
     final bool isCompleted = _c.activeDeal != null;
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: CounterAppBarUi(
-          onOpenPosControlPanel: () => Navigator.push(
+          onOpenStockInventory: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const PosControlPanelPage()),
+            MaterialPageRoute(builder: (_) => const StockInventoryPage()),
+          ),
+          onOpenPosRemote: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PosRemotePage()),
           ),
           onOpenCustomerDirectory: () => Navigator.push(
             context,
@@ -209,8 +214,8 @@ class _AgreementCounterPageState extends State<AgreementCounterPage> {
                     currentBucketValues: _c.currentFieldValues,
                     onOrderUpdatedFromPage: () {
                       _c.activeDeal = null;
-                      _c.tempDeliveryPhotoPath = null;
-                      _c.tempSignedDocPhotoPath = null;
+                      _c.tempDeliveryPhotoPaths = [];
+                      _c.tempSignedDocPhotoPaths = [];
                       _c.init();
                     },
                     onClearActiveBucket: () {

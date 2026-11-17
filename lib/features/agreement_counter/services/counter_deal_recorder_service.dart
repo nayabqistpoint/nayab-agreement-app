@@ -8,35 +8,54 @@ class CounterDealRecorderService {
   static Future<CustomerDealModel> recordDeal({
     required List<String> bundledTemplates,
     required Map<String, String> fieldValues,
-    String? deliveryPhotoPath,
-    String? signedDocPhotoPath,
+    List<String> deliveryPhotoPaths = const [],
+    List<String> signedDocPhotoPaths = const [],
+    String? activePosOrderId,
   }) async {
     final cnic = fieldValues['شناختی کارڈ']?.trim() ?? '';
     if (cnic.isEmpty) {
       throw Exception('کسٹمر کا شناختی کارڈ نمبر درج کرنا لازمی ہے!');
     }
-
     final now = TimeStatusService.nowUtcIso();
     final name = fieldValues['کسٹمر کا نام']?.trim() ?? 'نامعلوم کسٹمر';
     final imei = fieldValues['IMEI نمبر']?.trim() ?? '';
+    final stockIdFromField = fieldValues['اسٹاک آئی ڈی']?.trim() ?? '';
     final dealId = 'DEAL_${DateTime.now().millisecondsSinceEpoch}';
 
-    // سنیپ شاٹ فیلڈز میں اسٹاک سے سپلائر اور قیمت خرید بھی مستقل محفوظ کر لیں
+    String? orderCustomerPhotoUrl;
+    String? orderGuarantorPhotoUrl;
+    String orderStockId = stockIdFromField;
+
+    if (activePosOrderId != null && activePosOrderId.isNotEmpty) {
+      final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
+      final rawOrder = ordersBox.get(activePosOrderId);
+      if (rawOrder is Map) {
+        final cu = rawOrder['customerPhotoUrl']?.toString().trim() ?? '';
+        if (cu.isNotEmpty && cu != 'null') orderCustomerPhotoUrl = cu;
+        final gu = rawOrder['guarantorPhotoUrl']?.toString().trim() ?? '';
+        if (gu.isNotEmpty && gu != 'null') orderGuarantorPhotoUrl = gu;
+        final sid = rawOrder['stockId']?.toString().trim() ?? '';
+        if (sid.isNotEmpty && sid != 'null') orderStockId = sid;
+      }
+    }
+
     final enrichedSnapshot = Map<String, String>.from(fieldValues);
-    if (imei.isNotEmpty && imei != 'null') {
-      final stockMeta = _findStockByImei(imei);
-      if (stockMeta != null) {
-        final supplier = stockMeta['supplierInfo']?.toString().trim() ?? '';
-        final pPrice = stockMeta['purchasePrice']?.toString().trim() ?? '';
-        if (supplier.isNotEmpty &&
-            (enrichedSnapshot['سپلائر'] ?? '').isEmpty) {
-          enrichedSnapshot['سپلائر'] = supplier;
-        }
-        if (pPrice.isNotEmpty &&
-            pPrice != '0' &&
-            (enrichedSnapshot['قیمت خرید'] ?? '').isEmpty) {
-          enrichedSnapshot['قیمت خرید'] = pPrice;
-        }
+    if (orderStockId.isNotEmpty) {
+      enrichedSnapshot['اسٹاک آئی ڈی'] = orderStockId;
+    }
+
+    final stockMeta = _findStock(stockId: orderStockId, imei: imei);
+    if (stockMeta != null) {
+      final supplier = stockMeta['supplierInfo']?.toString().trim() ?? '';
+      final pPrice = stockMeta['purchasePrice']?.toString().trim() ?? '';
+      if (supplier.isNotEmpty &&
+          (enrichedSnapshot['سپلائر'] ?? '').isEmpty) {
+        enrichedSnapshot['سپلائر'] = supplier;
+      }
+      if (pPrice.isNotEmpty &&
+          pPrice != '0' &&
+          (enrichedSnapshot['قیمت خرید'] ?? '').isEmpty) {
+        enrichedSnapshot['قیمت خرید'] = pPrice;
       }
     }
 
@@ -52,8 +71,8 @@ class CounterDealRecorderService {
       duration: enrichedSnapshot['مدت'] ?? '',
       bundledTemplates: bundledTemplates,
       snapshotFieldValues: enrichedSnapshot,
-      deliveryPhotoPath: deliveryPhotoPath,
-      signedDocPhotoPath: signedDocPhotoPath,
+      deliveryPhotoPaths: deliveryPhotoPaths,
+      signedDocPhotoPaths: signedDocPhotoPaths,
       createdAt: now,
       updatedAt: now,
       isSynced: false,
@@ -68,7 +87,10 @@ class CounterDealRecorderService {
     final customerBox = HiveBoxManager.getBox(BoxNames.customersBox);
     final Map<String, dynamic> profileUpdates = {};
 
-    // 1. گاہک کا پروفائل محفوظ / اپڈیٹ کریں
+    final guarantorName = enrichedSnapshot['ضامن کا نام']?.trim() ?? '';
+    final guarantorPhone = enrichedSnapshot['ضامن موبائل نمبر']?.trim() ?? '';
+    final guarantorCnic = enrichedSnapshot['ضامن شناختی کارڈ']?.trim() ?? '';
+
     final rawCustomer = customerBox.get(cnic);
     final existing = rawCustomer is Map
         ? CustomerProfileModel.fromMap(Map<String, dynamic>.from(rawCustomer))
@@ -87,39 +109,47 @@ class CounterDealRecorderService {
       address: (enrichedSnapshot['مستقل پتہ'] ?? '').isNotEmpty
           ? enrichedSnapshot['مستقل پتہ']!
           : (existing?.address ?? ''),
+      photoUrl: orderCustomerPhotoUrl ?? existing?.photoUrl,
       role: 'گاہک',
       isSynced: false,
       updatedAt: now,
       createdAt: existing?.createdAt ?? now,
       isDeleted: false,
     );
-    profileUpdates[cnic] = customerProfile.toMap();
+    final custMap = customerProfile.toMap();
+    if (guarantorName.isNotEmpty) {
+      custMap['linkedGuarantorName'] = guarantorName;
+      custMap['linkedGuarantorCnic'] = guarantorCnic;
+      if (orderGuarantorPhotoUrl != null) {
+        custMap['linkedGuarantorPhotoUrl'] = orderGuarantorPhotoUrl;
+      }
+    }
+    profileUpdates[cnic] = custMap;
 
-    // 2. ضامن کا پروفائل بھی محفوظ کریں
-    final guarantorName = enrichedSnapshot['ضامن کا نام']?.trim() ?? '';
-    final guarantorPhone = enrichedSnapshot['ضامن موبائل نمبر']?.trim() ?? '';
-    final guarantorCnic = enrichedSnapshot['ضامن شناختی کارڈ']?.trim() ?? '';
     if (guarantorName.isNotEmpty) {
       final guarantorKey = guarantorCnic.isNotEmpty
           ? guarantorCnic
           : (guarantorPhone.isNotEmpty
               ? 'G_${guarantorPhone.replaceAll(RegExp(r'[^0-9]'), '')}'
               : 'G_${guarantorName.hashCode}');
-
       final rawG = customerBox.get(guarantorKey);
       final existingG = rawG is Map
           ? CustomerProfileModel.fromMap(Map<String, dynamic>.from(rawG))
           : null;
-
       final guarantorProfile = CustomerProfileModel(
         id: guarantorKey,
         fullName: guarantorName,
-        fatherName: existingG?.fatherName ?? '',
+        fatherName: (enrichedSnapshot['ضامن ولدیت'] ?? '').isNotEmpty
+            ? enrichedSnapshot['ضامن ولدیت']!
+            : (existingG?.fatherName ?? ''),
         cnic: guarantorCnic.isNotEmpty ? guarantorCnic : guarantorKey,
         phone: guarantorPhone.isNotEmpty
             ? guarantorPhone
             : (existingG?.phone ?? ''),
-        address: existingG?.address ?? '',
+        address: (enrichedSnapshot['ضامن پتہ'] ?? '').isNotEmpty
+            ? enrichedSnapshot['ضامن پتہ']!
+            : (existingG?.address ?? ''),
+        photoUrl: orderGuarantorPhotoUrl ?? existingG?.photoUrl,
         role: 'ضامن (سرپرست: $name)',
         isSynced: false,
         updatedAt: now,
@@ -134,33 +164,42 @@ class CounterDealRecorderService {
       entries: profileUpdates,
     );
 
-    // 3. stock_box میں متعلقہ IMEI والے موبائل کو SOLD مارک کریں
-    if (imei.isNotEmpty && imei != 'null') {
-      await _markStockSoldByImei(
+    if (orderStockId.isNotEmpty || (imei.isNotEmpty && imei != 'null')) {
+      await _markStockSold(
+        stockId: orderStockId,
         imei: imei,
         soldToName: name,
         soldToCnic: cnic,
         dealId: dealId,
       );
     }
-
     return deal;
   }
 
-  static Map<String, dynamic>? _findStockByImei(String imei) {
+  static Map<String, dynamic>? _findStock({
+    required String stockId,
+    required String imei,
+  }) {
     try {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
-      for (final key in stockBox.keys) {
-        final raw = stockBox.get(key);
-        if (raw is Map && raw['imeiNo']?.toString().trim() == imei) {
-          return Map<String, dynamic>.from(raw);
+      if (stockId.isNotEmpty && stockId != 'null') {
+        final direct = stockBox.get(stockId);
+        if (direct is Map) return Map<String, dynamic>.from(direct);
+      }
+      if (imei.isNotEmpty && imei != 'null') {
+        for (final key in stockBox.keys) {
+          final raw = stockBox.get(key);
+          if (raw is Map && raw['imeiNo']?.toString().trim() == imei) {
+            return Map<String, dynamic>.from(raw);
+          }
         }
       }
     } catch (_) {}
     return null;
   }
 
-  static Future<void> _markStockSoldByImei({
+  static Future<void> _markStockSold({
+    required String stockId,
     required String imei,
     required String soldToName,
     required String soldToCnic,
@@ -169,28 +208,37 @@ class CounterDealRecorderService {
     try {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
       final now = TimeStatusService.nowUtcIso();
+      String? targetKey;
 
-      for (final key in stockBox.keys) {
-        final rawStock = stockBox.get(key);
-        if (rawStock is Map) {
-          final stockImei = rawStock['imeiNo']?.toString().trim() ?? '';
-          if (stockImei == imei) {
-            final updatedStock = Map<String, dynamic>.from(rawStock);
-            updatedStock['status'] = 'SOLD';
-            updatedStock['soldToName'] = soldToName;
-            updatedStock['soldToCnic'] = soldToCnic;
-            updatedStock['soldDealId'] = dealId;
-            updatedStock['reservedOrderId'] = null;
-            updatedStock['reservedCustomerInfo'] = null;
-            updatedStock['updatedAt'] = now;
-            updatedStock['isSynced'] = false;
-
-            await HiveBoxManager.putBatch(
-              boxName: BoxNames.stockBox,
-              entries: {key.toString(): updatedStock},
-            );
+      if (stockId.isNotEmpty && stockId != 'null' && stockBox.containsKey(stockId)) {
+        targetKey = stockId;
+      } else if (imei.isNotEmpty && imei != 'null') {
+        for (final key in stockBox.keys) {
+          final rawStock = stockBox.get(key);
+          if (rawStock is Map &&
+              rawStock['imeiNo']?.toString().trim() == imei) {
+            targetKey = key.toString();
             break;
           }
+        }
+      }
+
+      if (targetKey != null) {
+        final rawStock = stockBox.get(targetKey);
+        if (rawStock is Map) {
+          final updatedStock = Map<String, dynamic>.from(rawStock);
+          updatedStock['status'] = 'SOLD';
+          updatedStock['soldToName'] = soldToName;
+          updatedStock['soldToCnic'] = soldToCnic;
+          updatedStock['soldDealId'] = dealId;
+          updatedStock['reservedOrderId'] = null;
+          updatedStock['reservedCustomerInfo'] = null;
+          updatedStock['updatedAt'] = now;
+          updatedStock['isSynced'] = false;
+          await HiveBoxManager.putBatch(
+            boxName: BoxNames.stockBox,
+            entries: {targetKey: updatedStock},
+          );
         }
       }
     } catch (_) {}
@@ -198,20 +246,19 @@ class CounterDealRecorderService {
 
   static Future<void> updateDealMedia({
     required String dealId,
-    String? deliveryPhotoPath,
-    String? signedDocPhotoPath,
+    List<String>? deliveryPhotoPaths,
+    List<String>? signedDocPhotoPaths,
   }) async {
     final box = HiveBoxManager.getBox(BoxNames.customerDealsBox);
     final raw = box.get(dealId);
     if (raw is Map) {
       final current = CustomerDealModel.fromMap(raw);
       final updated = current.copyWith(
-        deliveryPhotoPath: deliveryPhotoPath ?? current.deliveryPhotoPath,
-        signedDocPhotoPath: signedDocPhotoPath ?? current.signedDocPhotoPath,
+        deliveryPhotoPaths: deliveryPhotoPaths,
+        signedDocPhotoPaths: signedDocPhotoPaths,
         updatedAt: TimeStatusService.nowUtcIso(),
         isSynced: false,
       );
-
       await HiveBoxManager.putBatch(
         boxName: BoxNames.customerDealsBox,
         entries: {dealId: updated.toMap()},

@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/box_names.dart';
+import '../../../core/database/hive_box_manager.dart';
 import '../../../core/models/customer_profile_model.dart';
+import '../../customer_detail/components/customer_media_viewer_modal_ui.dart';
 
 class CustomerProfileTileUi extends StatelessWidget {
   final CustomerProfileModel customer;
@@ -8,6 +12,7 @@ class CustomerProfileTileUi extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final ValueChanged<String>? onCnicTap;
 
   const CustomerProfileTileUi({
     super.key,
@@ -16,79 +21,314 @@ class CustomerProfileTileUi extends StatelessWidget {
     this.isSelected = false,
     required this.onTap,
     required this.onLongPress,
+    this.onCnicTap,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final bool isGuarantor = customer.role.startsWith('ضامن');
+  Map<String, String> _resolveLinkedGuarantor() {
+    try {
+      final custBox = HiveBoxManager.getBox(BoxNames.customersBox);
+      final raw = custBox.get(customer.id);
+      if (raw is Map) {
+        final gName = raw['linkedGuarantorName']?.toString().trim() ?? '';
+        final gCnic = raw['linkedGuarantorCnic']?.toString().trim() ?? '';
+        String gPhoto = raw['linkedGuarantorPhotoUrl']?.toString().trim() ?? '';
+        if (gPhoto.isEmpty && gCnic.isNotEmpty) {
+          final gProfile = custBox.get(gCnic);
+          if (gProfile is Map) {
+            gPhoto = gProfile['photoUrl']?.toString().trim() ?? '';
+          }
+        }
+        if (gName.isNotEmpty) {
+          return {'name': gName, 'cnic': gCnic, 'photo': gPhoto};
+        }
+      }
+    } catch (_) {}
+    return {};
+  }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      elevation: 1,
-      color: isSelected ? AppColors.primaryEmerald.withAlpha(22) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: isSelected ? AppColors.primaryEmerald : Colors.transparent,
-          width: 1.5,
+  Widget _buildPassportThumbnail(
+    BuildContext context,
+    String? photoUrl,
+    String personName, {
+    bool isGuarantor = false,
+  }) {
+    final url = photoUrl?.trim() ?? '';
+    final bool hasImg = url.isNotEmpty && url != 'null';
+    Widget imgWidget;
+
+    if (hasImg && url.startsWith('data:image')) {
+      try {
+        final commaIdx = url.indexOf(',');
+        final bytes = base64Decode(url.substring(commaIdx + 1));
+        imgWidget = Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {
+        imgWidget = Icon(
+          isGuarantor ? Icons.shield_outlined : Icons.person,
+          color: isGuarantor
+              ? Colors.indigo.shade700
+              : AppColors.primaryEmerald,
+          size: 36,
+        );
+      }
+    } else if (hasImg) {
+      imgWidget = Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Icon(
+          isGuarantor ? Icons.shield_outlined : Icons.person,
+          color: isGuarantor
+              ? Colors.indigo.shade700
+              : AppColors.primaryEmerald,
+          size: 36,
+        ),
+      );
+    } else {
+      imgWidget = Icon(
+        isGuarantor ? Icons.shield_outlined : Icons.person,
+        color: isGuarantor
+            ? Colors.indigo.shade700
+            : AppColors.primaryEmerald,
+        size: 36,
+      );
+    }
+
+    return GestureDetector(
+      onTap: hasImg
+          ? () => CustomerMediaViewerModalUi.show(
+                context,
+                title: personName,
+                imagePath: url,
+              )
+          : null,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 64,
+          height: 74,
+          decoration: BoxDecoration(
+            color: isGuarantor
+                ? Colors.indigo.shade50
+                : AppColors.primaryEmerald.withAlpha(25),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isGuarantor
+                  ? Colors.indigo.shade300
+                  : AppColors.primaryEmerald,
+              width: 1.4,
+            ),
+          ),
+          child: imgWidget,
         ),
       ),
-      child: ListTile(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        leading: isSelectionMode
-            ? Checkbox(
-                value: isSelected,
-                activeColor: AppColors.primaryEmerald,
-                onChanged: (_) => onTap(),
-              )
-            : CircleAvatar(
-                backgroundColor: isGuarantor
-                    ? Colors.indigo.shade50
-                    : AppColors.primaryEmerald.withAlpha(30),
-                child: Icon(
-                  isGuarantor ? Icons.shield_outlined : Icons.person,
-                  color: isGuarantor
-                      ? Colors.indigo.shade700
-                      : AppColors.primaryEmerald,
-                ),
-              ),
-        title: Row(
+    );
+  }
+
+  Widget _buildClickableCnicBadge(String cnic, Color color) {
+    if (cnic.isEmpty) return const SizedBox.shrink();
+    return InkWell(
+      onTap: onCnicTap != null ? () => onCnicTap!(cnic) : null,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withAlpha(20),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withAlpha(90)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Text(
-                customer.fullName,
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color:
-                    isGuarantor ? Colors.indigo.shade50 : Colors.teal.shade50,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                isGuarantor ? 'ضامن' : 'گاہک',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  color: isGuarantor
-                      ? Colors.indigo.shade800
-                      : AppColors.primaryEmerald,
-                ),
+            Icon(Icons.search, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              cnic,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: color,
+                decoration: TextDecoration.underline,
               ),
             ),
           ],
         ),
-        subtitle: Text(
-          'شناختی کارڈ: ${customer.cnic} | فون: ${customer.phone}',
-          style: const TextStyle(fontSize: 12, color: Colors.black54),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isGuarantor = customer.role.startsWith('ضامن');
+    final linkedGuarantor =
+        isGuarantor ? <String, String>{} : _resolveLinkedGuarantor();
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      elevation: 2,
+      color: isSelected ? AppColors.primaryEmerald.withAlpha(22) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isSelected
+              ? AppColors.primaryEmerald
+              : const Color(0xFFCBD5E1),
+          width: isSelected ? 2.0 : 1.2,
         ),
-        trailing: const Icon(Icons.arrow_forward_ios,
-            size: 14, color: Colors.black38),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (isSelectionMode) ...[
+                    Checkbox(
+                      value: isSelected,
+                      activeColor: AppColors.primaryEmerald,
+                      onChanged: (_) => onTap(),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  _buildPassportThumbnail(
+                    context,
+                    customer.photoUrl,
+                    customer.fullName,
+                    isGuarantor: isGuarantor,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                customer.fullName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 17.5,
+                                  color: Color(0xFF0F172A),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isGuarantor
+                                    ? Colors.indigo.shade50
+                                    : Colors.teal.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isGuarantor ? 'ضامن' : 'گاہک',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isGuarantor
+                                      ? Colors.indigo.shade800
+                                      : AppColors.primaryEmerald,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (customer.fatherName.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'ولدیت: ${customer.fatherName}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 5,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            _buildClickableCnicBadge(
+                              customer.cnic,
+                              isGuarantor
+                                  ? Colors.indigo.shade800
+                                  : AppColors.primaryEmerald,
+                            ),
+                            if (customer.phone.isNotEmpty)
+                              Text(
+                                'فون: ${customer.phone}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.black45,
+                  ),
+                ],
+              ),
+              if (linkedGuarantor.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F7FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.indigo.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildPassportThumbnail(
+                        context,
+                        linkedGuarantor['photo'],
+                        linkedGuarantor['name'] ?? 'ضامن',
+                        isGuarantor: true,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'منسلک ضامن: ${linkedGuarantor['name']}',
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo.shade900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            _buildClickableCnicBadge(
+                              linkedGuarantor['cnic'] ?? '',
+                              Colors.indigo.shade800,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

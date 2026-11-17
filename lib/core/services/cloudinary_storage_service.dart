@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class CloudinaryStorageService {
   static const String cloudName = 'snioixz8';
@@ -10,68 +11,38 @@ class CloudinaryStorageService {
   static Uri get _uploadUri =>
       Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
 
-  /// کسی بھی لوکل تصویر کو Cloudinary کے مخصوص فولڈر میں اپلوڈ کرنا
-  static Future<String?> uploadImageFile({
-    required String filePath,
+  /// کسی بھی پلیٹ فارم (Web / Android / Windows) سے تصویر کے بائٹس اپلوڈ کرنا
+  static Future<String?> uploadImageBytes({
+    required Uint8List bytes,
+    required String fileName,
     required String subFolder,
     String? customPublicId,
   }) async {
-    if (filePath.trim().isEmpty) return null;
-    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-      return filePath;
-    }
-
-    final file = File(filePath);
-    if (!await file.exists()) return null;
-
+    if (bytes.isEmpty) return null;
     try {
-      final bytes = await file.readAsBytes();
-      final fileName = file.uri.pathSegments.isNotEmpty
-          ? file.uri.pathSegments.last
-          : 'img_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      final boundary =
-          '----NayabBoundary${DateTime.now().microsecondsSinceEpoch}';
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 25);
-
-      final request = await client.postUrl(_uploadUri);
-      request.headers.set(
-        HttpHeaders.contentTypeHeader,
-        'multipart/form-data; boundary=$boundary',
-      );
-
       final fullFolder = '$rootFolder/$subFolder';
+      final request = http.MultipartRequest('POST', _uploadUri)
+        ..fields['upload_preset'] = uploadPreset
+        ..fields['folder'] = fullFolder;
 
-      void writeField(String name, String value) {
-        request.add(utf8.encode('--$boundary\r\n'));
-        request.add(
-          utf8.encode('Content-Disposition: form-data; name="$name"\r\n\r\n'),
-        );
-        request.add(utf8.encode('$value\r\n'));
-      }
-
-      writeField('upload_preset', uploadPreset);
-      writeField('folder', fullFolder);
       if (customPublicId != null && customPublicId.trim().isNotEmpty) {
-        writeField('public_id', customPublicId.trim());
+        request.fields['public_id'] = customPublicId.trim();
       }
 
-      request.add(utf8.encode('--$boundary\r\n'));
-      request.add(
-        utf8.encode(
-          'Content-Disposition: form-data; name="file"; filename="$fileName"\r\n',
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: fileName.isNotEmpty ? fileName : 'photo.jpg',
         ),
       );
-      request.add(utf8.encode('Content-Type: image/jpeg\r\n\r\n'));
-      request.add(bytes);
-      request.add(utf8.encode('\r\n--$boundary--\r\n'));
 
-      final response = await request.close();
-      final responseBody = await response.transform(utf8.decoder).join();
-      client.close();
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 30));
+      final responseBody = await streamedResponse.stream.bytesToString();
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (streamedResponse.statusCode >= 200 &&
+          streamedResponse.statusCode < 300) {
         final decoded = jsonDecode(responseBody);
         if (decoded is Map && decoded['secure_url'] != null) {
           final secureUrl = decoded['secure_url'].toString();
@@ -80,13 +51,53 @@ class CloudinaryStorageService {
         }
       } else {
         debugPrint(
-          '❌ Cloudinary اپلوڈ ناکام (${response.statusCode}): $responseBody',
+          '❌ Cloudinary اپلوڈ ناکام (${streamedResponse.statusCode}): $responseBody',
         );
       }
     } catch (e) {
-      debugPrint('❌ Cloudinary Exception: $e');
+      debugPrint('❌ Cloudinary Upload Exception: $e');
     }
     return null;
+  }
+
+  /// پاتھ، blob URL، یا data:image URL سے بائٹس پڑھ کر Cloudinary پر اپلوڈ کرنا
+  static Future<String?> uploadImageFile({
+    required String filePath,
+    required String subFolder,
+    String? customPublicId,
+  }) async {
+    final cleanPath = filePath.trim();
+    if (cleanPath.isEmpty) return null;
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return cleanPath;
+    }
+
+    try {
+      Uint8List bytes;
+      String fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      if (cleanPath.startsWith('data:image')) {
+        final commaIndex = cleanPath.indexOf(',');
+        if (commaIndex == -1) return null;
+        bytes = base64Decode(cleanPath.substring(commaIndex + 1));
+      } else {
+        final xFile = XFile(cleanPath);
+        bytes = await xFile.readAsBytes();
+        if (xFile.name.isNotEmpty) {
+          fileName = xFile.name;
+        }
+      }
+
+      return await uploadImageBytes(
+        bytes: bytes,
+        fileName: fileName,
+        subFolder: subFolder,
+        customPublicId: customPublicId,
+      );
+    } catch (e) {
+      debugPrint('❌ Image Read Error: $e');
+      return null;
+    }
   }
 
   /// اسٹاک موبائل کی تصاویر اپلوڈ کرنا: nayab_qist_point/stock_devices/{stockId}
@@ -111,7 +122,6 @@ class CloudinaryStorageService {
       if (uploaded != null) {
         finalUrls.add(uploaded);
       } else {
-        // اگر آف لائن ہو تو لوکل پاتھ محفوظ رکھیں تاکہ بعد میں سنک ہو سکے
         finalUrls.add(path);
       }
     }

@@ -16,24 +16,26 @@ class CustomerDetailService {
     return null;
   }
 
+  /// متعلقہ شناختی کارڈ (بطور خریدار یا بطور ضامن) سے منسلک تمام معاہدات نکالنا
   static List<CustomerDealModel> getDealsByCnic(String cnic) {
     final cleanCnic = cnic.replaceAll('-', '').trim();
     if (cleanCnic.isEmpty) return [];
-
     final box = HiveBoxManager.getBox(BoxNames.customerDealsBox);
     final List<CustomerDealModel> deals = [];
-
     for (final key in box.keys) {
       final raw = box.get(key);
       if (raw is Map) {
         final deal = CustomerDealModel.fromMap(raw);
-        if (!deal.isDeleted &&
-            deal.customerCnic.replaceAll('-', '').trim() == cleanCnic) {
+        if (deal.isDeleted) continue;
+        final custCnic = deal.customerCnic.replaceAll('-', '').trim();
+        final guarCnic = (deal.snapshotFieldValues['ضامن شناختی کارڈ'] ?? '')
+            .replaceAll('-', '')
+            .trim();
+        if (custCnic == cleanCnic || guarCnic == cleanCnic) {
           deals.add(deal);
         }
       }
     }
-
     deals.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return deals;
   }
@@ -46,7 +48,6 @@ class CustomerDetailService {
       map['isDeleted'] = true;
       map['isSynced'] = false;
       map['updatedAt'] = TimeStatusService.nowUtcIso();
-
       await HiveBoxManager.putBatch(
         boxName: BoxNames.customerDealsBox,
         entries: {dealId: map},
@@ -69,7 +70,6 @@ class CustomerDetailService {
         entries: {customerId: map},
       );
     }
-
     final cleanCnic = cnic.replaceAll('-', '').trim();
     final dealsBox = HiveBoxManager.getBox(BoxNames.customerDealsBox);
     final Map<String, dynamic> dealUpdates = {};
@@ -101,7 +101,6 @@ class CustomerDetailService {
   }) async {
     final fields = Map<String, String>.from(deal.snapshotFieldValues);
     fields['تاریخ ڈیل'] = deal.createdAt.split('T').first;
-
     final Map<String, dynamic> draftEntries = {
       'fieldValues': fields,
       'customerCnic': deal.customerCnic,
@@ -110,7 +109,6 @@ class CustomerDetailService {
       'updatedAt': TimeStatusService.nowUtcIso(),
       'isSynced': false,
     };
-
     if (asLegalNotice) {
       fields['بقایا اقساط کا نوٹس'] =
           'آپ کے ذمہ نایاب قسط پوائنٹ کی واجب الادا اقساط فوری ادا کریں۔';
@@ -118,7 +116,6 @@ class CustomerDetailService {
       draftEntries['paperSize'] = 'Legal';
       draftEntries['fontSize'] = 14.0;
     }
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.agreementDraftBox,
       entries: draftEntries,

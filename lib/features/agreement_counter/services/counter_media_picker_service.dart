@@ -1,6 +1,6 @@
-import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 
 class CounterMediaPickerService {
   static final ImagePicker _picker = ImagePicker();
@@ -12,16 +12,11 @@ class CounterMediaPickerService {
         imageQuality: 85,
       );
       if (photo == null) return null;
-
-      final dir = await getApplicationDocumentsDirectory();
-      final targetFolder = Directory('${dir.path}/nayab_media');
-      if (!await targetFolder.exists()) {
-        await targetFolder.create(recursive: true);
+      if (kIsWeb) {
+        final bytes = await photo.readAsBytes();
+        return 'data:image/jpeg;base64,${base64Encode(bytes)}';
       }
-
-      final fileName = '${prefixName}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final savedFile = await File(photo.path).copy('${targetFolder.path}/$fileName');
-      return savedFile.path;
+      return photo.path;
     } catch (_) {
       return null;
     }

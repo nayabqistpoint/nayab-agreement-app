@@ -7,7 +7,6 @@ import '../../core/models/document_template_model.dart';
 import '../../core/utils/smart_payload_parser.dart';
 import 'services/counter_bundle_engine_service.dart';
 import 'services/counter_deal_recorder_service.dart';
-import 'services/counter_media_picker_service.dart';
 import 'services/counter_payload_builder.dart';
 import 'services/counter_pos_order_service.dart';
 import 'services/counter_render_service.dart';
@@ -21,24 +20,22 @@ class AgreementCounterController extends ChangeNotifier {
   double subsequentTopMargin = 65.0;
   double bottomMargin = 270.0;
   double sideMargin = 40.0;
-
   Map<String, Uint8List> customTemplateStamps = {};
   Map<String, String> currentFieldValues = {};
   List<String> availableTemplates = [];
   Map<String, DocumentTemplateModel> templateModelsMap = {};
   List<BundlePageMeta> bundlePages = [];
   List<String> requiredFields = [];
-
   bool isRenderingStamp = false;
   CustomerDealModel? activeDeal;
   String? activePosOrderId;
-  String? tempDeliveryPhotoPath;
-  String? tempSignedDocPhotoPath;
+
+  List<String> tempDeliveryPhotoPaths = [];
+  List<String> tempSignedDocPhotoPaths = [];
 
   int get legalPagesCount => bundlePages
       .where((p) => p.originalPaperSize.toLowerCase().contains('legal'))
       .length;
-
   int get a4PagesCount => bundlePages
       .where((p) => !p.originalPaperSize.toLowerCase().contains('legal'))
       .length;
@@ -143,15 +140,14 @@ class AgreementCounterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// نیا POS آرڈر منتخب کرنے پر پچھلی بالٹی صاف کر کے تازہ ڈیٹا بھرنا (تاکہ ڈیٹا مکس نہ ہو)
   void applyPosOrder(Map<String, dynamic> order) {
     final mappedFields = CounterPosOrderService.mapOrderToBucketFields(order);
     if (mappedFields.isNotEmpty) {
       currentFieldValues.clear();
       activePosOrderId = order['id']?.toString();
       activeDeal = null;
-      tempDeliveryPhotoPath = null;
-      tempSignedDocPhotoPath = null;
+      tempDeliveryPhotoPaths = [];
+      tempSignedDocPhotoPaths = [];
       currentFieldValues.addAll(mappedFields);
       recalculateBundle();
       persistState();
@@ -159,19 +155,17 @@ class AgreementCounterController extends ChangeNotifier {
     }
   }
 
-  /// فعال کسٹمر کو ان-سلیکٹ کر کے پوری بالٹی صاف کرنا
   void clearActiveCustomerBucket() {
     activePosOrderId = null;
     activeDeal = null;
-    tempDeliveryPhotoPath = null;
-    tempSignedDocPhotoPath = null;
+    tempDeliveryPhotoPaths = [];
+    tempSignedDocPhotoPaths = [];
     currentFieldValues.clear();
     recalculateBundle();
     persistState();
     notifyListeners();
   }
 
-  /// دستی طور پر آرڈر کو پینڈنگ لسٹ سے ختم کرنا
   Future<void> dismissPendingOrder(String orderId) async {
     await CounterPosOrderService.dismissOrderFromPending(orderId);
     if (activePosOrderId == orderId) {
@@ -218,55 +212,53 @@ class AgreementCounterController extends ChangeNotifier {
     }
   }
 
-  Future<void> captureDeliveryPhoto() async {
-    final path = await CounterMediaPickerService.capturePhoto(
-      prefixName: 'delivery_${DateTime.now().millisecondsSinceEpoch}',
-    );
-    if (path != null) {
-      tempDeliveryPhotoPath = path;
-      if (activeDeal != null) {
-        await CounterDealRecorderService.updateDealMedia(
-          dealId: activeDeal!.id,
-          deliveryPhotoPath: path,
-        );
-        activeDeal = activeDeal!.copyWith(deliveryPhotoPath: path);
-      }
-      notifyListeners();
+  Future<void> updateDeliveryPhotos(List<String> paths) async {
+    tempDeliveryPhotoPaths = List<String>.from(paths);
+    if (activeDeal != null) {
+      await CounterDealRecorderService.updateDealMedia(
+        dealId: activeDeal!.id,
+        deliveryPhotoPaths: tempDeliveryPhotoPaths,
+      );
+      activeDeal = activeDeal!.copyWith(
+        deliveryPhotoPaths: tempDeliveryPhotoPaths,
+      );
     }
+    notifyListeners();
   }
 
-  Future<void> captureSignedDocPhoto() async {
-    final path = await CounterMediaPickerService.capturePhoto(
-      prefixName: 'signed_${DateTime.now().millisecondsSinceEpoch}',
-    );
-    if (path != null) {
-      tempSignedDocPhotoPath = path;
-      if (activeDeal != null) {
-        await CounterDealRecorderService.updateDealMedia(
-          dealId: activeDeal!.id,
-          signedDocPhotoPath: path,
-        );
-        activeDeal = activeDeal!.copyWith(signedDocPhotoPath: path);
-      }
-      notifyListeners();
+  Future<void> updateSignedDocPhotos(List<String> paths) async {
+    tempSignedDocPhotoPaths = List<String>.from(paths);
+    if (activeDeal != null) {
+      await CounterDealRecorderService.updateDealMedia(
+        dealId: activeDeal!.id,
+        signedDocPhotoPaths: tempSignedDocPhotoPaths,
+      );
+      activeDeal = activeDeal!.copyWith(
+        signedDocPhotoPaths: tempSignedDocPhotoPaths,
+      );
     }
+    notifyListeners();
   }
 
-  /// حوالگی کارڈ سے "مکمل اور محفوظ کریں" دبانے پر ڈیل اور آرڈر فائنل کرنا
   Future<CustomerDealModel> finalizeAndCompleteHandover() async {
+    final finalDelivery = tempDeliveryPhotoPaths.isNotEmpty
+        ? tempDeliveryPhotoPaths
+        : (activeDeal?.deliveryPhotoPaths ?? []);
+    final finalSigned = tempSignedDocPhotoPaths.isNotEmpty
+        ? tempSignedDocPhotoPaths
+        : (activeDeal?.signedDocPhotoPaths ?? []);
+
     final deal = await CounterDealRecorderService.recordDeal(
       bundledTemplates: selectedTemplates,
       fieldValues: currentFieldValues,
-      deliveryPhotoPath: tempDeliveryPhotoPath ?? activeDeal?.deliveryPhotoPath,
-      signedDocPhotoPath:
-          tempSignedDocPhotoPath ?? activeDeal?.signedDocPhotoPath,
+      deliveryPhotoPaths: finalDelivery,
+      signedDocPhotoPaths: finalSigned,
+      activePosOrderId: activePosOrderId,
     );
-
     if (activePosOrderId != null && activePosOrderId!.isNotEmpty) {
       await CounterPosOrderService.markOrderAgreementCompleted(activePosOrderId!);
       activePosOrderId = null;
     }
-
     activeDeal = deal;
     persistState();
     notifyListeners();

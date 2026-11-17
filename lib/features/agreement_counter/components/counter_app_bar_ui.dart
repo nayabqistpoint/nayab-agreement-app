@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
 class CounterAppBarUi extends StatelessWidget implements PreferredSizeWidget {
-  final VoidCallback onOpenPosControlPanel;
+  final VoidCallback onOpenStockInventory;
+  final VoidCallback onOpenPosRemote;
   final VoidCallback onOpenCustomerDirectory;
   final VoidCallback onReset;
 
   const CounterAppBarUi({
     super.key,
-    required this.onOpenPosControlPanel,
+    required this.onOpenStockInventory,
+    required this.onOpenPosRemote,
     required this.onOpenCustomerDirectory,
     required this.onReset,
   });
@@ -21,15 +23,20 @@ class CounterAppBarUi extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       title: const Text(
         'نایاب قسط پوائنٹ - کاؤنٹر',
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
       ),
       backgroundColor: AppColors.primaryEmerald,
       foregroundColor: Colors.white,
       actions: [
         IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          tooltip: 'POS کنٹرول پینل (اسٹاک و ریٹس)',
-          onPressed: onOpenPosControlPanel,
+          icon: const Icon(Icons.inventory_2_outlined),
+          tooltip: 'اسٹاک انٹری و مینجمنٹ',
+          onPressed: onOpenStockInventory,
+        ),
+        IconButton(
+          icon: const Icon(Icons.tune_rounded),
+          tooltip: 'POS ریموٹ کنٹرول و ریٹس',
+          onPressed: onOpenPosRemote,
         ),
         IconButton(
           icon: const Icon(Icons.people_outline),

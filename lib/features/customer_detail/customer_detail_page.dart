@@ -9,7 +9,6 @@ import 'customer_detail_controller.dart';
 
 class CustomerDetailPage extends StatefulWidget {
   final CustomerDetailArgs args;
-
   const CustomerDetailPage({super.key, required this.args});
 
   @override
@@ -140,13 +139,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                 ),
               );
             }
-
             return ValueListenableBuilder(
               valueListenable:
                   HiveBoxManager.listenToBox(BoxNames.customerDealsBox),
               builder: (context, dealsBox, child) {
                 final deals = _controller.deals;
-
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -160,7 +157,7 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                               size: 18, color: AppColors.primaryEmerald),
                           const SizedBox(width: 6),
                           Text(
-                            'سابقہ خریداری و اقساط معاہدات (${deals.length})',
+                            'تمام منسلک معاہدات (بطور خریدار یا ضامن: ${deals.length})',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
@@ -193,6 +190,7 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                         ...deals.map(
                           (deal) => CustomerDealCardUi(
                             deal: deal,
+                            viewingProfileCnic: customer.cnic,
                             onLoadIntoBucket: () async {
                               final nav = Navigator.of(context);
                               await _controller.loadDealToCounter(deal);

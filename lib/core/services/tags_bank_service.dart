@@ -38,6 +38,7 @@ class TagsBankService {
     }
 
     addSeed('pos_docId', 'دستاویز نمبر', TagSourceType.pos, rawKey: 'docId');
+    addSeed('pos_stockId', 'اسٹاک آئی ڈی', TagSourceType.pos, rawKey: 'stockId');
     addSeed('pos_customerName', 'کسٹمر کا نام', TagSourceType.pos,
         rawKey: 'customerName');
     addSeed('pos_customerFatherName', 'ولدیت', TagSourceType.pos,
@@ -69,6 +70,9 @@ class TagsBankService {
     addSeed('pos_itemName', 'موبائل ماڈل', TagSourceType.pos,
         rawKey: 'itemName');
     addSeed('pos_imeiNo', 'IMEI نمبر', TagSourceType.pos, rawKey: 'imeiNo');
+    addSeed('pos_serialNo', 'سیریل نمبر', TagSourceType.pos, rawKey: 'serialNo');
+    addSeed('pos_specsSummary', 'تفصیل و سائز', TagSourceType.pos,
+        rawKey: 'specsSummary');
     addSeed('pos_totalContractAmount', 'ٹوٹل رقم', TagSourceType.pos,
         rawKey: 'totalContractAmount');
     addSeed('pos_advance', 'ایڈوانس رقم', TagSourceType.pos,
@@ -123,28 +127,42 @@ class TagsBankService {
     );
   }
 
-  static TagRawMap enrichOrderWithStockByImei(Map rawOrder) {
+  /// پہلے stockId (STK_001) سے اسٹاک تلاش کرنا، اور بیک اپ کے طور پر IMEI سے
+  static TagRawMap enrichOrderWithStock(Map rawOrder) {
     final TagRawMap merged = TagRawMap.from(rawOrder);
+    final stockId = merged['stockId']?.toString().trim() ?? '';
     final imei = merged['imeiNo']?.toString().trim() ?? '';
-    if (imei.isEmpty || imei == 'null') return merged;
+
     try {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
-      for (final key in stockBox.keys) {
-        final rawStock = stockBox.get(key);
-        if (rawStock is Map) {
-          final stockImei = rawStock['imeiNo']?.toString().trim() ?? '';
-          if (stockImei == imei) {
-            rawStock.forEach((sKey, sVal) {
-              final kStr = sKey.toString();
-              if (!merged.containsKey(kStr) ||
-                  merged[kStr] == null ||
-                  merged[kStr].toString().trim().isEmpty) {
-                merged[kStr] = sVal;
-              }
-            });
+      Map? matchedStock;
+
+      if (stockId.isNotEmpty && stockId != 'null') {
+        final direct = stockBox.get(stockId);
+        if (direct is Map) {
+          matchedStock = direct;
+        }
+      }
+      if (matchedStock == null && imei.isNotEmpty && imei != 'null') {
+        for (final key in stockBox.keys) {
+          final rawStock = stockBox.get(key);
+          if (rawStock is Map &&
+              rawStock['imeiNo']?.toString().trim() == imei) {
+            matchedStock = rawStock;
             break;
           }
         }
+      }
+
+      if (matchedStock != null) {
+        matchedStock.forEach((sKey, sVal) {
+          final kStr = sKey.toString();
+          if (!merged.containsKey(kStr) ||
+              merged[kStr] == null ||
+              merged[kStr].toString().trim().isEmpty) {
+            merged[kStr] = sVal;
+          }
+        });
       }
     } catch (_) {}
     return merged;
@@ -291,7 +309,7 @@ class TagsBankService {
   }
 
   static Map<String, String> translatePosOrder(Map rawOrder) {
-    final enrichedOrder = enrichOrderWithStockByImei(rawOrder);
+    final enrichedOrder = enrichOrderWithStock(rawOrder);
     final rules = getAllPosRules().where((r) => r.isEnabled).toList();
     final Map<String, String> translated = {};
     for (final rule in rules) {

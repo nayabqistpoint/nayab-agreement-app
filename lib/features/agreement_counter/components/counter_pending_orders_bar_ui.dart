@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/box_names.dart';
@@ -19,6 +20,80 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
     required this.onClearActiveBucket,
   });
 
+  String? _resolveActiveCustomerPhoto() {
+    try {
+      if (activeOrderId != null && activeOrderId!.isNotEmpty) {
+        final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
+        final rawOrder = ordersBox.get(activeOrderId);
+        if (rawOrder is Map) {
+          final url = rawOrder['customerPhotoUrl']?.toString().trim() ?? '';
+          if (url.isNotEmpty && url != 'null') return url;
+        }
+      }
+      final cnic = currentBucketValues['شناختی کارڈ']?.trim() ?? '';
+      if (cnic.isNotEmpty) {
+        final custBox = HiveBoxManager.getBox(BoxNames.customersBox);
+        final rawCust = custBox.get(cnic);
+        if (rawCust is Map) {
+          final url = rawCust['photoUrl']?.toString().trim() ?? '';
+          if (url.isNotEmpty && url != 'null') return url;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Widget _buildPassportPhoto(String? photoUrl) {
+    final bool hasImg = photoUrl != null && photoUrl.trim().isNotEmpty;
+    Widget inner;
+    if (hasImg && photoUrl.startsWith('data:image')) {
+      try {
+        final commaIdx = photoUrl.indexOf(',');
+        final bytes = base64Decode(photoUrl.substring(commaIdx + 1));
+        inner = Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {
+        inner = const Icon(
+          Icons.person_rounded,
+          color: AppColors.primaryEmerald,
+          size: 30,
+        );
+      }
+    } else if (hasImg) {
+      inner = Image.network(
+        photoUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const Icon(
+          Icons.person_rounded,
+          color: AppColors.primaryEmerald,
+          size: 30,
+        ),
+      );
+    } else {
+      inner = const Icon(
+        Icons.person_rounded,
+        color: AppColors.primaryEmerald,
+        size: 30,
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 52,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.primaryEmerald,
+            width: 1.4,
+          ),
+        ),
+        child: inner,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
@@ -27,20 +102,20 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
         final allOrders = PosPendingOrdersService.getAllOrders();
         final pendingOrders = PosPendingOrdersService.getPendingOrders();
         final int pendingCount = pendingOrders.length;
-
         final activeName = currentBucketValues['کسٹمر کا نام']?.trim() ?? '';
         final activeCnic = currentBucketValues['شناختی کارڈ']?.trim() ?? '';
         final activeModel = currentBucketValues['موبائل ماڈل']?.trim() ?? '';
         final hasActiveData = activeOrderId != null ||
             activeName.isNotEmpty ||
             activeCnic.isNotEmpty;
+        final String? customerPhoto =
+            hasActiveData ? _resolveActiveCustomerPhoto() : null;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 1. POS آرڈرز کی مستقل پٹی — کلک کرنے پر پورا فل پیج کھلے گا
               InkWell(
                 onTap: () {
                   Navigator.push(
@@ -115,8 +190,6 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // 2. فعال کسٹمر کارڈ (صرف تب نظر آتا ہے جب کوئی کسٹمر لوڈ ہو)
               if (hasActiveData) ...[
                 const SizedBox(height: 5),
                 Container(
@@ -132,12 +205,8 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.person_pin_rounded,
-                        color: AppColors.primaryEmerald,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 8),
+                      _buildPassportPhoto(customerPhoto),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,7 +220,7 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                                         : 'منتخب کسٹمر',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13.5,
+                                      fontSize: 14,
                                       color: Color(0xFF064E3B),
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -182,7 +251,7 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
                               Text(
                                 'شناختی کارڈ: $activeCnic',
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.black87,
                                 ),

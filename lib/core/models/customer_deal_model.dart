@@ -12,6 +12,8 @@ class CustomerDealModel {
   final Map<String, String> snapshotFieldValues;
   final String? deliveryPhotoPath;
   final String? signedDocPhotoPath;
+  final List<String> deliveryPhotoPaths;
+  final List<String> signedDocPhotoPaths;
   final String createdAt;
   final String updatedAt;
   final bool isSynced;
@@ -31,11 +33,20 @@ class CustomerDealModel {
     required this.snapshotFieldValues,
     this.deliveryPhotoPath,
     this.signedDocPhotoPath,
+    List<String>? deliveryPhotoPaths,
+    List<String>? signedDocPhotoPaths,
     required this.createdAt,
     required this.updatedAt,
     this.isSynced = false,
     this.isDeleted = false,
-  });
+  })  : deliveryPhotoPaths = deliveryPhotoPaths ??
+            (deliveryPhotoPath != null && deliveryPhotoPath.trim().isNotEmpty
+                ? [deliveryPhotoPath.trim()]
+                : []),
+        signedDocPhotoPaths = signedDocPhotoPaths ??
+            (signedDocPhotoPath != null && signedDocPhotoPath.trim().isNotEmpty
+                ? [signedDocPhotoPath.trim()]
+                : []);
 
   Map<String, dynamic> toMap() {
     return {
@@ -50,8 +61,12 @@ class CustomerDealModel {
       'duration': duration,
       'bundledTemplates': bundledTemplates,
       'snapshotFieldValues': snapshotFieldValues,
-      'deliveryPhotoPath': deliveryPhotoPath,
-      'signedDocPhotoPath': signedDocPhotoPath,
+      'deliveryPhotoPath':
+          deliveryPhotoPaths.isNotEmpty ? deliveryPhotoPaths.first : deliveryPhotoPath,
+      'signedDocPhotoPath':
+          signedDocPhotoPaths.isNotEmpty ? signedDocPhotoPaths.first : signedDocPhotoPath,
+      'deliveryPhotoPaths': deliveryPhotoPaths,
+      'signedDocPhotoPaths': signedDocPhotoPaths,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'isSynced': isSynced,
@@ -60,6 +75,27 @@ class CustomerDealModel {
   }
 
   factory CustomerDealModel.fromMap(Map<dynamic, dynamic> map) {
+    final singleDeliv = map['deliveryPhotoPath']?.toString();
+    final singleSigned = map['signedDocPhotoPath']?.toString();
+
+    final List<String> delivList = map['deliveryPhotoPaths'] is List
+        ? (map['deliveryPhotoPaths'] as List)
+            .map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList()
+        : (singleDeliv != null && singleDeliv.trim().isNotEmpty
+            ? [singleDeliv.trim()]
+            : []);
+
+    final List<String> signedList = map['signedDocPhotoPaths'] is List
+        ? (map['signedDocPhotoPaths'] as List)
+            .map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList()
+        : (singleSigned != null && singleSigned.trim().isNotEmpty
+            ? [singleSigned.trim()]
+            : []);
+
     return CustomerDealModel(
       id: map['id']?.toString() ?? '',
       customerCnic: map['customerCnic']?.toString() ?? '',
@@ -76,8 +112,11 @@ class CustomerDealModel {
       snapshotFieldValues: map['snapshotFieldValues'] != null
           ? Map<String, String>.from(map['snapshotFieldValues'])
           : {},
-      deliveryPhotoPath: map['deliveryPhotoPath']?.toString(),
-      signedDocPhotoPath: map['signedDocPhotoPath']?.toString(),
+      deliveryPhotoPath: delivList.isNotEmpty ? delivList.first : singleDeliv,
+      signedDocPhotoPath:
+          signedList.isNotEmpty ? signedList.first : singleSigned,
+      deliveryPhotoPaths: delivList,
+      signedDocPhotoPaths: signedList,
       createdAt: map['createdAt']?.toString() ?? '',
       updatedAt: map['updatedAt']?.toString() ?? '',
       isSynced: map['isSynced'] as bool? ?? false,
@@ -88,9 +127,13 @@ class CustomerDealModel {
   CustomerDealModel copyWith({
     String? deliveryPhotoPath,
     String? signedDocPhotoPath,
+    List<String>? deliveryPhotoPaths,
+    List<String>? signedDocPhotoPaths,
     String? updatedAt,
     bool? isSynced,
   }) {
+    final nextDelivList = deliveryPhotoPaths ?? this.deliveryPhotoPaths;
+    final nextSignedList = signedDocPhotoPaths ?? this.signedDocPhotoPaths;
     return CustomerDealModel(
       id: id,
       customerCnic: customerCnic,
@@ -103,8 +146,14 @@ class CustomerDealModel {
       duration: duration,
       bundledTemplates: bundledTemplates,
       snapshotFieldValues: snapshotFieldValues,
-      deliveryPhotoPath: deliveryPhotoPath ?? this.deliveryPhotoPath,
-      signedDocPhotoPath: signedDocPhotoPath ?? this.signedDocPhotoPath,
+      deliveryPhotoPath: nextDelivList.isNotEmpty
+          ? nextDelivList.first
+          : (deliveryPhotoPath ?? this.deliveryPhotoPath),
+      signedDocPhotoPath: nextSignedList.isNotEmpty
+          ? nextSignedList.first
+          : (signedDocPhotoPath ?? this.signedDocPhotoPath),
+      deliveryPhotoPaths: nextDelivList,
+      signedDocPhotoPaths: nextSignedList,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isSynced: isSynced ?? this.isSynced,

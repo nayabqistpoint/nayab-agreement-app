@@ -28,33 +28,79 @@ class CustomersPushService {
           final docId = key.toString();
           final payload = Map<String, dynamic>.from(raw);
 
-          if (boxName == BoxNames.customerDealsBox) {
-            final cnic = payload['customerCnic']?.toString() ?? '';
-            final delivPath = payload['deliveryPhotoPath']?.toString() ?? '';
-            if (delivPath.isNotEmpty && !delivPath.startsWith('http')) {
-              final url =
-                  await CloudinaryStorageService.uploadCustomerDealPhoto(
-                customerCnic: cnic,
-                dealId: docId,
-                filePath: delivPath,
-                photoType: 'delivery',
+          if (boxName == BoxNames.customersBox) {
+            final photo = payload['photoUrl']?.toString().trim() ?? '';
+            if (photo.isNotEmpty &&
+                photo != 'null' &&
+                !photo.startsWith('http')) {
+              final cleanCnic = docId.replaceAll(RegExp(r'[^0-9]'), '');
+              final url = await CloudinaryStorageService.uploadImageFile(
+                filePath: photo,
+                subFolder:
+                    'customers/${cleanCnic.isEmpty ? docId : cleanCnic}/profile',
+                customPublicId:
+                    'profile_${DateTime.now().millisecondsSinceEpoch}',
               );
               if (url != null) {
-                payload['deliveryPhotoUrl'] = url;
+                payload['photoUrl'] = url;
+              }
+            }
+          }
+
+          if (boxName == BoxNames.customerDealsBox) {
+            final cnic = payload['customerCnic']?.toString() ?? '';
+
+            if (payload['deliveryPhotoPaths'] is List) {
+              final rawList = (payload['deliveryPhotoPaths'] as List)
+                  .map((e) => e.toString())
+                  .where((e) => e.trim().isNotEmpty)
+                  .toList();
+              final List<String> uploadedDeliv = [];
+              for (int i = 0; i < rawList.length; i++) {
+                final item = rawList[i];
+                if (item.startsWith('http')) {
+                  uploadedDeliv.add(item);
+                } else {
+                  final url =
+                      await CloudinaryStorageService.uploadCustomerDealPhoto(
+                    customerCnic: cnic,
+                    dealId: docId,
+                    filePath: item,
+                    photoType: 'delivery_${i + 1}',
+                  );
+                  uploadedDeliv.add(url ?? item);
+                }
+              }
+              payload['deliveryPhotoPaths'] = uploadedDeliv;
+              if (uploadedDeliv.isNotEmpty) {
+                payload['deliveryPhotoPath'] = uploadedDeliv.first;
               }
             }
 
-            final signedPath = payload['signedDocPhotoPath']?.toString() ?? '';
-            if (signedPath.isNotEmpty && !signedPath.startsWith('http')) {
-              final url =
-                  await CloudinaryStorageService.uploadCustomerDealPhoto(
-                customerCnic: cnic,
-                dealId: docId,
-                filePath: signedPath,
-                photoType: 'signed_stamp',
-              );
-              if (url != null) {
-                payload['signedDocPhotoUrl'] = url;
+            if (payload['signedDocPhotoPaths'] is List) {
+              final rawList = (payload['signedDocPhotoPaths'] as List)
+                  .map((e) => e.toString())
+                  .where((e) => e.trim().isNotEmpty)
+                  .toList();
+              final List<String> uploadedSigned = [];
+              for (int i = 0; i < rawList.length; i++) {
+                final item = rawList[i];
+                if (item.startsWith('http')) {
+                  uploadedSigned.add(item);
+                } else {
+                  final url =
+                      await CloudinaryStorageService.uploadCustomerDealPhoto(
+                    customerCnic: cnic,
+                    dealId: docId,
+                    filePath: item,
+                    photoType: 'signed_stamp_${i + 1}',
+                  );
+                  uploadedSigned.add(url ?? item);
+                }
+              }
+              payload['signedDocPhotoPaths'] = uploadedSigned;
+              if (uploadedSigned.isNotEmpty) {
+                payload['signedDocPhotoPath'] = uploadedSigned.first;
               }
             }
           }

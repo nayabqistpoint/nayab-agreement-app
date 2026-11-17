@@ -37,6 +37,7 @@ class PosControlStorageService {
       'openBoxDeductionValue': 10,
       'maxRiskLimit': 0,
       'adminOverridePin': '7860',
+      'lastStockNumber': 0,
       'status': 'approved',
     };
   }
@@ -61,7 +62,9 @@ class PosControlStorageService {
   }) async {
     try {
       final now = TimeStatusService.nowUtcIso();
+      final existingCfg = getCalculatorConfig();
       final payload = <String, dynamic>{
+        ...existingCfg,
         'id': configDocId,
         'advancePercentage': advancePercentage,
         'profitWithCheck': profitWithCheck,
@@ -116,10 +119,13 @@ class PosControlStorageService {
     return list;
   }
 
+  /// مسلسل بڑھتی ہوئی منفرد اسٹاک ID (STK_001, STK_002...) — پرانا نمبر کبھی دہرایا نہیں جائے گا
   static String generateNextStockId() {
-    final box = HiveBoxManager.getBox(BoxNames.stockBox);
-    int maxNum = 0;
-    for (final key in box.keys) {
+    final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
+    final cfg = getCalculatorConfig();
+    int maxNum = (cfg['lastStockNumber'] as num?)?.toInt() ?? 0;
+
+    for (final key in stockBox.keys) {
       final id = key.toString();
       final match = RegExp(r'STK_(\d+)').firstMatch(id);
       if (match != null) {
@@ -127,15 +133,38 @@ class PosControlStorageService {
         if (numVal > maxNum) maxNum = numVal;
       }
     }
-    final next = (maxNum + 1).toString().padLeft(3, '0');
-    return 'STK_$next';
+    final nextNum = maxNum + 1;
+    final nextStr = nextNum.toString().padLeft(3, '0');
+    return 'STK_$nextStr';
+  }
+
+  static Future<void> _updateLastStockCounter(String stockId) async {
+    final match = RegExp(r'STK_(\d+)').firstMatch(stockId);
+    if (match == null) return;
+    final numVal = int.tryParse(match.group(1) ?? '0') ?? 0;
+    if (numVal <= 0) return;
+
+    final cfg = getCalculatorConfig();
+    final currentMax = (cfg['lastStockNumber'] as num?)?.toInt() ?? 0;
+    if (numVal > currentMax) {
+      cfg['lastStockNumber'] = numVal;
+      cfg['isSynced'] = false;
+      cfg['updatedAt'] = TimeStatusService.nowUtcIso();
+      await HiveBoxManager.putBatch(
+        boxName: BoxNames.appConfigBox,
+        entries: {configDocId: cfg},
+      );
+    }
   }
 
   static Future<void> saveStockItem({
     required String stockId,
+    String productCategory = 'MOBILE',
     required String itemName,
     required String imeiNo,
+    String serialNo = '',
     required String ramRom,
+    String specsSummary = '',
     required String color,
     required int purchasePrice,
     required int salePrice,
@@ -168,9 +197,13 @@ class PosControlStorageService {
       ...existingMap,
       'id': cleanId,
       'itemId': cleanId,
+      'stockId': cleanId,
+      'productCategory': productCategory,
       'itemName': itemName.trim(),
       'imeiNo': imeiNo.trim(),
+      'serialNo': serialNo.trim(),
       'ramRom': ramRom.trim(),
+      'specsSummary': specsSummary.trim(),
       'color': color.trim(),
       'purchasePrice': purchasePrice,
       'salePrice': salePrice,
@@ -188,6 +221,7 @@ class PosControlStorageService {
       boxName: BoxNames.stockBox,
       entries: {cleanId: payload},
     );
+    await _updateLastStockCounter(cleanId);
   }
 
   static Future<bool> softDeleteStockItem(String stockId) async {

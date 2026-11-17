@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 class CustomerMediaViewerModalUi extends StatelessWidget {
@@ -23,9 +23,31 @@ class CustomerMediaViewerModalUi extends StatelessWidget {
     );
   }
 
+  Widget _buildImage() {
+    if (imagePath.startsWith('data:image')) {
+      try {
+        final commaIdx = imagePath.indexOf(',');
+        final bytes = base64Decode(imagePath.substring(commaIdx + 1));
+        return Image.memory(bytes, fit: BoxFit.contain);
+      } catch (_) {
+        return const Text(
+          'تصویر پڑھنے میں مسئلہ پیش آیا',
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+        );
+      }
+    }
+    return Image.network(
+      imagePath,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) => const Text(
+        'تصویر فائل دستیاب نہیں ہے',
+        style: TextStyle(color: Colors.white70, fontSize: 14),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final file = File(imagePath);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Dialog(
@@ -38,14 +60,7 @@ class CustomerMediaViewerModalUi extends StatelessWidget {
               child: InteractiveViewer(
                 minScale: 0.8,
                 maxScale: 4.0,
-                child: file.existsSync()
-                    ? Image.file(file, fit: BoxFit.contain)
-                    : const Center(
-                        child: Text(
-                          'تصویر فائل ڈیوائس پر نہیں ملی',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ),
+                child: _buildImage(),
               ),
             ),
             Container(

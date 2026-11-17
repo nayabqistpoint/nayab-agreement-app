@@ -1,7 +1,7 @@
-import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../../core/constants/app_colors.dart';
 
 class PosStockPhotoPickerUi extends StatelessWidget {
@@ -14,32 +14,26 @@ class PosStockPhotoPickerUi extends StatelessWidget {
     required this.onImagesChanged,
   });
 
-  Future<String?> _persistPickedFile(XFile picked) async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final folder = Directory('${dir.path}/nayab_stock_media');
-      if (!await folder.exists()) {
-        await folder.create(recursive: true);
-      }
-      final fileName = 'stk_${DateTime.now().microsecondsSinceEpoch}.jpg';
-      final saved = await File(picked.path).copy('${folder.path}/$fileName');
-      return saved.path;
-    } catch (_) {
-      return picked.path;
+  Future<String?> _toPortablePath(XFile picked) async {
+    if (kIsWeb) {
+      final bytes = await picked.readAsBytes();
+      final b64 = base64Encode(bytes);
+      return 'data:image/jpeg;base64,$b64';
     }
+    return picked.path;
   }
 
   Future<void> _pickFromGallery(BuildContext context) async {
     final picker = ImagePicker();
-    final files = await picker.pickMultiImage(imageQuality: 88);
+    final files = await picker.pickMultiImage(imageQuality: 85);
     if (files.isEmpty) return;
 
     final updated = List<String>.from(imagePaths);
     for (final f in files) {
       if (updated.length >= 6) break;
-      final savedPath = await _persistPickedFile(f);
-      if (savedPath != null && savedPath.isNotEmpty) {
-        updated.add(savedPath);
+      final portable = await _toPortablePath(f);
+      if (portable != null && portable.isNotEmpty) {
+        updated.add(portable);
       }
     }
     onImagesChanged(updated);
@@ -50,13 +44,13 @@ class PosStockPhotoPickerUi extends StatelessWidget {
     final picker = ImagePicker();
     final photo = await picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 88,
+      imageQuality: 85,
     );
     if (photo == null) return;
 
-    final savedPath = await _persistPickedFile(photo);
-    if (savedPath != null && savedPath.isNotEmpty) {
-      final updated = List<String>.from(imagePaths)..add(savedPath);
+    final portable = await _toPortablePath(photo);
+    if (portable != null && portable.isNotEmpty) {
+      final updated = List<String>.from(imagePaths)..add(portable);
       onImagesChanged(updated);
     }
   }
@@ -67,23 +61,23 @@ class PosStockPhotoPickerUi extends StatelessWidget {
   }
 
   Widget _buildImagePreview(String pathOrUrl) {
-    final isNetwork =
-        pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://');
-    if (isNetwork) {
-      return Image.network(
-        pathOrUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const Icon(
-          Icons.broken_image_outlined,
-          color: Colors.grey,
-        ),
-      );
+    if (pathOrUrl.startsWith('data:image')) {
+      try {
+        final commaIdx = pathOrUrl.indexOf(',');
+        final bytes = base64Decode(pathOrUrl.substring(commaIdx + 1));
+        return Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {
+        return const Icon(Icons.broken_image_outlined, color: Colors.grey);
+      }
     }
-    final file = File(pathOrUrl);
-    if (file.existsSync()) {
-      return Image.file(file, fit: BoxFit.cover);
-    }
-    return const Icon(Icons.image_not_supported_outlined, color: Colors.grey);
+    return Image.network(
+      pathOrUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => const Icon(
+        Icons.image_outlined,
+        color: AppColors.primaryEmerald,
+      ),
+    );
   }
 
   @override
@@ -117,8 +111,9 @@ class PosStockPhotoPickerUi extends StatelessWidget {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed:
-                    imagePaths.length >= 6 ? null : () => _captureFromCamera(context),
+                onPressed: imagePaths.length >= 6
+                    ? null
+                    : () => _captureFromCamera(context),
                 icon: const Icon(Icons.camera_alt_outlined, size: 16),
                 label: const Text('کیمرہ', style: TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
@@ -131,8 +126,9 @@ class PosStockPhotoPickerUi extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               ElevatedButton.icon(
-                onPressed:
-                    imagePaths.length >= 6 ? null : () => _pickFromGallery(context),
+                onPressed: imagePaths.length >= 6
+                    ? null
+                    : () => _pickFromGallery(context),
                 icon: const Icon(Icons.photo_library_outlined, size: 16),
                 label: const Text('گیلری', style: TextStyle(fontSize: 12)),
                 style: ElevatedButton.styleFrom(

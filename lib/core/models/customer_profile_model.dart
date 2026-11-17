@@ -1,11 +1,12 @@
 class CustomerProfileModel {
-  final String id; // عموماً شناختی کارڈ نمبر
+  final String id;
   final String fullName;
   final String fatherName;
   final String cnic;
   final String phone;
   final String address;
-  final String role; // 'گاہک' یا 'ضامن'
+  final String? photoUrl;
+  final String role;
   final bool isSynced;
   final String updatedAt;
   final String createdAt;
@@ -18,6 +19,7 @@ class CustomerProfileModel {
     required this.cnic,
     required this.phone,
     required this.address,
+    this.photoUrl,
     this.role = 'گاہک',
     this.isSynced = false,
     required this.updatedAt,
@@ -33,6 +35,7 @@ class CustomerProfileModel {
       'cnic': cnic,
       'phone': phone,
       'address': address,
+      'photoUrl': photoUrl,
       'role': role,
       'isSynced': isSynced,
       'updatedAt': updatedAt,
@@ -49,6 +52,7 @@ class CustomerProfileModel {
       cnic: map['cnic']?.toString() ?? '',
       phone: map['phone']?.toString() ?? '',
       address: map['address']?.toString() ?? '',
+      photoUrl: map['photoUrl']?.toString(),
       role: map['role']?.toString() ?? 'گاہک',
       isSynced: map['isSynced'] as bool? ?? false,
       updatedAt: map['updatedAt']?.toString() ?? '',

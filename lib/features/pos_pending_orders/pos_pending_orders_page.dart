@@ -75,13 +75,51 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
     );
   }
 
+  Widget _buildFilterTab(String key, String label, int count) {
+    final isSelected = _controller.statusFilter == key;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _controller.setStatusFilter(key),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primaryEmerald : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primaryEmerald
+                  : const Color(0xFFCBD5E1),
+              width: 1.2,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '$label ($count)',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isSelected ? Colors.white : const Color(0xFF1E293B),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
       valueListenable: HiveBoxManager.listenToBox(BoxNames.shopOrdersBox),
       builder: (context, _, _) {
-        final pendingCount = PosPendingOrdersService.getPendingOrders().length;
-        final allCount = PosPendingOrdersService.getAllOrders().length;
+        final allOrders = PosPendingOrdersService.getAllOrders();
+        final pendingOrders = PosPendingOrdersService.getPendingOrders();
+        final int allCount = allOrders.length;
+        final int pendingCount = pendingOrders.length;
+        final int historyCount =
+            allCount > pendingCount ? (allCount - pendingCount) : 0;
+
         final list = _controller.getFilteredOrders();
         final activeId = _controller.activeOrderId;
 
@@ -90,48 +128,23 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
           child: Scaffold(
             backgroundColor: AppColors.backgroundLight,
             appBar: AppBar(
-              title: Text(
-                _controller.showAllHistory
-                    ? 'تمام POS آرڈرز ($allCount)'
-                    : 'زیرِ التواء POS آرڈرز ($pendingCount)',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              title: const Text(
+                'POS آرڈرز و بکنگ لسٹ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               backgroundColor: AppColors.primaryEmerald,
               foregroundColor: Colors.white,
-              actions: [
-                TextButton.icon(
-                  onPressed: () => _controller
-                      .toggleHistoryFilter(!_controller.showAllHistory),
-                  icon: Icon(
-                    _controller.showAllHistory
-                        ? Icons.pending_actions
-                        : Icons.history,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                  label: Text(
-                    _controller.showAllHistory
-                        ? 'پینڈنگ ($pendingCount)'
-                        : 'ہسٹری ($allCount)',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ),
-              ],
             ),
             body: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(12.0),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
                   child: TextField(
                     textAlign: TextAlign.right,
                     onChanged: _controller.updateSearch,
                     decoration: InputDecoration(
-                      hintText: 'کسٹمر نام، شناختی کارڈ، فون یا موبائل سے تلاش کریں...',
+                      hintText:
+                          'کسٹمر، ضامن، شناختی کارڈ، فون یا ماڈل سے تلاش کریں...',
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -141,6 +154,18 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                     ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+                  child: Row(
+                    children: [
+                      _buildFilterTab('ALL', 'سب آرڈرز', allCount),
+                      const SizedBox(width: 6),
+                      _buildFilterTab('PENDING', 'زیرِ التواء', pendingCount),
+                      const SizedBox(width: 6),
+                      _buildFilterTab('HISTORY', 'مکمل / ہٹائے گئے', historyCount),
+                    ],
                   ),
                 ),
                 Expanded(
@@ -156,26 +181,14 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _controller.showAllHistory
-                                    ? 'کوئی POS آرڈر ریکارڈ موجود نہیں ہے۔'
-                                    : 'اس وقت کوئی نیا پینڈنگ آرڈر نہیں ہے۔',
+                                _controller.statusFilter == 'PENDING'
+                                    ? 'اس وقت کوئی نیا زیرِ التواء آرڈر نہیں ہے۔'
+                                    : 'اس حصے میں کوئی آرڈر ریکارڈ موجود نہیں ہے۔',
                                 style: const TextStyle(
                                   color: AppColors.textMuted,
                                   fontSize: 14,
                                 ),
                               ),
-                              if (!_controller.showAllHistory && allCount > 0)
-                                TextButton(
-                                  onPressed: () =>
-                                      _controller.toggleHistoryFilter(true),
-                                  child: Text(
-                                    'تمام پرانے آرڈرز دیکھیں ($allCount)',
-                                    style: const TextStyle(
-                                      color: AppColors.primaryEmerald,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
                             ],
                           ),
                         )

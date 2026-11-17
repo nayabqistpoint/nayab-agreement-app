@@ -4,14 +4,13 @@ import '../../core/database/hive_box_manager.dart';
 import 'services/pos_pending_orders_service.dart';
 
 class PosPendingOrdersController extends ChangeNotifier {
-  late bool showAllHistory;
+  /// 'ALL' = سب آرڈرز, 'PENDING' = صرف پینڈنگ, 'HISTORY' = مکمل / ہٹائے گئے
+  String statusFilter = 'ALL';
   String searchQuery = '';
 
   PosPendingOrdersController() {
     final pendingCount = PosPendingOrdersService.getPendingOrders().length;
-    final allCount = PosPendingOrdersService.getAllOrders().length;
-    // اگر پینڈنگ آرڈرز صفر ہوں لیکن ہسٹری میں ریکارڈ موجود ہو تو سیدھا تمام آرڈرز دکھائیں
-    showAllHistory = pendingCount == 0 && allCount > 0;
+    statusFilter = pendingCount > 0 ? 'PENDING' : 'ALL';
   }
 
   String? get activeOrderId {
@@ -19,8 +18,8 @@ class PosPendingOrdersController extends ChangeNotifier {
     return draftBox.get('activePosOrderId')?.toString();
   }
 
-  void toggleHistoryFilter(bool showAll) {
-    showAllHistory = showAll;
+  void setStatusFilter(String filter) {
+    statusFilter = filter;
     notifyListeners();
   }
 
@@ -30,25 +29,45 @@ class PosPendingOrdersController extends ChangeNotifier {
   }
 
   List<PosOrderRecord> getFilteredOrders() {
-    final baseList = showAllHistory
-        ? PosPendingOrdersService.getAllOrders()
-        : PosPendingOrdersService.getPendingOrders();
+    final all = PosPendingOrdersService.getAllOrders();
+    List<PosOrderRecord> baseList;
+    if (statusFilter == 'PENDING') {
+      baseList = PosPendingOrdersService.getPendingOrders();
+    } else if (statusFilter == 'HISTORY') {
+      baseList = all.where((map) {
+        final st = (map['status']?.toString() ?? '').trim().toUpperCase();
+        return st == 'AGREEMENT_COMPLETED' ||
+            st == 'DISMISSED_BY_COUNTER' ||
+            st == 'CANCELLED';
+      }).toList();
+    } else {
+      baseList = all;
+    }
 
     final q = searchQuery.trim().toLowerCase();
     if (q.isEmpty) return baseList;
+    final cleanQ = q.replaceAll('-', '');
 
     return baseList.where((order) {
       final name = (order['customerName']?.toString() ?? '').toLowerCase();
       final cnic = (order['customerCnic']?.toString() ?? '')
           .replaceAll('-', '')
           .toLowerCase();
+      final gName = (order['guarantorName']?.toString() ?? '').toLowerCase();
+      final gCnic = (order['guarantorCnic']?.toString() ?? '')
+          .replaceAll('-', '')
+          .toLowerCase();
       final phone = (order['customerPhone']?.toString() ?? '').toLowerCase();
       final model = (order['itemName']?.toString() ?? '').toLowerCase();
-      final cleanQ = q.replaceAll('-', '');
+      final stkId = (order['stockId']?.toString() ?? '').toLowerCase();
+
       return name.contains(q) ||
           cnic.contains(cleanQ) ||
+          gName.contains(q) ||
+          gCnic.contains(cleanQ) ||
           phone.contains(q) ||
-          model.contains(q);
+          model.contains(q) ||
+          stkId.contains(q);
     }).toList();
   }
 

@@ -16,21 +16,49 @@ class CustomerDirectoryPage extends StatefulWidget {
 }
 
 class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
+  final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _applyCnicToSearch(String cnic) {
+    final clean = cnic.trim();
+    if (clean.isEmpty) return;
+    _searchCtrl.text = clean;
+    setState(() {
+      _searchQuery = clean;
+    });
+  }
 
   List<CustomerProfileModel> _getFilteredList() {
     final all = CustomerDirectoryService.getAllActiveProfiles();
     final q = _searchQuery.trim().toLowerCase();
     if (q.isEmpty) return all;
+    final cleanQ = q.replaceAll('-', '');
+    final custBox = HiveBoxManager.getBox(BoxNames.customersBox);
 
     return all.where((c) {
       final nameMatch = c.fullName.toLowerCase().contains(q);
-      final cnicMatch =
-          c.cnic.replaceAll('-', '').contains(q.replaceAll('-', ''));
+      final cnicMatch = c.cnic.replaceAll('-', '').toLowerCase().contains(cleanQ);
       final phoneMatch = c.phone.contains(q);
-      return nameMatch || cnicMatch || phoneMatch;
+      bool linkedGuarantorMatch = false;
+      final raw = custBox.get(c.id);
+      if (raw is Map) {
+        final gCnic = (raw['linkedGuarantorCnic']?.toString() ?? '')
+            .replaceAll('-', '')
+            .toLowerCase();
+        final gName =
+            (raw['linkedGuarantorName']?.toString() ?? '').toLowerCase();
+        linkedGuarantorMatch =
+            gCnic.contains(cleanQ) || gName.contains(q);
+      }
+      return nameMatch || cnicMatch || phoneMatch || linkedGuarantorMatch;
     }).toList();
   }
 
@@ -116,7 +144,6 @@ class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
       valueListenable: HiveBoxManager.listenToBox(BoxNames.customersBox),
       builder: (context, custBox, child) {
         final list = _getFilteredList();
-
         return Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
@@ -164,11 +191,21 @@ class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
                 Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: TextField(
+                    controller: _searchCtrl,
                     textAlign: TextAlign.right,
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: InputDecoration(
                       hintText: 'نام، شناختی کارڈ یا فون سے تلاش کریں...',
                       prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8)),
                       filled: true,
@@ -193,6 +230,7 @@ class _CustomerDirectoryPageState extends State<CustomerDirectoryPage> {
                               customer: p,
                               isSelectionMode: _isSelectionMode,
                               isSelected: isSelected,
+                              onCnicTap: _applyCnicToSearch,
                               onLongPress: () => _toggleSelection(p.id),
                               onTap: () {
                                 if (_isSelectionMode) {

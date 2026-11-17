@@ -23,10 +23,13 @@ class PosStockFormUi extends StatefulWidget {
 class _PosStockFormUiState extends State<PosStockFormUi> {
   final TextEditingController _modelCtrl = TextEditingController();
   final TextEditingController _imeiCtrl = TextEditingController();
+  final TextEditingController _serialCtrl = TextEditingController();
+  final TextEditingController _specsSummaryCtrl = TextEditingController();
   final TextEditingController _purchasePriceCtrl = TextEditingController();
   final TextEditingController _salePriceCtrl = TextEditingController();
   final TextEditingController _supplierCtrl = TextEditingController();
 
+  String _productCategory = 'MOBILE'; // 'MOBILE' یا 'ELECTRONICS'
   List<String> _selectedImages = [];
   bool _isSaving = false;
 
@@ -104,8 +107,14 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
   }
 
   void _populateFromItem(ControlDataMap item) {
+    _productCategory =
+        (item['productCategory']?.toString() ?? 'MOBILE') == 'ELECTRONICS'
+            ? 'ELECTRONICS'
+            : 'MOBILE';
     _modelCtrl.text = item['itemName']?.toString() ?? '';
     _imeiCtrl.text = item['imeiNo']?.toString() ?? '';
+    _serialCtrl.text = item['serialNo']?.toString() ?? '';
+    _specsSummaryCtrl.text = item['specsSummary']?.toString() ?? '';
     _purchasePriceCtrl.text = (item['purchasePrice'] ?? '').toString() == '0'
         ? ''
         : (item['purchasePrice']?.toString() ?? '');
@@ -133,8 +142,11 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
   }
 
   void _resetFields() {
+    _productCategory = 'MOBILE';
     _modelCtrl.clear();
     _imeiCtrl.clear();
+    _serialCtrl.clear();
+    _specsSummaryCtrl.clear();
     _purchasePriceCtrl.clear();
     _salePriceCtrl.clear();
     _supplierCtrl.clear();
@@ -150,33 +162,51 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
   void dispose() {
     _modelCtrl.dispose();
     _imeiCtrl.dispose();
+    _serialCtrl.dispose();
+    _specsSummaryCtrl.dispose();
     _purchasePriceCtrl.dispose();
     _salePriceCtrl.dispose();
     _supplierCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _scanImei() async {
-    final res =
-        await QrScanner.scan(context, title: 'موبائل ڈبے کا IMEI اسکین کریں');
+  Future<void> _scanCode() async {
+    final isMobile = _productCategory == 'MOBILE';
+    final res = await QrScanner.scan(
+      context,
+      title: isMobile
+          ? 'موبائل ڈبے کا IMEI اسکین کریں'
+          : 'پراڈکٹ سیریل / بارکوڈ اسکین کریں',
+    );
     if (res != null && res.trim().isNotEmpty) {
       setState(() {
-        _imeiCtrl.text = res.trim();
+        if (isMobile) {
+          _imeiCtrl.text = res.trim();
+        } else {
+          _serialCtrl.text = res.trim();
+        }
       });
     }
   }
 
   Future<void> _submit() async {
     if (_isSaving) return;
+    final isMobile = _productCategory == 'MOBILE';
     final model = _modelCtrl.text.trim();
-    final imei = _imeiCtrl.text.trim();
+    final imei = isMobile ? _imeiCtrl.text.trim() : '';
+    final serial = !isMobile ? _serialCtrl.text.trim() : '';
+    final specs = !isMobile ? _specsSummaryCtrl.text.trim() : '';
     final purchasePrice = int.tryParse(_purchasePriceCtrl.text.trim()) ?? 0;
     final salePrice = int.tryParse(_salePriceCtrl.text.trim()) ?? 0;
-    if (model.isEmpty || imei.isEmpty || salePrice <= 0) {
+
+    if (model.isEmpty || salePrice <= 0 || (isMobile && imei.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-              'براہ کرم موبائل ماڈل، IMEI نمبر اور نقد قیمت فروخت درج کریں!'),
+            isMobile
+                ? 'براہ کرم موبائل ماڈل، IMEI نمبر اور نقد قیمت فروخت درج کریں!'
+                : 'براہ کرم پراڈکٹ کا نام/ماڈل اور نقد قیمت فروخت درج کریں!',
+          ),
           backgroundColor: AppColors.errorRed,
         ),
       );
@@ -190,9 +220,12 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
 
     await PosControlStorageService.saveStockItem(
       stockId: stockId,
+      productCategory: _productCategory,
       itemName: model,
       imeiNo: imei,
-      ramRom: _selectedRamRom,
+      serialNo: serial,
+      ramRom: isMobile ? _selectedRamRom : specs,
+      specsSummary: specs,
       color: _selectedColor,
       purchasePrice: purchasePrice,
       salePrice: salePrice,
@@ -210,7 +243,7 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            '✅ اسٹاک ($stockId - $model) مع تصاویر محفوظ ہو کر POS ایپ پر سنک ہو گیا!'),
+            '✅ اسٹاک ($stockId - $model) محفوظ ہو کر POS ایپ پر سنک ہو گیا!'),
         backgroundColor: AppColors.successGreen,
       ),
     );
@@ -236,9 +269,55 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
     );
   }
 
+  Widget _buildCategoryTab(String cat, String label, IconData icon) {
+    final selected = _productCategory == cat;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _productCategory = cat),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryEmerald : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primaryEmerald
+                  : const Color(0xFFCBD5E1),
+              width: 1.3,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? Colors.white : const Color(0xFF334155),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: selected ? Colors.white : const Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final editingId = widget.editingItem?['id']?.toString();
+    final isMobile = _productCategory == 'MOBILE';
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -259,10 +338,10 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
               Text(
                 editingId != null
                     ? 'اسٹاک ترمیم: $editingId'
-                    : 'نیا موبائل اسٹاک درج کریں',
+                    : 'نیا اسٹاک درج کریں (${PosControlStorageService.generateNextStockId()})',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: 15.5,
                   color: AppColors.primaryEmerald,
                 ),
               ),
@@ -274,6 +353,22 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
                       style: TextStyle(
                           color: Colors.red, fontWeight: FontWeight.bold)),
                 ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildCategoryTab(
+                'MOBILE',
+                'موبائل فون (Mobile)',
+                Icons.phone_android_rounded,
+              ),
+              const SizedBox(width: 8),
+              _buildCategoryTab(
+                'ELECTRONICS',
+                'الیکٹرانکس / دیگر اشیاء',
+                Icons.kitchen_outlined,
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -289,27 +384,34 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF0F172A)),
             decoration: _boldInputDecoration(
-                'موبائل کمپنی و ماڈل (مثلاً Vivo Y200)'),
+              isMobile
+                  ? 'موبائل کمپنی و ماڈل (مثلاً Vivo Y200)'
+                  : 'پراڈکٹ نام و ماڈل (مثلاً Dawlance فریج / ہونڈا 70)',
+            ),
           ),
           const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: TextField(
-                  controller: _imeiCtrl,
-                  keyboardType: TextInputType.number,
+                  controller: isMobile ? _imeiCtrl : _serialCtrl,
+                  keyboardType:
+                      isMobile ? TextInputType.number : TextInputType.text,
                   textAlign: TextAlign.left,
                   style: const TextStyle(
                       fontSize: 15.5,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0F172A)),
-                  decoration:
-                      _boldInputDecoration('IMEI نمبر (لازمی - 15 ہندسے)'),
+                  decoration: _boldInputDecoration(
+                    isMobile
+                        ? 'IMEI نمبر (لازمی - 15 ہندسے)'
+                        : 'سیریل / چیسز نمبر (اختیاری)',
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
-                onPressed: _scanImei,
+                onPressed: _scanCode,
                 icon: const Icon(Icons.qr_code_scanner, size: 20),
                 label: const Text('اسکین',
                     style:
@@ -369,24 +471,34 @@ class _PosStockFormUiState extends State<PosStockFormUi> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _selectedRamRom,
-                  isExpanded: true,
-                  decoration: _boldInputDecoration('میموری (RAM / ROM)'),
-                  items: _ramRomOptions
-                      .map((r) => DropdownMenuItem(
-                            value: r,
-                            child: Text(r,
-                                style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A))),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedRamRom = v);
-                  },
-                ),
+                child: isMobile
+                    ? DropdownButtonFormField<String>(
+                        initialValue: _selectedRamRom,
+                        isExpanded: true,
+                        decoration: _boldInputDecoration('میموری (RAM / ROM)'),
+                        items: _ramRomOptions
+                            .map((r) => DropdownMenuItem(
+                                  value: r,
+                                  child: Text(r,
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A))),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _selectedRamRom = v);
+                        },
+                      )
+                    : TextField(
+                        controller: _specsSummaryCtrl,
+                        style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A)),
+                        decoration: _boldInputDecoration(
+                            'تفصیل / سائز (مثلاً 14 کیوبک فٹ انورٹر)'),
+                      ),
               ),
               const SizedBox(width: 8),
               Expanded(
