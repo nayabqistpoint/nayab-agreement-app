@@ -39,7 +39,7 @@ class StockInventoryListUi extends StatelessWidget {
         padding: EdgeInsets.all(32),
         child: Center(
           child: Text(
-            'اسٹاک میں کوئی آئٹم موجود نہیں ہے۔',
+            'اس حصے میں کوئی آئٹم موجود نہیں ہے۔',
             style: TextStyle(color: AppColors.textMuted, fontSize: 13.5),
           ),
         ),
@@ -61,6 +61,24 @@ class StockInventoryListUi extends StatelessWidget {
         final price = item['salePrice']?.toString() ?? '0';
         final status = (item['status']?.toString() ?? 'AVAILABLE').toUpperCase();
         final bool isLocked = status == 'RESERVED' || status == 'SOLD';
+
+        String statusLabel = 'موجود';
+        Color statusBg = Colors.green.shade100;
+        Color statusText = Colors.green.shade800;
+
+        if (status == 'ON_ORDER') {
+          statusLabel = 'آرڈر پر دستیاب';
+          statusBg = Colors.teal.shade100;
+          statusText = Colors.teal.shade900;
+        } else if (status == 'RESERVED') {
+          statusLabel = 'بُک شدہ';
+          statusBg = Colors.orange.shade100;
+          statusText = Colors.orange.shade900;
+        } else if (status == 'SOLD') {
+          statusLabel = 'فروخت شدہ';
+          statusBg = Colors.indigo.shade100;
+          statusText = Colors.indigo.shade900;
+        }
 
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
@@ -111,21 +129,7 @@ class StockInventoryListUi extends StatelessWidget {
                         ],
                       ),
                     ),
-                    _badge(
-                      status == 'RESERVED'
-                          ? 'بُک شدہ'
-                          : (status == 'SOLD' ? 'فروخت شدہ' : 'موجود'),
-                      status == 'RESERVED'
-                          ? Colors.orange.shade100
-                          : (status == 'SOLD'
-                              ? Colors.blueGrey.shade100
-                              : Colors.green.shade100),
-                      status == 'RESERVED'
-                          ? Colors.orange.shade900
-                          : (status == 'SOLD'
-                              ? Colors.blueGrey.shade800
-                              : Colors.green.shade800),
-                    ),
+                    _badge(statusLabel, statusBg, statusText),
                   ],
                 ),
                 const Divider(height: 14),

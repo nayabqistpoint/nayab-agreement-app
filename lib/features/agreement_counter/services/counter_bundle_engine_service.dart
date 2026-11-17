@@ -82,8 +82,8 @@ class CounterBundleEngineService {
     for (final title in selectedTitles) {
       final raw = box.get(title);
       if (raw == null || raw is! Map) continue;
-
       final doc = DocumentTemplateModel.fromMap(Map<String, dynamic>.from(raw));
+      if (doc.toMap()['isDeleted'] == true) continue;
 
       for (final f in doc.fields) {
         fieldSet.add(f.trim());
@@ -141,14 +141,11 @@ class CounterBundleEngineService {
             templateRasterizedPages.isNotEmpty) {
           if (i < templateRasterizedPages.length) {
             bg = templateRasterizedPages[i];
-          } else {
-            bg = null;
           }
         }
 
-        final pageFloating = doc.floatingBoxes.where((b) {
-          return isFirst;
-        }).toList();
+        final pageFloating =
+            doc.floatingBoxes.where((b) => b.pageIndex == i).toList();
 
         allPages.add(BundlePageMeta(
           templateTitle: title,

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/portable_image_ui.dart';
 
 class PosStockPhotoPickerUi extends StatelessWidget {
   final List<String> imagePaths;
@@ -27,7 +28,6 @@ class PosStockPhotoPickerUi extends StatelessWidget {
     final picker = ImagePicker();
     final files = await picker.pickMultiImage(imageQuality: 85);
     if (files.isEmpty) return;
-
     final updated = List<String>.from(imagePaths);
     for (final f in files) {
       if (updated.length >= 6) break;
@@ -47,7 +47,6 @@ class PosStockPhotoPickerUi extends StatelessWidget {
       imageQuality: 85,
     );
     if (photo == null) return;
-
     final portable = await _toPortablePath(photo);
     if (portable != null && portable.isNotEmpty) {
       final updated = List<String>.from(imagePaths)..add(portable);
@@ -58,26 +57,6 @@ class PosStockPhotoPickerUi extends StatelessWidget {
   void _removeAt(int index) {
     final updated = List<String>.from(imagePaths)..removeAt(index);
     onImagesChanged(updated);
-  }
-
-  Widget _buildImagePreview(String pathOrUrl) {
-    if (pathOrUrl.startsWith('data:image')) {
-      try {
-        final commaIdx = pathOrUrl.indexOf(',');
-        final bytes = base64Decode(pathOrUrl.substring(commaIdx + 1));
-        return Image.memory(bytes, fit: BoxFit.cover);
-      } catch (_) {
-        return const Icon(Icons.broken_image_outlined, color: Colors.grey);
-      }
-    }
-    return Image.network(
-      pathOrUrl,
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => const Icon(
-        Icons.image_outlined,
-        color: AppColors.primaryEmerald,
-      ),
-    );
   }
 
   @override
@@ -102,7 +81,7 @@ class PosStockPhotoPickerUi extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'موبائل کی HD تصاویر (${imagePaths.length}/6)',
+                  'پراڈکٹ کی HD تصاویر (${imagePaths.length}/6)',
                   style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
@@ -202,7 +181,10 @@ class PosStockPhotoPickerUi extends StatelessWidget {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(6.5),
-                          child: _buildImagePreview(path),
+                          child: PortableImageUi(
+                            pathOrUrl: path,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                       if (index == 0)

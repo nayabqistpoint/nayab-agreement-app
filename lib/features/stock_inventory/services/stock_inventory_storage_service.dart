@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
 import '../../../core/network/connectivity_service.dart';
@@ -16,9 +17,7 @@ class StockInventoryStorageService {
     if (raw is Map) {
       return StockMap.from(raw);
     }
-    return {
-      'lastStockNumber': 0,
-    };
+    return {'lastStockNumber': 0};
   }
 
   static StockList getAllStockItems() {
@@ -47,7 +46,6 @@ class StockInventoryStorageService {
     final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
     final cfg = getCalculatorConfig();
     int maxNum = (cfg['lastStockNumber'] as num?)?.toInt() ?? 0;
-
     for (final key in stockBox.keys) {
       final id = key.toString();
       final match = RegExp(r'STK_(\d+)').firstMatch(id);
@@ -65,7 +63,6 @@ class StockInventoryStorageService {
     if (match == null) return;
     final numVal = int.tryParse(match.group(1) ?? '0') ?? 0;
     if (numVal <= 0) return;
-
     final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
     final raw = box.get(configDocId);
     final cfg = raw is Map ? StockMap.from(raw) : <String, dynamic>{};
@@ -90,10 +87,12 @@ class StockInventoryStorageService {
     required String color,
     required int purchasePrice,
     required int salePrice,
-    required String supplierInfo,
+    required String supplier,
     required String conditionType,
     required String conditionRating,
     required int warrantyMonths,
+    required bool isOnOrder,
+    Map<String, String> dynamicFields = const {},
     List<String> images = const [],
   }) async {
     final cleanId =
@@ -104,6 +103,7 @@ class StockInventoryStorageService {
     final existingMap = rawExisting is Map
         ? StockMap.from(rawExisting)
         : <String, dynamic>{};
+
     final existingStatus =
         (existingMap['status']?.toString() ?? 'AVAILABLE').toUpperCase();
 
@@ -115,9 +115,17 @@ class StockInventoryStorageService {
       );
     }
 
+    String resolvedStatus;
+    if (existingStatus == 'RESERVED' || existingStatus == 'SOLD') {
+      resolvedStatus = existingStatus;
+    } else {
+      resolvedStatus = isOnOrder ? 'ON_ORDER' : 'AVAILABLE';
+    }
+
     final isMob = category == 'MOBILE';
     final StockMap payload = {
       ...existingMap,
+      ...dynamicFields,
       'id': cleanId,
       'itemId': cleanId,
       'stockId': cleanId,
@@ -130,11 +138,12 @@ class StockInventoryStorageService {
       'color': color.trim(),
       'purchasePrice': purchasePrice,
       'salePrice': salePrice,
-      'supplierInfo': supplierInfo.trim(),
+      'supplierInfo': supplier.trim(),
       'conditionType': conditionType,
       'conditionRating': conditionRating.trim(),
       'warranty': warrantyMonths,
-      'status': existingStatus == 'DELETED' ? 'AVAILABLE' : existingStatus,
+      'isOnOrder': isOnOrder,
+      'status': resolvedStatus,
       'images': processedImages,
       'isDeleted': false,
       'isSynced': false,
@@ -155,7 +164,6 @@ class StockInventoryStorageService {
       final item = StockMap.from(raw);
       final st = (item['status']?.toString() ?? 'AVAILABLE').toUpperCase();
       if (st == 'RESERVED' || st == 'SOLD') return false;
-
       item['isDeleted'] = true;
       item['status'] = 'DELETED';
       item['isSynced'] = false;
@@ -167,5 +175,43 @@ class StockInventoryStorageService {
       return true;
     }
     return false;
+  }
+
+  static Future<int> purgeAllDeletedRecords() async {
+    int purgedCount = 0;
+    final firestore = FirebaseFirestore.instance;
+    final boxCollectionPairs = <String, String>{
+      BoxNames.stockBox: 'stock_box',
+      BoxNames.shopOrdersBox: 'shop_orders_box',
+      BoxNames.customersBox: 'customers_box',
+      BoxNames.customerDealsBox: 'customer_deals_box',
+      BoxNames.templatesBox: 'templates_box',
+    };
+
+    for (final entry in boxCollectionPairs.entries) {
+      final box = HiveBoxManager.getBox(entry.key);
+      final collectionName = entry.value;
+      final List<dynamic> keysToDelete = [];
+      for (final key in box.keys) {
+        final raw = box.get(key);
+        if (raw is Map) {
+          final st = (raw['status']?.toString() ?? '').toUpperCase();
+          if (raw['isDeleted'] == true || st == 'DELETED') {
+            keysToDelete.add(key);
+          }
+        }
+      }
+      for (final key in keysToDelete) {
+        try {
+          await firestore
+              .collection(collectionName)
+              .doc(key.toString())
+              .delete();
+        } catch (_) {}
+        await box.delete(key);
+        purgedCount++;
+      }
+    }
+    return purgedCount;
   }
 }

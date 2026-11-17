@@ -3,10 +3,32 @@ import 'services/stock_inventory_storage_service.dart';
 
 class StockInventoryController extends ChangeNotifier {
   int selectedCategoryIndex = 0;
+  String statusFilter = 'ACTIVE';
   StockMap? editingItem;
 
-  StockList getAllStock() {
-    return StockInventoryStorageService.getAllStockItems();
+  StockList getFilteredStock() {
+    final all = StockInventoryStorageService.getAllStockItems();
+    if (statusFilter == 'SOLD') {
+      return all
+          .where((i) => (i['status']?.toString() ?? '').toUpperCase() == 'SOLD')
+          .toList();
+    }
+    return all
+        .where((i) => (i['status']?.toString() ?? '').toUpperCase() != 'SOLD')
+        .toList();
+  }
+
+  int get activeCount => StockInventoryStorageService.getAllStockItems()
+      .where((i) => (i['status']?.toString() ?? '').toUpperCase() != 'SOLD')
+      .length;
+
+  int get soldCount => StockInventoryStorageService.getAllStockItems()
+      .where((i) => (i['status']?.toString() ?? '').toUpperCase() == 'SOLD')
+      .length;
+
+  void setStatusFilter(String filter) {
+    statusFilter = filter;
+    notifyListeners();
   }
 
   void setCategory(int index) {
@@ -39,6 +61,8 @@ class StockInventoryController extends ChangeNotifier {
     required String conditionType,
     required String conditionRating,
     required int warranty,
+    required bool isOnOrder,
+    Map<String, String> dynamicFields = const {},
     required List<String> images,
   }) async {
     final cat = selectedCategoryIndex == 1 ? 'ELECTRONICS' : 'MOBILE';
@@ -51,10 +75,12 @@ class StockInventoryController extends ChangeNotifier {
       color: color,
       purchasePrice: purchasePrice,
       salePrice: salePrice,
-      supplierInfo: supplier,
+      supplier: supplier,
       conditionType: conditionType,
       conditionRating: conditionRating,
       warrantyMonths: warranty,
+      isOnOrder: isOnOrder,
+      dynamicFields: dynamicFields,
       images: images,
     );
     editingItem = null;
@@ -66,5 +92,11 @@ class StockInventoryController extends ChangeNotifier {
     final ok = await StockInventoryStorageService.deleteStock(stockId);
     notifyListeners();
     return ok;
+  }
+
+  Future<int> purgeDeleted() async {
+    final count = await StockInventoryStorageService.purgeAllDeletedRecords();
+    notifyListeners();
+    return count;
   }
 }

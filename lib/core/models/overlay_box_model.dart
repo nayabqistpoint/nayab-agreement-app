@@ -5,6 +5,7 @@ class OverlayBoxModel {
   final double y;
   final double width;
   final double height;
+  final int pageIndex;
   final double fontSize;
   final bool isBold;
   final bool isUnderline;
@@ -17,6 +18,7 @@ class OverlayBoxModel {
     required this.y,
     required this.width,
     required this.height,
+    this.pageIndex = 0,
     this.fontSize = 13.5,
     this.isBold = false,
     this.isUnderline = false,
@@ -31,6 +33,7 @@ class OverlayBoxModel {
       'y': y,
       'width': width,
       'height': height,
+      'pageIndex': pageIndex,
       'fontSize': fontSize,
       'isBold': isBold,
       'isUnderline': isUnderline,
@@ -46,6 +49,7 @@ class OverlayBoxModel {
       y: (map['y'] as num?)?.toDouble() ?? 0.0,
       width: (map['width'] as num?)?.toDouble() ?? 180.0,
       height: (map['height'] as num?)?.toDouble() ?? 32.0,
+      pageIndex: (map['pageIndex'] as num?)?.toInt() ?? 0,
       fontSize: (map['fontSize'] as num?)?.toDouble() ?? 13.5,
       isBold: map['isBold'] as bool? ?? false,
       isUnderline: map['isUnderline'] as bool? ?? false,
@@ -60,6 +64,7 @@ class OverlayBoxModel {
     double? y,
     double? width,
     double? height,
+    int? pageIndex,
     double? fontSize,
     bool? isBold,
     bool? isUnderline,
@@ -72,6 +77,7 @@ class OverlayBoxModel {
       y: y ?? this.y,
       width: width ?? this.width,
       height: height ?? this.height,
+      pageIndex: pageIndex ?? this.pageIndex,
       fontSize: fontSize ?? this.fontSize,
       isBold: isBold ?? this.isBold,
       isUnderline: isUnderline ?? this.isUnderline,

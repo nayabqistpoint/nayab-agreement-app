@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/qr_scanner.dart';
 import '../../pos_control_panel/components/pos_stock_photo_picker_ui.dart';
+import '../../pos_remote_control/services/pos_remote_config_service.dart';
 
 class GeneralStockFormUi extends StatefulWidget {
   final Map<String, dynamic>? editingItem;
@@ -18,6 +19,8 @@ class GeneralStockFormUi extends StatefulWidget {
     required String conditionType,
     required String conditionRating,
     required int warranty,
+    required bool isOnOrder,
+    required Map<String, String> dynamicFields,
     required List<String> images,
   }) onSave;
 
@@ -40,10 +43,39 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
   final TextEditingController _salePriceCtrl = TextEditingController();
   final TextEditingController _supplierCtrl = TextEditingController();
 
+  final Map<String, TextEditingController> _dynamicControllers = {};
+  late FieldDefList _customFieldDefs;
+
   List<String> _selectedImages = [];
   String _selectedColor = 'کالا (Black)';
   String _selectedCondition = 'NEW';
   int _selectedWarranty = 12;
+  bool _isOnOrder = false;
+
+  static const List<String> _colorOptions = [
+    'کالا (Black)',
+    'سفید (White)',
+    'نیلا (Blue)',
+    'سرخ (Red)',
+    'سلور (Silver)',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initDynamicControllers();
+    if (widget.editingItem != null) {
+      _populate(widget.editingItem!);
+    }
+  }
+
+  void _initDynamicControllers() {
+    _customFieldDefs = PosRemoteConfigService.getGeneralCustomFields();
+    for (final def in _customFieldDefs) {
+      final key = def['key']!;
+      _dynamicControllers.putIfAbsent(key, () => TextEditingController());
+    }
+  }
 
   @override
   void didUpdateWidget(covariant GeneralStockFormUi oldWidget) {
@@ -68,6 +100,11 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
         : (item['purchasePrice']?.toString() ?? '');
     _salePriceCtrl.text = item['salePrice']?.toString() ?? '';
     _supplierCtrl.text = item['supplierInfo']?.toString() ?? '';
+
+    for (final entry in _dynamicControllers.entries) {
+      entry.value.text = item[entry.key]?.toString() ?? '';
+    }
+
     final rawImgs = item['images'];
     if (rawImgs is List) {
       _selectedImages =
@@ -75,9 +112,12 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
     } else {
       _selectedImages = [];
     }
-    _selectedColor = item['color']?.toString() ?? 'کالا (Black)';
+    final col = item['color']?.toString() ?? 'کالا (Black)';
+    _selectedColor = _colorOptions.contains(col) ? col : 'کالا (Black)';
     _selectedCondition = item['conditionType']?.toString() ?? 'NEW';
     _selectedWarranty = int.tryParse(item['warranty']?.toString() ?? '12') ?? 12;
+    final st = (item['status']?.toString() ?? '').toUpperCase();
+    _isOnOrder = item['isOnOrder'] == true || st == 'ON_ORDER';
   }
 
   void _reset() {
@@ -87,10 +127,14 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
     _purchasePriceCtrl.clear();
     _salePriceCtrl.clear();
     _supplierCtrl.clear();
+    for (final c in _dynamicControllers.values) {
+      c.clear();
+    }
     _selectedImages = [];
     _selectedColor = 'کالا (Black)';
     _selectedCondition = 'NEW';
     _selectedWarranty = 12;
+    _isOnOrder = false;
   }
 
   @override
@@ -101,13 +145,56 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
     _purchasePriceCtrl.dispose();
     _salePriceCtrl.dispose();
     _supplierCtrl.dispose();
+    for (final c in _dynamicControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _scanBarcode() async {
-    final res = await QrScanner.scan(context, title: 'سیریل / بارکوڈ اسکین کریں');
+    final res =
+        await QrScanner.scan(context, title: 'سیریل / بارکوڈ اسکین کریں');
     if (res != null && res.trim().isNotEmpty) {
       setState(() => _serialCtrl.text = res.trim());
+    }
+  }
+
+  void _submit() {
+    final name = _modelCtrl.text.trim();
+    final sale = int.tryParse(_salePriceCtrl.text.trim()) ?? 0;
+    if (name.isEmpty || sale <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('براہ کرم آئٹم کا نام اور نقد قیمت فروخت درج کریں!'),
+          backgroundColor: AppColors.errorRed,
+        ),
+      );
+      return;
+    }
+
+    final Map<String, String> dynamicMap = {};
+    _dynamicControllers.forEach((k, ctrl) {
+      dynamicMap[k] = ctrl.text.trim();
+    });
+
+    widget.onSave(
+      stockId: widget.editingItem?['id']?.toString() ?? '',
+      itemName: name,
+      serialNo: _serialCtrl.text.trim(),
+      specsSummary: _specsCtrl.text.trim(),
+      color: _selectedColor,
+      purchasePrice: int.tryParse(_purchasePriceCtrl.text.trim()) ?? 0,
+      salePrice: sale,
+      supplier: _supplierCtrl.text.trim(),
+      conditionType: _selectedCondition,
+      conditionRating: '10/10',
+      warranty: _selectedWarranty,
+      isOnOrder: _isOnOrder,
+      dynamicFields: dynamicMap,
+      images: _selectedImages,
+    );
+    if (widget.editingItem == null) {
+      setState(() => _reset());
     }
   }
 
@@ -132,6 +219,38 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: _isOnOrder ? Colors.teal.shade50 : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _isOnOrder
+                  ? AppColors.primaryEmerald
+                  : const Color(0xFFCBD5E1),
+            ),
+          ),
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: Text(
+              _isOnOrder
+                  ? '📦 آرڈر پر دستیاب (ڈیلر سے منگوا کر دیں گے)'
+                  : '🏪 دکان / گودام میں موجود اسٹاک',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
+                color: _isOnOrder
+                    ? AppColors.primaryEmerald
+                    : const Color(0xFF0F172A),
+              ),
+            ),
+            value: _isOnOrder,
+            activeTrackColor: AppColors.primaryEmerald,
+            onChanged: (v) => setState(() => _isOnOrder = v),
+          ),
+        ),
+        const SizedBox(height: 12),
         PosStockPhotoPickerUi(
           imagePaths: _selectedImages,
           onImagesChanged: (imgs) => setState(() => _selectedImages = imgs),
@@ -149,7 +268,8 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
               child: TextField(
                 controller: _serialCtrl,
                 textAlign: TextAlign.left,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 decoration: _dec('سیریل / چیسز نمبر (اختیاری)'),
               ),
             ),
@@ -157,11 +277,13 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
             ElevatedButton.icon(
               onPressed: _scanBarcode,
               icon: const Icon(Icons.qr_code_scanner, size: 18),
-              label: const Text('اسکین', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('اسکین',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueGrey.shade800,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               ),
             ),
           ],
@@ -172,6 +294,45 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           decoration: _dec('سائز و تفصیل (مثلاً 14 کیوبک فٹ انورٹر)'),
         ),
+        if (_customFieldDefs.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: AppColors.primaryEmerald.withAlpha(90), width: 1.2),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'اضافی ڈائنامک معلومات (POS کارڈ و معاہدے کیلئے):',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                    color: AppColors.primaryEmerald,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ..._customFieldDefs.map((def) {
+                  final k = def['key']!;
+                  final label = def['urduLabel']!;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TextField(
+                      controller: _dynamicControllers[k],
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                      decoration: _dec(label),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         Row(
           children: [
@@ -180,7 +341,8 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
                 controller: _purchasePriceCtrl,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.left,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 decoration: _dec('قیمتِ خرید (روپے)'),
               ),
             ),
@@ -190,7 +352,8 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
                 controller: _salePriceCtrl,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.left,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 decoration: _dec('نقد قیمت فروخت (لازمی)'),
               ),
             ),
@@ -207,10 +370,11 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
+                key: ValueKey('gen_color_$_selectedColor'),
                 initialValue: _selectedColor,
                 isExpanded: true,
                 decoration: _dec('رنگ (Color)'),
-                items: ['کالا (Black)', 'سفید (White)', 'نیلا (Blue)', 'سرخ (Red)', 'سلور (Silver)']
+                items: _colorOptions
                     .map((c) => DropdownMenuItem(
                         value: c,
                         child: Text(c,
@@ -224,6 +388,7 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
             const SizedBox(width: 8),
             Expanded(
               child: DropdownButtonFormField<int>(
+                key: ValueKey('gen_warranty_$_selectedWarranty'),
                 initialValue: _selectedWarranty,
                 isExpanded: true,
                 decoration: _dec('وارنٹی'),
@@ -231,7 +396,8 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
                     .map((w) => DropdownMenuItem(
                         value: w,
                         child: Text(w == 0 ? 'بغیر وارنٹی' : '$w ماہ',
-                            style: const TextStyle(fontWeight: FontWeight.bold))))
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold))))
                     .toList(),
                 onChanged: (v) =>
                     v != null ? setState(() => _selectedWarranty = v) : null,
@@ -241,22 +407,7 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
         ),
         const SizedBox(height: 16),
         ElevatedButton(
-          onPressed: () {
-            widget.onSave(
-              stockId: widget.editingItem?['id']?.toString() ?? '',
-              itemName: _modelCtrl.text.trim(),
-              serialNo: _serialCtrl.text.trim(),
-              specsSummary: _specsCtrl.text.trim(),
-              color: _selectedColor,
-              purchasePrice: int.tryParse(_purchasePriceCtrl.text.trim()) ?? 0,
-              salePrice: int.tryParse(_salePriceCtrl.text.trim()) ?? 0,
-              supplier: _supplierCtrl.text.trim(),
-              conditionType: _selectedCondition,
-              conditionRating: '10/10',
-              warranty: _selectedWarranty,
-              images: _selectedImages,
-            );
-          },
+          onPressed: _submit,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primaryEmerald,
             foregroundColor: Colors.white,
@@ -265,7 +416,9 @@ class _GeneralStockFormUiState extends State<GeneralStockFormUi> {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           child: Text(
-            widget.editingItem != null ? 'تبدیلیاں محفوظ کریں' : 'اسٹاک میں شامل کریں',
+            widget.editingItem != null
+                ? 'تبدیلیاں محفوظ کریں'
+                : 'اسٹاک میں شامل کریں',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
         ),

@@ -29,6 +29,7 @@ class StampPayloadBuilder {
         y: f.y,
         width: f.width,
         height: 35.0,
+        pageIndex: f.pageIndex,
         fontSize: f.fontSize,
         isBold: f.isBold,
         isUnderline: f.isUnderline,

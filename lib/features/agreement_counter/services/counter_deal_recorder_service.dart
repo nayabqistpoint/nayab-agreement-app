@@ -16,6 +16,7 @@ class CounterDealRecorderService {
     if (cnic.isEmpty) {
       throw Exception('کسٹمر کا شناختی کارڈ نمبر درج کرنا لازمی ہے!');
     }
+
     final now = TimeStatusService.nowUtcIso();
     final name = fieldValues['کسٹمر کا نام']?.trim() ?? 'نامعلوم کسٹمر';
     final imei = fieldValues['IMEI نمبر']?.trim() ?? '';
@@ -116,6 +117,7 @@ class CounterDealRecorderService {
       createdAt: existing?.createdAt ?? now,
       isDeleted: false,
     );
+
     final custMap = customerProfile.toMap();
     if (guarantorName.isNotEmpty) {
       custMap['linkedGuarantorName'] = guarantorName;
@@ -136,6 +138,7 @@ class CounterDealRecorderService {
       final existingG = rawG is Map
           ? CustomerProfileModel.fromMap(Map<String, dynamic>.from(rawG))
           : null;
+
       final guarantorProfile = CustomerProfileModel(
         id: guarantorKey,
         fullName: guarantorName,
@@ -159,20 +162,57 @@ class CounterDealRecorderService {
       profileUpdates[guarantorKey] = guarantorProfile.toMap();
     }
 
+    // سپلائر / ڈیلر کا ریکارڈ ڈائریکٹری میں محفوظ کرنا
+    final supplierRaw = enrichedSnapshot['سپلائر']?.trim() ?? '';
+    if (supplierRaw.isNotEmpty) {
+      final phoneMatch = RegExp(r'03\d{9}').firstMatch(supplierRaw);
+      final supPhone = phoneMatch?.group(0) ?? '';
+      final supName = supplierRaw.replaceAll(supPhone, '').trim();
+      final supKey = supPhone.isNotEmpty
+          ? 'SUP_$supPhone'
+          : 'SUP_${supplierRaw.hashCode}';
+      final rawSup = customerBox.get(supKey);
+      final existingSup = rawSup is Map
+          ? CustomerProfileModel.fromMap(Map<String, dynamic>.from(rawSup))
+          : null;
+
+      final supplierProfile = CustomerProfileModel(
+        id: supKey,
+        fullName: supName.isNotEmpty ? supName : supplierRaw,
+        fatherName: '',
+        cnic: supKey,
+        phone: supPhone.isNotEmpty ? supPhone : (existingSup?.phone ?? ''),
+        address: 'فراہم کردہ آئٹم: ${enrichedSnapshot['موبائل ماڈل'] ?? ''}',
+        role: 'سپلائر / ڈیلر',
+        isSynced: false,
+        updatedAt: now,
+        createdAt: existingSup?.createdAt ?? now,
+        isDeleted: false,
+      );
+      profileUpdates[supKey] = supplierProfile.toMap();
+    }
+
     await HiveBoxManager.putBatch(
       boxName: BoxNames.customersBox,
       entries: profileUpdates,
     );
 
     if (orderStockId.isNotEmpty || (imei.isNotEmpty && imei != 'null')) {
+      final adv = enrichedSnapshot['ایڈوانس رقم'] ?? '0';
+      final monthly = enrichedSnapshot['ماہانہ قسط'] ?? '0';
+      final dur = enrichedSnapshot['مدت'] ?? '';
+      final soldSummary = '$dur • ایڈوانس: Rs. $adv • قسط: Rs. $monthly/ماہ';
+
       await _markStockSold(
         stockId: orderStockId,
         imei: imei,
         soldToName: name,
         soldToCnic: cnic,
         dealId: dealId,
+        soldPlanSummary: soldSummary,
       );
     }
+
     return deal;
   }
 
@@ -204,13 +244,15 @@ class CounterDealRecorderService {
     required String soldToName,
     required String soldToCnic,
     required String dealId,
+    required String soldPlanSummary,
   }) async {
     try {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
       final now = TimeStatusService.nowUtcIso();
       String? targetKey;
-
-      if (stockId.isNotEmpty && stockId != 'null' && stockBox.containsKey(stockId)) {
+      if (stockId.isNotEmpty &&
+          stockId != 'null' &&
+          stockBox.containsKey(stockId)) {
         targetKey = stockId;
       } else if (imei.isNotEmpty && imei != 'null') {
         for (final key in stockBox.keys) {
@@ -222,19 +264,25 @@ class CounterDealRecorderService {
           }
         }
       }
-
       if (targetKey != null) {
         final rawStock = stockBox.get(targetKey);
         if (rawStock is Map) {
           final updatedStock = Map<String, dynamic>.from(rawStock);
-          updatedStock['status'] = 'SOLD';
+          final currentStatus =
+              (updatedStock['status']?.toString() ?? 'AVAILABLE').toUpperCase();
+          // اگر ON_ORDER ہے تو دوبارہ آرڈرز کیلئے کھلا رکھیں، ورنہ SOLD کر دیں
+          if (currentStatus != 'ON_ORDER' && updatedStock['isOnOrder'] != true) {
+            updatedStock['status'] = 'SOLD';
+          }
           updatedStock['soldToName'] = soldToName;
           updatedStock['soldToCnic'] = soldToCnic;
           updatedStock['soldDealId'] = dealId;
+          updatedStock['soldPlanSummary'] = soldPlanSummary;
           updatedStock['reservedOrderId'] = null;
           updatedStock['reservedCustomerInfo'] = null;
           updatedStock['updatedAt'] = now;
           updatedStock['isSynced'] = false;
+
           await HiveBoxManager.putBatch(
             boxName: BoxNames.stockBox,
             entries: {targetKey: updatedStock},

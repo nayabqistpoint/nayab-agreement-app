@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import 'components/custom_rates_config_ui.dart';
 import 'components/general_rates_config_ui.dart';
 import 'components/mobile_rates_config_ui.dart';
+import 'components/store_branding_config_ui.dart';
 import 'pos_remote_controller.dart';
 
 class PosRemotePage extends StatefulWidget {
@@ -14,60 +16,58 @@ class PosRemotePage extends StatefulWidget {
 class _PosRemotePageState extends State<PosRemotePage> {
   late final PosRemoteController _controller;
 
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     _controller = PosRemoteController();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _controller.addListener(_onControllerChanged);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
   }
 
-  Widget _buildZoneButton(int index, String label, IconData icon) {
+  Widget _buildZonePill(int index, String label, IconData icon) {
     final isSelected = _controller.selectedZoneIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _controller.setZone(index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryEmerald : Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected
-                  ? AppColors.primaryEmerald
-                  : const Color(0xFFCBD5E1),
-              width: 1.4,
+    return GestureDetector(
+      onTap: () => _controller.setZone(index),
+      child: Container(
+        margin: const EdgeInsets.only(left: 7),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryEmerald : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color:
+                isSelected ? AppColors.primaryEmerald : const Color(0xFFCBD5E1),
+            width: 1.4,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? Colors.white : const Color(0xFF334155),
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 19,
-                color: isSelected ? Colors.white : const Color(0xFF334155),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : const Color(0xFF0F172A),
               ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -92,26 +92,42 @@ class _PosRemotePageState extends State<PosRemotePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  _buildZoneButton(
-                    0,
-                    'موبائل زون ریٹس',
-                    Icons.phone_android_rounded,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildZoneButton(
-                    1,
-                    'جنرل اشیاء زون',
-                    Icons.kitchen_outlined,
-                  ),
-                ],
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildZonePill(
+                      0,
+                      'موبائل زون',
+                      Icons.phone_android_rounded,
+                    ),
+                    _buildZonePill(
+                      1,
+                      'جنرل اشیاء زون',
+                      Icons.kitchen_outlined,
+                    ),
+                    _buildZonePill(
+                      2,
+                      'کسٹم تخمینہ زون',
+                      Icons.calculate_outlined,
+                    ),
+                    _buildZonePill(
+                      3,
+                      'برانڈنگ، ٹِکر و ڈسپلے',
+                      Icons.storefront_outlined,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               if (_controller.selectedZoneIndex == 0)
                 MobileRatesConfigUi(controller: _controller)
+              else if (_controller.selectedZoneIndex == 1)
+                GeneralRatesConfigUi(controller: _controller)
+              else if (_controller.selectedZoneIndex == 2)
+                CustomRatesConfigUi(controller: _controller)
               else
-                GeneralRatesConfigUi(controller: _controller),
+                StoreBrandingConfigUi(controller: _controller),
               if (_controller.statusMessage != null) ...[
                 const SizedBox(height: 12),
                 Container(

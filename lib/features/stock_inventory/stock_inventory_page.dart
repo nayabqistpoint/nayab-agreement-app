@@ -15,19 +15,65 @@ class StockInventoryPage extends StatefulWidget {
 class _StockInventoryPageState extends State<StockInventoryPage> {
   late final StockInventoryController _controller;
 
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     _controller = StockInventoryController();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _controller.addListener(_onControllerChanged);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _confirmPurge() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('ڈیلیٹڈ ریکارڈز مستقل صاف کریں؟',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: const Text(
+            'اس سے تمام حذف شدہ ریکارڈز لوکل اور کلاؤڈ سرور دونوں سے ہمیشہ کے لیے صاف ہو جائیں گے۔',
+            style: TextStyle(fontSize: 13.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('منسوخ'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final nav = Navigator.of(ctx);
+                final messenger = ScaffoldMessenger.of(context);
+                final count = await _controller.purgeDeleted();
+                if (ctx.mounted) nav.pop();
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('✅ $count ڈیلیٹڈ ریکارڈز مستقل صاف کر دیے گئے!'),
+                    backgroundColor: AppColors.successGreen,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.errorRed,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('ہاں، صاف کریں'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildTabBtn(int index, String label, IconData icon) {
@@ -68,12 +114,26 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
     );
   }
 
+  Widget _buildFilterChip(String key, String label, int count) {
+    final isSel = _controller.statusFilter == key;
+    return ChoiceChip(
+      label: Text(
+        '$label ($count)',
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.bold,
+          color: isSel ? Colors.white : Colors.black87,
+        ),
+      ),
+      selected: isSel,
+      selectedColor: AppColors.primaryEmerald,
+      onSelected: (_) => _controller.setStatusFilter(key),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final stockList = _controller.getAllStock();
-    final activeCount = stockList
-        .where((i) => (i['status']?.toString() ?? '').toUpperCase() != 'SOLD')
-        .length;
+    final stockList = _controller.getFilteredStock();
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -86,6 +146,13 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
           ),
           backgroundColor: AppColors.primaryEmerald,
           foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.cleaning_services_outlined),
+              tooltip: 'ڈیلیٹڈ کچرا مستقل صاف کریں (Purge)',
+              onPressed: _confirmPurge,
+            ),
+          ],
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(14),
@@ -110,19 +177,32 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      _controller.selectedCategoryIndex == 0
-                          ? (_controller.editingItem != null
-                              ? 'موبائل اسٹاک میں ترمیم'
-                              : 'نیا موبائل اسٹاک درج کریں')
-                          : (_controller.editingItem != null
-                              ? 'جنرل آئٹم میں ترمیم'
-                              : 'نئی جنرل آئٹم درج کریں'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppColors.primaryEmerald,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _controller.selectedCategoryIndex == 0
+                              ? (_controller.editingItem != null
+                                  ? 'موبائل اسٹاک میں ترمیم'
+                                  : 'نیا موبائل اسٹاک درج کریں')
+                              : (_controller.editingItem != null
+                                  ? 'جنرل آئٹم میں ترمیم'
+                                  : 'نئی جنرل آئٹم درج کریں'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.primaryEmerald,
+                          ),
+                        ),
+                        if (_controller.editingItem != null)
+                          TextButton(
+                            onPressed: _controller.cancelEdit,
+                            child: const Text('منسوخ',
+                                style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     if (_controller.selectedCategoryIndex == 0)
@@ -141,6 +221,7 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
                           required String conditionType,
                           required String conditionRating,
                           required int warranty,
+                          required bool isOnOrder,
                           required List<String> images,
                         }) async {
                           final messenger = ScaffoldMessenger.of(context);
@@ -156,12 +237,14 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
                             conditionType: conditionType,
                             conditionRating: conditionRating,
                             warranty: warranty,
+                            isOnOrder: isOnOrder,
                             images: images,
                           );
                           if (!mounted) return;
                           messenger.showSnackBar(
                             const SnackBar(
-                              content: Text('✅ موبائل اسٹاک کامیابی سے محفوظ ہو گیا!'),
+                              content:
+                                  Text('✅ موبائل اسٹاک کامیابی سے محفوظ ہو گیا!'),
                               backgroundColor: AppColors.successGreen,
                             ),
                           );
@@ -183,6 +266,8 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
                           required String conditionType,
                           required String conditionRating,
                           required int warranty,
+                          required bool isOnOrder,
+                          required Map<String, String> dynamicFields,
                           required List<String> images,
                         }) async {
                           final messenger = ScaffoldMessenger.of(context);
@@ -198,12 +283,15 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
                             conditionType: conditionType,
                             conditionRating: conditionRating,
                             warranty: warranty,
+                            isOnOrder: isOnOrder,
+                            dynamicFields: dynamicFields,
                             images: images,
                           );
                           if (!mounted) return;
                           messenger.showSnackBar(
                             const SnackBar(
-                              content: Text('✅ جنرل آئٹم کامیابی سے محفوظ ہو گئی!'),
+                              content:
+                                  Text('✅ جنرل آئٹم کامیابی سے محفوظ ہو گئی!'),
                               backgroundColor: AppColors.successGreen,
                             ),
                           );
@@ -214,32 +302,11 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
               ),
               const SizedBox(height: 20),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'دکان کا موجودہ کل اسٹاک:',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryEmerald,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '$activeCount آئٹمز',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  _buildFilterChip(
+                      'ACTIVE', 'زندہ اسٹاک', _controller.activeCount),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('SOLD', 'فروخت شدہ', _controller.soldCount),
                 ],
               ),
               const SizedBox(height: 10),

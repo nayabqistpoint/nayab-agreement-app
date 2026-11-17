@@ -1,6 +1,8 @@
 import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
 import '../../../core/models/tag_bank_item_model.dart';
+import '../../../core/network/connectivity_service.dart';
+import '../../../core/services/cloudinary_storage_service.dart';
 import '../../../core/services/tags_bank_service.dart';
 import '../../../core/time/time_status_service.dart';
 
@@ -25,7 +27,7 @@ class PosRemoteConfigService {
     final raw = box.get(configDocId);
     final RemoteConfigMap base = {
       'id': configDocId,
-      // موبائل زون کے ریٹس
+      // Mobile Zone
       'advancePercentage': 0.8,
       'profitWithCheck': 0.25,
       'profitWithoutCheck': 0.35,
@@ -43,7 +45,7 @@ class PosRemoteConfigService {
       'maxRiskLimit': 0,
       'adminOverridePin': '7860',
       'lastStockNumber': 0,
-      // جنرل زون کے الگ ریٹس و فیلڈز
+      // General Zone
       'generalEnabled': true,
       'generalAdvancePercentage': 0.75,
       'generalProfitWithCheck': 0.25,
@@ -55,6 +57,29 @@ class PosRemoteConfigService {
       'generalMaxRiskLimit': 0,
       'generalRequireCustomerMobileMdm': true,
       'generalCustomFields': defaultGeneralFields(),
+      // Custom Estimate Zone
+      'customAdvancePercentage': 0.8,
+      'customProfitWithCheck': 0.25,
+      'customProfitWithoutCheck': 0.35,
+      'customPerMonthIncrement': 0.05,
+      'customProcessingFee': 0,
+      'customIsCompoundingProfit': false,
+      'customAllowedDurations': [6, 7, 8, 9, 10, 11, 12],
+      'customMaxRiskLimit': 0,
+      'customAllowedZones': ['MOBILE', 'ELECTRONICS', 'CUSTOM_ESTIMATE'],
+      // Store Branding, Ticker & Visibility
+      'shopName': 'نایاب قسط پوائنٹ',
+      'shopSubtitle': 'آسان اقساط سینٹر',
+      'shopLogoUrl': '',
+      'ownerPhotoUrl': '',
+      'showShopLogo': true,
+      'showOwnerPhoto': true,
+      'tickerEnabled': true,
+      'tickerText':
+          'نایاب قسط پوائنٹ میں خوش آمدید • بغیر ایڈوانس اور آسان ماہانہ اقساط پر موبائل اور گھریلو اشیاء دستیاب ہیں',
+      'showReservedItems': true,
+      'showSoldItems': true,
+      'showOnOrderItems': true,
       'status': 'approved',
     };
 
@@ -100,6 +125,29 @@ class PosRemoteConfigService {
         'updatedAt': now,
       };
       payload.remove('zeroAdvanceMaxLimit');
+
+      if (await ConnectivityService.isOnline) {
+        final logo = payload['shopLogoUrl']?.toString().trim() ?? '';
+        if (logo.isNotEmpty && !logo.startsWith('http')) {
+          final uploadedLogo = await CloudinaryStorageService.uploadImageFile(
+            filePath: logo,
+            subFolder: 'branding',
+            customPublicId: 'shop_logo_${DateTime.now().millisecondsSinceEpoch}',
+          );
+          if (uploadedLogo != null) payload['shopLogoUrl'] = uploadedLogo;
+        }
+
+        final owner = payload['ownerPhotoUrl']?.toString().trim() ?? '';
+        if (owner.isNotEmpty && !owner.startsWith('http')) {
+          final uploadedOwner = await CloudinaryStorageService.uploadImageFile(
+            filePath: owner,
+            subFolder: 'branding',
+            customPublicId:
+                'owner_photo_${DateTime.now().millisecondsSinceEpoch}',
+          );
+          if (uploadedOwner != null) payload['ownerPhotoUrl'] = uploadedOwner;
+        }
+      }
 
       await HiveBoxManager.putBatch(
         boxName: BoxNames.appConfigBox,

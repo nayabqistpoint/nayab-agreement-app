@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
+import '../../../core/time/time_status_service.dart';
 
 class CounterStorageHandlerService {
   static Map<dynamic, dynamic> getDraft() {
@@ -25,19 +26,17 @@ class CounterStorageHandlerService {
     return HiveBoxManager.listenToBox(BoxNames.agreementDraftBox);
   }
 
-  /// ہائیو ٹیمپلیٹس باکس کا رئیل ٹائم لسنر
   static ValueListenable listenToTemplates() {
     return HiveBoxManager.listenToBox(BoxNames.templatesBox);
   }
 
-  // ٹیمپلیٹس باکس سے فوری ڈیٹا پڑھنا
   static Map<String, Map<String, dynamic>> getAllTemplates() {
     try {
       final box = HiveBoxManager.getBox(BoxNames.templatesBox);
       final Map<String, Map<String, dynamic>> map = {};
       for (var key in box.keys) {
         final val = box.get(key);
-        if (val is Map) {
+        if (val is Map && val['isDeleted'] != true) {
           map[key.toString()] = Map<String, dynamic>.from(val);
         }
       }
@@ -47,15 +46,23 @@ class CounterStorageHandlerService {
     }
   }
 
-  /// ٹیمپلیٹ کو ہائیو سے ڈیلیٹ کرنا (اور ڈرافٹ میں اگر سلیکٹڈ ہو تو کلیئر کرنا)
   static Future<bool> deleteTemplate(String title) async {
     try {
+      final cleanTitle = title.trim();
       final box = HiveBoxManager.getBox(BoxNames.templatesBox);
-      await box.delete(title.trim());
+      final raw = box.get(cleanTitle);
+      if (raw is Map) {
+        final map = Map<String, dynamic>.from(raw);
+        map['isDeleted'] = true;
+        map['isSynced'] = false;
+        map['updatedAt'] = TimeStatusService.nowUtcIso();
+        await box.put(cleanTitle, map);
+      } else {
+        await box.delete(cleanTitle);
+      }
 
-      // اگر یہی ٹیمپلیٹ ڈرافٹ میں ایکٹو تھا تو ڈرافٹ سے بھی سلیکشن ہٹا دیں
       final draftBox = HiveBoxManager.getBox(BoxNames.agreementDraftBox);
-      if (draftBox.get('selected_template') == title.trim()) {
+      if (draftBox.get('selected_template') == cleanTitle) {
         await draftBox.delete('selected_template');
       }
       return true;
