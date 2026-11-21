@@ -10,12 +10,12 @@ class PosLivePullService {
 
   static void startRealtimeListeners() {
     stopListeners();
-
     for (final boxName in [
       BoxNames.appConfigBox,
       BoxNames.stockBox,
       BoxNames.shopOrdersBox,
       BoxNames.tagsBox,
+      BoxNames.posDevicesBox,
     ]) {
       _subscriptions.add(
         _firestore.collection(boxName).snapshots().listen(
@@ -31,18 +31,14 @@ class PosLivePullService {
     QuerySnapshot snapshot,
   ) async {
     if (snapshot.docs.isEmpty) return;
-
     final box = HiveBoxManager.getBox(boxName);
     final Map<String, dynamic> updates = {};
-
     for (final doc in snapshot.docs) {
       final rawData = doc.data();
       if (rawData is! Map) continue;
-
       final cloudData = Map<String, dynamic>.from(rawData);
       cloudData['id'] = doc.id;
       cloudData['isSynced'] = true;
-
       final localRaw = box.get(doc.id);
       if (localRaw is Map) {
         if (localRaw['isSynced'] == false) continue;
@@ -54,7 +50,6 @@ class PosLivePullService {
       }
       updates[doc.id] = cloudData;
     }
-
     if (updates.isNotEmpty) {
       await HiveBoxManager.putBatch(boxName: boxName, entries: updates);
     }

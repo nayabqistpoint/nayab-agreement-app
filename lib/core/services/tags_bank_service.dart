@@ -9,7 +9,6 @@ class TagsBankService {
   static Future<void> seedDefaultTagsIfEmpty() async {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     if (box.isNotEmpty) return;
-
     final now = TimeStatusService.nowUtcIso();
     final TagRawMap initialEntries = {};
     int orderCounter = 0;
@@ -116,7 +115,6 @@ class TagsBankService {
         rawKey: 'purchasePrice', enabled: false);
     addSeed('pos_supplierInfo', 'سپلائر', TagSourceType.pos,
         rawKey: 'supplierInfo', enabled: false);
-
     addSeed('cst_witness1', 'گواہ 1 کا نام', TagSourceType.custom);
     addSeed('cst_witness2', 'گواہ 2 کا نام', TagSourceType.custom);
     addSeed('cst_dueDate', 'تاریخ ادائیگی', TagSourceType.custom);
@@ -127,16 +125,14 @@ class TagsBankService {
     );
   }
 
-  /// پہلے stockId (STK_001) سے اسٹاک تلاش کرنا، اور بیک اپ کے طور پر IMEI سے
   static TagRawMap enrichOrderWithStock(Map rawOrder) {
     final TagRawMap merged = TagRawMap.from(rawOrder);
     final stockId = merged['stockId']?.toString().trim() ?? '';
     final imei = merged['imeiNo']?.toString().trim() ?? '';
-
+    final itemName = merged['itemName']?.toString().trim().toLowerCase() ?? '';
     try {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
       Map? matchedStock;
-
       if (stockId.isNotEmpty && stockId != 'null') {
         final direct = stockBox.get(stockId);
         if (direct is Map) {
@@ -153,7 +149,22 @@ class TagsBankService {
           }
         }
       }
-
+      if (matchedStock == null && itemName.isNotEmpty) {
+        for (final key in stockBox.keys) {
+          final rawStock = stockBox.get(key);
+          if (rawStock is Map && rawStock['isDeleted'] != true) {
+            final sName =
+                (rawStock['itemName']?.toString().trim().toLowerCase() ?? '');
+            if (sName.isNotEmpty &&
+                (sName == itemName ||
+                    sName.contains(itemName) ||
+                    itemName.contains(sName))) {
+              matchedStock = rawStock;
+              break;
+            }
+          }
+        }
+      }
       if (matchedStock != null) {
         matchedStock.forEach((sKey, sVal) {
           final kStr = sKey.toString();

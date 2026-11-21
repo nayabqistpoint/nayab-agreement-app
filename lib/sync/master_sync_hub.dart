@@ -15,29 +15,28 @@ class MasterSyncHub {
   static final List<StreamSubscription> _boxSubs = [];
   static bool _isWatcherStarted = false;
   static bool _isSyncing = false;
+  static bool _hasQueuedSync = false;
 
   static void startWatcher() {
     if (_isWatcherStarted) return;
     _isWatcherStarted = true;
-
     PosLivePullService.startRealtimeListeners();
-
     for (final boxName in [
       BoxNames.appConfigBox,
       BoxNames.stockBox,
       BoxNames.shopOrdersBox,
       BoxNames.tagsBox,
+      BoxNames.posDevicesBox,
     ]) {
       _boxSubs.add(
         HiveBoxManager.getBox(boxName).watch().listen((event) {
           final val = event.value;
           if (val is Map && val['isSynced'] == false) {
-            PosAtomicPushService.pushAllUnsynced();
+            syncAll();
           }
         }),
       );
     }
-
     for (final boxName in [
       BoxNames.customersBox,
       BoxNames.customerDealsBox,
@@ -51,25 +50,30 @@ class MasterSyncHub {
         }),
       );
     }
-
     _connectivitySub = ConnectivityService.onConnectivityChanged.listen((online) {
       if (online) {
+        PosLivePullService.startRealtimeListeners();
         syncAll();
       }
     });
-
     syncAll();
   }
 
   static Future<void> syncAll() async {
-    if (_isSyncing) return;
+    if (_isSyncing) {
+      _hasQueuedSync = true;
+      return;
+    }
     _isSyncing = true;
     try {
-      await PosAtomicPushService.pushAllUnsynced();
-      await CustomersPushService.pushUnsynced();
-      await TemplatesPushService.pushUnsynced();
-      await TemplatesPullService.pullAll();
-      await CustomersPullService.pullAll();
+      do {
+        _hasQueuedSync = false;
+        await PosAtomicPushService.pushAllUnsynced();
+        await CustomersPushService.pushUnsynced();
+        await TemplatesPushService.pushUnsynced();
+        await TemplatesPullService.pullAll();
+        await CustomersPullService.pullAll();
+      } while (_hasQueuedSync);
     } catch (e) {
       debugPrint('MasterSyncHub Error: $e');
     } finally {

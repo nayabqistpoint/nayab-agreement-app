@@ -15,6 +15,7 @@ class HiveBoxManager {
       Hive.openBox<dynamic>(BoxNames.appConfigBox),
       Hive.openBox<dynamic>(BoxNames.stockBox),
       Hive.openBox<dynamic>(BoxNames.shopOrdersBox),
+      Hive.openBox<dynamic>(BoxNames.posDevicesBox),
     ]);
   }
 
@@ -29,7 +30,6 @@ class HiveBoxManager {
     if (entries.isEmpty) return;
     final box = getBox(boxName);
     await box.putAll(entries);
-    _logUrduBoxWrite(boxName, entries);
   }
 
   static Future<void> deleteKey({
@@ -38,7 +38,6 @@ class HiveBoxManager {
   }) async {
     final box = getBox(boxName);
     await box.delete(key);
-    debugPrint('🗑️ ہائیو باکس [$boxName] سے کلید حذف ہوئی: $key');
   }
 
   static Future<void> clearBox(String boxName) async {
@@ -48,23 +47,5 @@ class HiveBoxManager {
 
   static ValueListenable<Box<dynamic>> listenToBox(String boxName) {
     return getBox(boxName).listenable();
-  }
-
-  static void _logUrduBoxWrite(String boxName, Map<String, dynamic> entries) {
-    debugPrint('══════════════════════════════════════════════════════');
-    debugPrint('📦 ہائیو باکس میں نیا ڈیٹا محفوظ ہوا: [$boxName]');
-    entries.forEach((key, value) {
-      debugPrint('🔑 ریکارڈ ID / ٹوکن: $key');
-      if (value is Map) {
-        value.forEach((k, v) {
-          if (k == 'base64Pdf' || k == 'images') {
-            debugPrint('   • $k: [میڈیا / فائل ڈیٹا]');
-          } else {
-            debugPrint('   • $k: $v');
-          }
-        });
-      }
-    });
-    debugPrint('══════════════════════════════════════════════════════');
   }
 }

@@ -26,7 +26,11 @@ class PosStockPhotoPickerUi extends StatelessWidget {
 
   Future<void> _pickFromGallery(BuildContext context) async {
     final picker = ImagePicker();
-    final files = await picker.pickMultiImage(imageQuality: 85);
+    final files = await picker.pickMultiImage(
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
+    );
     if (files.isEmpty) return;
     final updated = List<String>.from(imagePaths);
     for (final f in files) {
@@ -44,7 +48,9 @@ class PosStockPhotoPickerUi extends StatelessWidget {
     final picker = ImagePicker();
     final photo = await picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 85,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 82,
     );
     if (photo == null) return;
     final portable = await _toPortablePath(photo);

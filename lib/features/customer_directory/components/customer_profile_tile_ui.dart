@@ -1,9 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
 import '../../../core/models/customer_profile_model.dart';
+import '../../../core/widgets/portable_image_ui.dart';
 import '../../customer_detail/components/customer_media_viewer_modal_ui.dart';
 
 class CustomerProfileTileUi extends StatelessWidget {
@@ -54,44 +54,6 @@ class CustomerProfileTileUi extends StatelessWidget {
   }) {
     final url = photoUrl?.trim() ?? '';
     final bool hasImg = url.isNotEmpty && url != 'null';
-    Widget imgWidget;
-
-    if (hasImg && url.startsWith('data:image')) {
-      try {
-        final commaIdx = url.indexOf(',');
-        final bytes = base64Decode(url.substring(commaIdx + 1));
-        imgWidget = Image.memory(bytes, fit: BoxFit.cover);
-      } catch (_) {
-        imgWidget = Icon(
-          isGuarantor ? Icons.shield_outlined : Icons.person,
-          color: isGuarantor
-              ? Colors.indigo.shade700
-              : AppColors.primaryEmerald,
-          size: 36,
-        );
-      }
-    } else if (hasImg) {
-      imgWidget = Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Icon(
-          isGuarantor ? Icons.shield_outlined : Icons.person,
-          color: isGuarantor
-              ? Colors.indigo.shade700
-              : AppColors.primaryEmerald,
-          size: 36,
-        ),
-      );
-    } else {
-      imgWidget = Icon(
-        isGuarantor ? Icons.shield_outlined : Icons.person,
-        color: isGuarantor
-            ? Colors.indigo.shade700
-            : AppColors.primaryEmerald,
-        size: 36,
-      );
-    }
-
     return GestureDetector(
       onTap: hasImg
           ? () => CustomerMediaViewerModalUi.show(
@@ -103,21 +65,29 @@ class CustomerProfileTileUi extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          width: 64,
-          height: 74,
+          width: 68,
+          height: 78,
           decoration: BoxDecoration(
             color: isGuarantor
                 ? Colors.indigo.shade50
-                : AppColors.primaryEmerald.withAlpha(25),
+                : AppColors.warmTintEmerald,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isGuarantor
-                  ? Colors.indigo.shade300
+                  ? Colors.indigo.shade400
                   : AppColors.primaryEmerald,
-              width: 1.4,
+              width: 1.5,
             ),
           ),
-          child: imgWidget,
+          child: PortableImageUi(
+            pathOrUrl: url,
+            fit: BoxFit.cover,
+            fallbackIcon: isGuarantor ? Icons.shield_outlined : Icons.person,
+            fallbackIconSize: 38,
+            fallbackColor: isGuarantor
+                ? Colors.indigo.shade700
+                : AppColors.primaryEmerald,
+          ),
         ),
       ),
     );
@@ -131,20 +101,20 @@ class CustomerProfileTileUi extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: color.withAlpha(20),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withAlpha(90)),
+          border: Border.all(color: color.withValues(alpha: 0.45)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search, size: 14, color: color),
+            Icon(Icons.search, size: 15, color: color),
             const SizedBox(width: 4),
             Text(
               cnic,
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w900,
                 color: color,
                 decoration: TextDecoration.underline,
               ),
@@ -160,17 +130,15 @@ class CustomerProfileTileUi extends StatelessWidget {
     final bool isGuarantor = customer.role.startsWith('ضامن');
     final linkedGuarantor =
         isGuarantor ? <String, String>{} : _resolveLinkedGuarantor();
-
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      elevation: 2,
-      color: isSelected ? AppColors.primaryEmerald.withAlpha(22) : Colors.white,
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      elevation: 1.5,
+      color: isSelected ? AppColors.warmTintEmerald : AppColors.cardSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: isSelected
-              ? AppColors.primaryEmerald
-              : const Color(0xFFCBD5E1),
+          color:
+              isSelected ? AppColors.primaryEmerald : AppColors.borderLight,
           width: isSelected ? 2.0 : 1.2,
         ),
       ),
@@ -179,7 +147,7 @@ class CustomerProfileTileUi extends StatelessWidget {
         onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.all(11),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -200,7 +168,7 @@ class CustomerProfileTileUi extends StatelessWidget {
                     customer.fullName,
                     isGuarantor: isGuarantor,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 11),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +181,7 @@ class CustomerProfileTileUi extends StatelessWidget {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 17.5,
-                                  color: Color(0xFF0F172A),
+                                  color: AppColors.textDark,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -224,14 +192,14 @@ class CustomerProfileTileUi extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: isGuarantor
                                     ? Colors.indigo.shade50
-                                    : Colors.teal.shade50,
+                                    : AppColors.warmTintEmerald,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 isGuarantor ? 'ضامن' : 'گاہک',
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w900,
                                   color: isGuarantor
                                       ? Colors.indigo.shade800
                                       : AppColors.primaryEmerald,
@@ -245,9 +213,9 @@ class CustomerProfileTileUi extends StatelessWidget {
                           Text(
                             'ولدیت: ${customer.fatherName}',
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
@@ -267,9 +235,9 @@ class CustomerProfileTileUi extends StatelessWidget {
                               Text(
                                 'فون: ${customer.phone}',
                                 style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.textDark,
                                 ),
                               ),
                           ],
@@ -280,14 +248,14 @@ class CustomerProfileTileUi extends StatelessWidget {
                   const Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
-                    color: Colors.black45,
+                    color: AppColors.textMuted,
                   ),
                 ],
               ),
               if (linkedGuarantor.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 9),
                 Container(
-                  padding: const EdgeInsets.all(9),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F7FF),
                     borderRadius: BorderRadius.circular(10),
@@ -310,7 +278,7 @@ class CustomerProfileTileUi extends StatelessWidget {
                               'منسلک ضامن: ${linkedGuarantor['name']}',
                               style: TextStyle(
                                 fontSize: 14.5,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w900,
                                 color: Colors.indigo.shade900,
                               ),
                             ),

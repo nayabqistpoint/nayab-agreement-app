@@ -1,12 +1,29 @@
 import 'dart:convert';
 
 class SmartPayloadParser {
+  static const String _secretSalt = 'NQP_QIST_2026_SECURE_KEY';
+
+  static String _xorDecrypt(String base64Cipher) {
+    final cipherBytes = base64Decode(base64Cipher);
+    final keyBytes = utf8.encode(_secretSalt);
+    final out = List<int>.generate(
+      cipherBytes.length,
+      (i) => cipherBytes[i] ^ keyBytes[i % keyBytes.length],
+    );
+    return utf8.decode(out);
+  }
+
   static Map<String, String> parseScannedInput(String raw) {
     String clean = raw.trim();
     if (clean.isEmpty) return {};
 
-    // اگر خفیہ NQP_QR فارمیٹ ہو تو پہلے اسے ڈی کوڈ کریں
-    if (clean.startsWith('NQP_QR:')) {
+    // خفیہ انکرپٹڈ NQP QR فارمیٹ
+    if (clean.startsWith('NQP_SEC_V1:')) {
+      try {
+        final cipherPart = clean.substring(11).trim();
+        clean = _xorDecrypt(cipherPart);
+      } catch (_) {}
+    } else if (clean.startsWith('NQP_QR:')) {
       try {
         final b64 = clean.substring(7).trim();
         clean = utf8.decode(base64Decode(b64));
@@ -19,6 +36,7 @@ class SmartPayloadParser {
         final Map<String, String> result = {};
         decoded.forEach((key, value) {
           if (value == null) return;
+          if (value is List || value is Map) return;
           final valStr = value.toString().trim();
           if (valStr.isEmpty || valStr == 'null') return;
           final k = _normalizeKey(key.toString());
@@ -41,11 +59,11 @@ class SmartPayloadParser {
   static String _normalizeKey(String rawKey) {
     final trimmed = rawKey.trim();
     final lower = trimmed.toLowerCase();
-
-    // اگر پہلے سے معیاری اردو کلید ہو تو اسے جوں کا توں رکھیں
     const exactUrduKeys = {
       'موبائل ماڈل',
       'IMEI نمبر',
+      'سیریل نمبر',
+      'اسٹاک آئی ڈی',
       'ٹوٹل رقم',
       'ایڈوانس رقم',
       'ماہانہ قسط',
@@ -72,7 +90,6 @@ class SmartPayloadParser {
       'تاریخ ادائیگی',
     };
     if (exactUrduKeys.contains(trimmed)) return trimmed;
-
     if (lower.contains('guarantor')) {
       if (lower.contains('father')) return 'ضامن ولدیت';
       if (lower.contains('caste')) return 'ضامن قومیت';
@@ -83,8 +100,10 @@ class SmartPayloadParser {
       return 'ضامن کا نام';
     }
     if (lower.contains('guardian')) return 'سرپرست فون';
+    if (lower.contains('stockid')) return 'اسٹاک آئی ڈی';
     if (lower.contains('model') || lower.contains('itemname')) return 'موبائل ماڈل';
     if (lower.contains('imei')) return 'IMEI نمبر';
+    if (lower.contains('serial')) return 'سیریل نمبر';
     if (lower.contains('totalcontract') || lower.contains('total')) return 'ٹوٹل رقم';
     if (lower.contains('advance')) return 'ایڈوانس رقم';
     if (lower.contains('monthly') || lower.contains('installment')) return 'ماہانہ قسط';

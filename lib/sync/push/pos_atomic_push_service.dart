@@ -15,6 +15,7 @@ class PosAtomicPushService {
     await _pushBoxToFirestore(BoxNames.stockBox);
     await _pushBoxToFirestore(BoxNames.shopOrdersBox);
     await _pushBoxToFirestore(BoxNames.tagsBox);
+    await _pushBoxToFirestore(BoxNames.posDevicesBox);
   }
 
   static Future<void> _pushBoxToFirestore(String boxName) async {
@@ -30,7 +31,6 @@ class PosAtomicPushService {
           final docId = key.toString();
           final payload = Map<String, dynamic>.from(raw);
 
-          // اگر اسٹاک کی تصاویر ابھی لوکل پاتھ پر ہوں تو انہیں پہلے Cloudinary پر اپلوڈ کریں
           if (boxName == BoxNames.stockBox && payload['images'] is List) {
             final rawImgs = (payload['images'] as List)
                 .map((e) => e.toString())
@@ -39,17 +39,18 @@ class PosAtomicPushService {
             final hasLocalFile =
                 rawImgs.any((p) => !p.startsWith('http'));
             if (hasLocalFile) {
-              payload['images'] =
+              final uploadedList =
                   await CloudinaryStorageService.uploadStockImages(
                 stockId: docId,
                 pathsOrUrls: rawImgs,
               );
+              payload['images'] =
+                  uploadedList.where((u) => u.startsWith('http')).toList();
             }
           }
 
           payload['isSynced'] = true;
           payload['syncedAt'] = TimeStatusService.nowUtcIso();
-
           final docRef = _firestore.collection(boxName).doc(docId);
           batch.set(docRef, payload, SetOptions(merge: true));
           syncedLocalUpdates[docId] = payload;

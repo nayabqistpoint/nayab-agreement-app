@@ -5,6 +5,21 @@ class StockInventoryController extends ChangeNotifier {
   int selectedCategoryIndex = 0;
   String statusFilter = 'ACTIVE';
   StockMap? editingItem;
+  int currentQuantity = 1;
+
+  void incrementQuantity() {
+    if (currentQuantity < 50) {
+      currentQuantity++;
+      notifyListeners();
+    }
+  }
+
+  void decrementQuantity() {
+    if (currentQuantity > 1) {
+      currentQuantity--;
+      notifyListeners();
+    }
+  }
 
   StockList getFilteredStock() {
     final all = StockInventoryStorageService.getAllStockItems();
@@ -39,6 +54,7 @@ class StockInventoryController extends ChangeNotifier {
 
   void startEditing(StockMap item) {
     editingItem = item;
+    currentQuantity = 1;
     final cat = item['productCategory']?.toString() ?? 'MOBILE';
     selectedCategoryIndex = (cat == 'ELECTRONICS') ? 1 : 0;
     notifyListeners();
@@ -49,7 +65,7 @@ class StockInventoryController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> saveStockItem({
+  Future<({int count, String firstStockId, String firstCode})> saveStockItem({
     required String stockId,
     required String itemName,
     required String imeiOrSerial,
@@ -62,11 +78,15 @@ class StockInventoryController extends ChangeNotifier {
     required String conditionRating,
     required int warranty,
     required bool isOnOrder,
+    int quantity = 1,
     Map<String, String> dynamicFields = const {},
+    Map<String, List<String>> perUnitOverrides = const {},
     required List<String> images,
+    List<List<String>> perUnitImages = const [],
+    String? linkToOrderId,
   }) async {
     final cat = selectedCategoryIndex == 1 ? 'ELECTRONICS' : 'MOBILE';
-    await StockInventoryStorageService.saveStock(
+    final result = await StockInventoryStorageService.saveStock(
       stockId: stockId,
       category: cat,
       itemName: itemName,
@@ -80,12 +100,17 @@ class StockInventoryController extends ChangeNotifier {
       conditionRating: conditionRating,
       warrantyMonths: warranty,
       isOnOrder: isOnOrder,
+      quantity: quantity,
       dynamicFields: dynamicFields,
+      perUnitOverrides: perUnitOverrides,
       images: images,
+      perUnitImages: perUnitImages,
+      linkToOrderId: linkToOrderId,
     );
     editingItem = null;
+    currentQuantity = 1;
     notifyListeners();
-    return true;
+    return result;
   }
 
   Future<bool> deleteStockItem(String stockId) async {
@@ -96,6 +121,14 @@ class StockInventoryController extends ChangeNotifier {
 
   Future<int> purgeDeleted() async {
     final count = await StockInventoryStorageService.purgeAllDeletedRecords();
+    notifyListeners();
+    return count;
+  }
+
+  Future<int> resetAllToZero() async {
+    final count = await StockInventoryStorageService.resetAllTestDataToZero();
+    editingItem = null;
+    currentQuantity = 1;
     notifyListeners();
     return count;
   }

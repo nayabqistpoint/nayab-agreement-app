@@ -9,6 +9,7 @@ import '../../../core/models/customer_profile_model.dart';
 import '../../../core/network/connectivity_service.dart';
 import '../../../core/services/cloudinary_storage_service.dart';
 import '../../../core/time/time_status_service.dart';
+import '../../../core/widgets/portable_image_ui.dart';
 import 'customer_media_viewer_modal_ui.dart';
 
 class CustomerDetailHeaderUi extends StatelessWidget {
@@ -24,7 +25,6 @@ class CustomerDetailHeaderUi extends StatelessWidget {
         imageQuality: 85,
       );
       if (file == null) return;
-
       String localOrData;
       if (kIsWeb) {
         final bytes = await file.readAsBytes();
@@ -32,20 +32,19 @@ class CustomerDetailHeaderUi extends StatelessWidget {
       } else {
         localOrData = file.path;
       }
-
       String finalUrl = localOrData;
       if (await ConnectivityService.isOnline) {
         final cleanCnic = customer.cnic.replaceAll(RegExp(r'[^0-9]'), '');
         final uploaded = await CloudinaryStorageService.uploadImageFile(
           filePath: localOrData,
-          subFolder: 'customers/${cleanCnic.isEmpty ? customer.id : cleanCnic}/profile',
+          subFolder:
+              'customers/${cleanCnic.isEmpty ? customer.id : cleanCnic}/profile',
           customPublicId: 'profile_${DateTime.now().millisecondsSinceEpoch}',
         );
         if (uploaded != null) {
           finalUrl = uploaded;
         }
       }
-
       final box = HiveBoxManager.getBox(BoxNames.customersBox);
       final raw = box.get(customer.id);
       if (raw is Map) {
@@ -77,7 +76,8 @@ class CustomerDetailHeaderUi extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.zoom_in_rounded,
                       color: AppColors.primaryEmerald),
-                  title: const Text('تصویر بڑی کر کے دیکھیں'),
+                  title: const Text('تصویر فل اسکرین زوم کر کے دیکھیں',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   onTap: () {
                     Navigator.pop(ctx);
                     CustomerMediaViewerModalUi.show(
@@ -90,7 +90,8 @@ class CustomerDetailHeaderUi extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.camera_alt_outlined,
                     color: AppColors.primaryEmerald),
-                title: const Text('کیمرہ سے نئی تصویر لیں'),
+                title: const Text('کیمرہ سے نئی تصویر لیں',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateCustomerPhoto(context, ImageSource.camera);
@@ -99,7 +100,8 @@ class CustomerDetailHeaderUi extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined,
                     color: AppColors.primaryEmerald),
-                title: const Text('گیلری سے تصویر منتخب کریں'),
+                title: const Text('گیلری سے تصویر منتخب کریں',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _updateCustomerPhoto(context, ImageSource.gallery);
@@ -112,186 +114,174 @@ class CustomerDetailHeaderUi extends StatelessWidget {
     );
   }
 
-  Widget _buildPassportCard(BuildContext context, bool isGuarantor) {
-    final url = customer.photoUrl?.trim() ?? '';
-    final bool hasImg = url.isNotEmpty && url != 'null';
-    Widget imgWidget;
-
-    if (hasImg && url.startsWith('data:image')) {
-      try {
-        final commaIdx = url.indexOf(',');
-        final bytes = base64Decode(url.substring(commaIdx + 1));
-        imgWidget = Image.memory(bytes, fit: BoxFit.cover);
-      } catch (_) {
-        imgWidget = Icon(
-          isGuarantor ? Icons.shield_outlined : Icons.person,
-          color: isGuarantor
-              ? Colors.indigo.shade700
-              : AppColors.primaryEmerald,
-          size: 36,
-        );
-      }
-    } else if (hasImg) {
-      imgWidget = Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Icon(
-          isGuarantor ? Icons.shield_outlined : Icons.person,
-          color: isGuarantor
-              ? Colors.indigo.shade700
-              : AppColors.primaryEmerald,
-          size: 36,
-        ),
-      );
-    } else {
-      imgWidget = Icon(
-        isGuarantor ? Icons.shield_outlined : Icons.person,
-        color: isGuarantor
-            ? Colors.indigo.shade700
-            : AppColors.primaryEmerald,
-        size: 36,
-      );
-    }
-
-    return InkWell(
-      onTap: () => _showPhotoOptions(context, customer.photoUrl),
-      borderRadius: BorderRadius.circular(10),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 66,
-              height: 76,
-              decoration: BoxDecoration(
-                color: isGuarantor
-                    ? Colors.indigo.shade50
-                    : AppColors.primaryEmerald.withAlpha(25),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.primaryEmerald,
-                  width: 1.5,
-                ),
-              ),
-              child: imgWidget,
-            ),
-          ),
-          Positioned(
-            bottom: 2,
-            left: 2,
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: AppColors.primaryEmerald,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: const Icon(
-                Icons.camera_alt,
-                size: 11,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isGuarantor = customer.role.startsWith('ضامن');
+    final url = customer.photoUrl?.trim() ?? '';
+    final bool hasImg = url.isNotEmpty && url != 'null';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              _buildPassportCard(context, isGuarantor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            customer.fullName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isGuarantor
-                                ? Colors.indigo.shade50
-                                : Colors.teal.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            customer.role,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isGuarantor
-                                  ? Colors.indigo.shade800
-                                  : AppColors.primaryEmerald,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'ولدیت: ${customer.fatherName.isNotEmpty ? customer.fatherName : "درج نہیں"}',
-                      style:
-                          const TextStyle(fontSize: 12.5, color: Colors.black54),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'CNIC: ${customer.cnic}  |  فون: ${customer.phone}',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
+        // Upper Half بڑی واضح تصویر والا ہیڈر
+        GestureDetector(
+          onTap: () => _showPhotoOptions(context, customer.photoUrl),
+          child: Container(
+            height: 270,
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isGuarantor
+                    ? Colors.indigo.shade400
+                    : AppColors.primaryEmerald,
+                width: 2.0,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PortableImageUi(
+                    pathOrUrl: url,
+                    fit: BoxFit.contain,
+                    fallbackIcon: isGuarantor
+                        ? Icons.shield_outlined
+                        : Icons.person_rounded,
+                    fallbackIconSize: 95,
+                    fallbackColor: Colors.white54,
+                  ),
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
                         color: AppColors.primaryEmerald,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white, width: 1.2),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.camera_alt_rounded,
+                              size: 16, color: Colors.white),
+                          SizedBox(width: 5),
+                          Text(
+                            'تصویر تبدیل / زوم',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  if (!hasImg)
+                    const Positioned(
+                      bottom: 12,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Text(
+                          'تصویر لگانے کے لیے یہاں کلک کریں',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight, width: 1.2),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.location_on_outlined,
-                  size: 17, color: Colors.black54),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'پتہ: ${customer.address.isNotEmpty ? customer.address : "کوئی پتہ درج نہیں"}',
-                  style: const TextStyle(fontSize: 12.5, color: Colors.black87),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      customer.fullName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isGuarantor
+                          ? Colors.indigo.shade50
+                          : AppColors.warmTintEmerald,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Text(
+                      customer.role,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                        color: isGuarantor
+                            ? Colors.indigo.shade800
+                            : AppColors.primaryEmerald,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'ولدیت: ${customer.fatherName.isNotEmpty ? customer.fatherName : "درج نہیں"}',
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textMuted,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'CNIC: ${customer.cnic}  |  فون: ${customer.phone}',
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primaryEmerald,
+                ),
+              ),
+              const Divider(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined,
+                      size: 19, color: AppColors.primaryEmerald),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'پتہ: ${customer.address.isNotEmpty ? customer.address : "کوئی پتہ درج نہیں"}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

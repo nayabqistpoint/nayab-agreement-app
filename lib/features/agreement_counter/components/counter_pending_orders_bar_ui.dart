@@ -75,7 +75,6 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
         size: 30,
       );
     }
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -99,9 +98,13 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: HiveBoxManager.listenToBox(BoxNames.shopOrdersBox),
       builder: (context, _, _) {
-        final allOrders = PosPendingOrdersService.getAllOrders();
+        final installmentOrders =
+            PosPendingOrdersService.getInstallmentOrders();
         final pendingOrders = PosPendingOrdersService.getPendingOrders();
         final int pendingCount = pendingOrders.length;
+        final int unreadCashCount =
+            PosPendingOrdersService.getUnreadCashSalesCount();
+
         final activeName = currentBucketValues['کسٹمر کا نام']?.trim() ?? '';
         final activeCnic = currentBucketValues['شناختی کارڈ']?.trim() ?? '';
         final activeModel = currentBucketValues['موبائل ماڈل']?.trim() ?? '';
@@ -116,79 +119,151 @@ class CounterPendingOrdersBarUi extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PosPendingOrdersPage(),
-                    ),
-                  ).then((_) => onOrderUpdatedFromPage());
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: pendingCount > 0
-                        ? const Color(0xFFE0F2F1)
-                        : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: pendingCount > 0
-                          ? AppColors.primaryEmerald
-                          : Colors.grey.shade300,
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PosPendingOrdersPage(),
+                          ),
+                        ).then((_) => onOrderUpdatedFromPage());
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
+                            horizontal: 10, vertical: 7),
                         decoration: BoxDecoration(
                           color: pendingCount > 0
-                              ? AppColors.primaryEmerald
-                              : Colors.blueGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '$pendingCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          pendingCount > 0
-                              ? 'POS پینڈنگ آرڈرز ($pendingCount) — کسٹمر منتخب کرنے کیلئے کلک کریں'
-                              : 'POS آرڈرز: کوئی نیا پینڈنگ آرڈر نہیں (ہسٹری: ${allOrders.length})',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                              ? const Color(0xFFE0F2F1)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
                             color: pendingCount > 0
                                 ? AppColors.primaryEmerald
-                                : Colors.blueGrey.shade700,
+                                : Colors.grey.shade300,
+                            width: 1.2,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: pendingCount > 0
+                                    ? AppColors.primaryEmerald
+                                    : Colors.blueGrey,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$pendingCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                pendingCount > 0
+                                    ? 'POS آرڈرز ($pendingCount)'
+                                    : 'POS آرڈرز (ہسٹری: ${installmentOrders.length})',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: pendingCount > 0
+                                      ? AppColors.primaryEmerald
+                                      : Colors.blueGrey.shade700,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 13,
+                              color: pendingCount > 0
+                                  ? AppColors.primaryEmerald
+                                  : Colors.blueGrey,
+                            ),
+                          ],
                         ),
                       ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color: pendingCount > 0
-                            ? AppColors.primaryEmerald
-                            : Colors.blueGrey,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  if (unreadCashCount > 0) ...[
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PosPendingOrdersPage(
+                              initialFilter: 'CASH',
+                            ),
+                          ),
+                        ).then((_) => onOrderUpdatedFromPage());
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.amber.shade700,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.payments_rounded,
+                              size: 16,
+                              color: Color(0xFFB45309),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'نقد سیل',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.errorRed,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$unreadCashCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               if (hasActiveData) ...[
                 const SizedBox(height: 5),

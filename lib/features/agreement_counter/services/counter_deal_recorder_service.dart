@@ -26,6 +26,8 @@ class CounterDealRecorderService {
     String? orderCustomerPhotoUrl;
     String? orderGuarantorPhotoUrl;
     String orderStockId = stockIdFromField;
+    List<String> orderStockIds = [];
+    String orderGuaranteeLabel = fieldValues['ضمانت']?.trim() ?? '';
 
     if (activePosOrderId != null && activePosOrderId.isNotEmpty) {
       final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
@@ -37,12 +39,27 @@ class CounterDealRecorderService {
         if (gu.isNotEmpty && gu != 'null') orderGuarantorPhotoUrl = gu;
         final sid = rawOrder['stockId']?.toString().trim() ?? '';
         if (sid.isNotEmpty && sid != 'null') orderStockId = sid;
+        if (rawOrder['stockIds'] is List) {
+          orderStockIds = (rawOrder['stockIds'] as List)
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty && e != 'null')
+              .toList();
+        }
+        if (orderGuaranteeLabel.isEmpty) {
+          final gRaw = rawOrder['guaranteeType']?.toString() ?? '';
+          orderGuaranteeLabel =
+              gRaw == 'BANK_CHEQUE' ? 'بینک چیک' : 'اشٹام پرنوٹ';
+        }
       }
     }
 
+    if (orderStockId.isNotEmpty && !orderStockIds.contains(orderStockId)) {
+      orderStockIds.insert(0, orderStockId);
+    }
+
     final enrichedSnapshot = Map<String, String>.from(fieldValues);
-    if (orderStockId.isNotEmpty) {
-      enrichedSnapshot['اسٹاک آئی ڈی'] = orderStockId;
+    if (orderStockIds.isNotEmpty) {
+      enrichedSnapshot['اسٹاک آئی ڈی'] = orderStockIds.join(', ');
     }
 
     final stockMeta = _findStock(stockId: orderStockId, imei: imei);
@@ -162,7 +179,6 @@ class CounterDealRecorderService {
       profileUpdates[guarantorKey] = guarantorProfile.toMap();
     }
 
-    // سپلائر / ڈیلر کا ریکارڈ ڈائریکٹری میں محفوظ کرنا
     final supplierRaw = enrichedSnapshot['سپلائر']?.trim() ?? '';
     if (supplierRaw.isNotEmpty) {
       final phoneMatch = RegExp(r'03\d{9}').firstMatch(supplierRaw);
@@ -197,20 +213,38 @@ class CounterDealRecorderService {
       entries: profileUpdates,
     );
 
-    if (orderStockId.isNotEmpty || (imei.isNotEmpty && imei != 'null')) {
-      final adv = enrichedSnapshot['ایڈوانس رقم'] ?? '0';
-      final monthly = enrichedSnapshot['ماہانہ قسط'] ?? '0';
-      final dur = enrichedSnapshot['مدت'] ?? '';
-      final soldSummary = '$dur • ایڈوانس: Rs. $adv • قسط: Rs. $monthly/ماہ';
+    if (orderStockIds.isNotEmpty || (imei.isNotEmpty && imei != 'null')) {
+      final int advNum =
+          int.tryParse(enrichedSnapshot['ایڈوانس رقم']?.trim() ?? '0') ?? 0;
+      final String monthly = enrichedSnapshot['ماہانہ قسط']?.trim() ?? '0';
+      final String dur = enrichedSnapshot['مدت']?.trim() ?? '';
+      final String advText =
+          advNum > 0 ? 'ایڈوانس: Rs. $advNum' : '⭐ بغیر ایڈوانس';
+      final String gPart =
+          orderGuaranteeLabel.isNotEmpty ? ' ($orderGuaranteeLabel)' : '';
+      final soldSummary = '$dur • $advText • قسط: Rs. $monthly/ماہ$gPart';
 
-      await _markStockSold(
-        stockId: orderStockId,
-        imei: imei,
-        soldToName: name,
-        soldToCnic: cnic,
-        dealId: dealId,
-        soldPlanSummary: soldSummary,
-      );
+      if (orderStockIds.isNotEmpty) {
+        for (final sid in orderStockIds) {
+          await _markStockSold(
+            stockId: sid,
+            imei: imei,
+            soldToName: name,
+            soldToCnic: cnic,
+            dealId: dealId,
+            soldPlanSummary: soldSummary,
+          );
+        }
+      } else {
+        await _markStockSold(
+          stockId: '',
+          imei: imei,
+          soldToName: name,
+          soldToCnic: cnic,
+          dealId: dealId,
+          soldPlanSummary: soldSummary,
+        );
+      }
     }
 
     return deal;
@@ -250,6 +284,7 @@ class CounterDealRecorderService {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
       final now = TimeStatusService.nowUtcIso();
       String? targetKey;
+
       if (stockId.isNotEmpty &&
           stockId != 'null' &&
           stockBox.containsKey(stockId)) {
@@ -264,13 +299,13 @@ class CounterDealRecorderService {
           }
         }
       }
+
       if (targetKey != null) {
         final rawStock = stockBox.get(targetKey);
         if (rawStock is Map) {
           final updatedStock = Map<String, dynamic>.from(rawStock);
           final currentStatus =
               (updatedStock['status']?.toString() ?? 'AVAILABLE').toUpperCase();
-          // اگر ON_ORDER ہے تو دوبارہ آرڈرز کیلئے کھلا رکھیں، ورنہ SOLD کر دیں
           if (currentStatus != 'ON_ORDER' && updatedStock['isOnOrder'] != true) {
             updatedStock['status'] = 'SOLD';
           }

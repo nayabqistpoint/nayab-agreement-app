@@ -1,12 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/portable_image_ui.dart';
+import '../pos_order_full_profile_page.dart';
 import '../services/pos_pending_orders_service.dart';
 
 class PosPendingOrderCardUi extends StatelessWidget {
   final PosOrderRecord order;
   final bool isCurrentlyActive;
-  final VoidCallback onSelect;
+  final ValueChanged<PosOrderRecord> onSelect;
   final VoidCallback onDismiss;
 
   const PosPendingOrderCardUi({
@@ -18,64 +19,33 @@ class PosPendingOrderCardUi extends StatelessWidget {
   });
 
   Widget _buildPassportPhoto(String? photoUrl, {bool isGuarantor = false}) {
-    final clean = photoUrl?.trim() ?? '';
-    final bool hasImg = clean.isNotEmpty && clean != 'null';
-    Widget imgWidget;
-
-    if (hasImg && clean.startsWith('data:image')) {
-      try {
-        final commaIdx = clean.indexOf(',');
-        final bytes = base64Decode(clean.substring(commaIdx + 1));
-        imgWidget = Image.memory(bytes, fit: BoxFit.cover);
-      } catch (_) {
-        imgWidget = Icon(
-          isGuarantor ? Icons.shield_outlined : Icons.person_rounded,
-          color: isGuarantor
-              ? Colors.indigo.shade700
-              : AppColors.primaryEmerald,
-          size: 34,
-        );
-      }
-    } else if (hasImg) {
-      imgWidget = Image.network(
-        clean,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Icon(
-          isGuarantor ? Icons.shield_outlined : Icons.person_rounded,
-          color: isGuarantor
-              ? Colors.indigo.shade700
-              : AppColors.primaryEmerald,
-          size: 34,
-        ),
-      );
-    } else {
-      imgWidget = Icon(
-        isGuarantor ? Icons.shield_outlined : Icons.person_rounded,
-        color: isGuarantor
-            ? Colors.indigo.shade700
-            : AppColors.primaryEmerald,
-        size: 34,
-      );
-    }
-
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(9),
       child: Container(
-        width: 58,
-        height: 66,
+        width: 64,
+        height: 74,
         decoration: BoxDecoration(
           color: isGuarantor
               ? Colors.indigo.shade50
-              : AppColors.primaryEmerald.withAlpha(22),
-          borderRadius: BorderRadius.circular(8),
+              : AppColors.warmTintEmerald,
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(
             color: isGuarantor
-                ? Colors.indigo.shade300
+                ? Colors.indigo.shade400
                 : AppColors.primaryEmerald,
             width: 1.4,
           ),
         ),
-        child: imgWidget,
+        child: PortableImageUi(
+          pathOrUrl: photoUrl,
+          fit: BoxFit.cover,
+          fallbackIcon:
+              isGuarantor ? Icons.shield_outlined : Icons.person_rounded,
+          fallbackIconSize: 36,
+          fallbackColor: isGuarantor
+              ? Colors.indigo.shade700
+              : AppColors.primaryEmerald,
+        ),
       ),
     );
   }
@@ -91,17 +61,16 @@ class PosPendingOrderCardUi extends StatelessWidget {
     final Color accentColor =
         isGuarantor ? Colors.indigo.shade800 : AppColors.primaryEmerald;
     final Color bgTint =
-        isGuarantor ? const Color(0xFFF5F7FF) : const Color(0xFFF3FBF8);
-
+        isGuarantor ? const Color(0xFFF5F7FF) : AppColors.warmTintEmerald;
     return Container(
-      padding: const EdgeInsets.all(9),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: bgTint,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isGuarantor
               ? Colors.indigo.shade200
-              : AppColors.primaryEmerald.withAlpha(90),
+              : AppColors.emeraldPillBorder,
         ),
       ),
       child: Row(
@@ -120,14 +89,14 @@ class PosPendingOrderCardUi extends StatelessWidget {
                           horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
                         color: accentColor,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         roleLabel,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
@@ -138,9 +107,9 @@ class PosPendingOrderCardUi extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 15.5,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
+                          color: AppColors.textDark,
                         ),
                       ),
                     ),
@@ -148,10 +117,10 @@ class PosPendingOrderCardUi extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'شناختی کارڈ: ${cnic.isNotEmpty ? cnic : "درج نہیں"}  |  فون: $phone',
+                  'CNIC: ${cnic.isNotEmpty ? cnic : "درج نہیں"}  |  فون: $phone',
                   style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                     color: accentColor,
                   ),
                 ),
@@ -163,21 +132,34 @@ class PosPendingOrderCardUi extends StatelessWidget {
     );
   }
 
+  void _openFullProfile(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PosOrderFullProfilePage(
+          order: order,
+          onLoadToCounter: (updatedOrder) => onSelect(updatedOrder),
+          onDismissOrder: onDismiss,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final customer = order['customerName']?.toString() ?? 'نامعلوم کسٹمر';
     final cnic = order['customerCnic']?.toString() ?? '';
     final phone = order['customerPhone']?.toString() ?? '';
     final customerPhoto = order['customerPhotoUrl']?.toString();
-
     final guarantor = order['guarantorName']?.toString().trim() ?? '';
     final guarantorCnic = order['guarantorCnic']?.toString().trim() ?? '';
     final guarantorPhone = order['guarantorPhone']?.toString().trim() ?? '';
     final guarantorPhoto = order['guarantorPhotoUrl']?.toString();
     final bool hasGuarantor = guarantor.isNotEmpty;
-
     final model = order['itemName']?.toString() ?? 'موبائل';
     final stockId = order['stockId']?.toString().trim() ?? '';
+    final bool isCustomOrder =
+        order['isCustomEstimate'] == true || stockId.isEmpty;
     final total = order['totalContractAmount']?.toString() ?? '0';
     final advance = order['advance']?.toString() ?? '0';
     final monthly = order['monthlyAmount']?.toString() ?? '0';
@@ -190,93 +172,63 @@ class PosPendingOrderCardUi extends StatelessWidget {
       elevation: isCurrentlyActive ? 3 : 1.5,
       margin: const EdgeInsets.only(bottom: 12),
       color: isCurrentlyActive
-          ? AppColors.primaryEmerald.withAlpha(16)
-          : Colors.white,
+          ? AppColors.warmTintEmerald
+          : AppColors.cardSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
           color: isCurrentlyActive
               ? AppColors.primaryEmerald
-              : const Color(0xFFCBD5E1),
+              : AppColors.borderLight,
           width: isCurrentlyActive ? 2.2 : 1.2,
         ),
       ),
       child: InkWell(
-        onTap: onSelect,
+        onTap: () => _openFullProfile(context),
         borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryEmerald,
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Text(
-                      stockId.isNotEmpty ? '$model ($stockId)' : model,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryEmerald,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Text(
+                        stockId.isNotEmpty ? '$model ($stockId)' : model,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  if (isCurrentlyActive)
+                  const SizedBox(width: 6),
+                  if (isCompleted)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.teal.shade700,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.white, size: 15),
-                          SizedBox(width: 4),
-                          Text(
-                            'منتخب شدہ',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else if (isCompleted)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 4),
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.green.shade600),
+                        borderRadius: BorderRadius.circular(7),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified,
-                              color: Colors.green.shade800, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            'مکمل شدہ',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade900,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'مکمل شدہ',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.green.shade900,
+                        ),
                       ),
                     )
                   else if (isDismissed)
@@ -285,13 +237,13 @@ class PosPendingOrderCardUi extends StatelessWidget {
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(7),
                       ),
                       child: const Text(
                         'ہٹایا گیا',
                         style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
                           color: Colors.black54,
                         ),
                       ),
@@ -302,34 +254,41 @@ class PosPendingOrderCardUi extends StatelessWidget {
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade100,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.orange.shade600),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: AppColors.pendingOrange),
                       ),
                       child: Text(
                         'زیرِ التواء',
                         style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
                           color: Colors.orange.shade900,
                         ),
                       ),
                     ),
-                  if (!isCompleted && !isDismissed) ...[
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(
-                        Icons.delete_outline,
-                        color: Colors.red.shade600,
-                        size: 22,
-                      ),
-                      tooltip: 'پینڈنگ لسٹ سے ختم کریں',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: onDismiss,
-                    ),
-                  ],
                 ],
               ),
-              const SizedBox(height: 10),
+              if (isCustomOrder) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.pendingOrange),
+                  ),
+                  child: const Text(
+                    '🛒 آن ڈیمانڈ / کسٹم آرڈر (اسٹاک خریدنا باقی)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF9A3412),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 9),
               _buildPersonFullRow(
                 roleLabel: 'خریدار',
                 name: customer,
@@ -339,7 +298,7 @@ class PosPendingOrderCardUi extends StatelessWidget {
                 isGuarantor: false,
               ),
               if (hasGuarantor) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 7),
                 _buildPersonFullRow(
                   roleLabel: 'ضامن',
                   name: guarantor,
@@ -353,10 +312,53 @@ class PosPendingOrderCardUi extends StatelessWidget {
               Text(
                 'ٹوٹل: Rs. $total  |  ایڈوانس: Rs. $advance  |  قسط: Rs. $monthly × $months ماہ',
                 style: const TextStyle(
-                  fontSize: 13.5,
-                  color: Color(0xFF1E293B),
-                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w900,
                 ),
+              ),
+              const SizedBox(height: 9),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openFullProfile(context),
+                      icon: const Icon(Icons.visibility_outlined, size: 17),
+                      label: const Text(
+                        'مکمل پروفائل و تصویر',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primaryEmerald,
+                        side: const BorderSide(
+                            color: AppColors.primaryEmerald, width: 1.2),
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => onSelect(order),
+                      icon: const Icon(Icons.check_circle_outline, size: 17),
+                      label: const Text(
+                        'کاؤنٹر پر لوڈ کریں',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryEmerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

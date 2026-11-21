@@ -2,16 +2,15 @@ import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
 import '../../../core/services/tags_bank_service.dart';
 import '../../../core/time/time_status_service.dart';
+import '../../pos_pending_orders/services/pos_pending_orders_service.dart';
 
 typedef PosOrderMap = Map<String, dynamic>;
 
 class CounterPosOrderService {
-  /// تمام غیر حذف شدہ آرڈرز نکالنا (تازہ ترین سب سے اوپر)
   static List<PosOrderMap> getAllOrders() {
     try {
       final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
       final List<PosOrderMap> orders = [];
-
       for (final key in box.keys) {
         final raw = box.get(key);
         if (raw is Map) {
@@ -21,20 +20,17 @@ class CounterPosOrderService {
           orders.add(map);
         }
       }
-
       orders.sort((a, b) {
         final tA = a['createdAt']?.toString() ?? '';
         final tB = b['createdAt']?.toString() ?? '';
         return tB.compareTo(tA);
       });
-
       return orders;
     } catch (_) {
       return [];
     }
   }
 
-  /// صرف پینڈنگ آرڈرز نکالنا (جو ابھی مکمل یا ختم نہیں ہوئے)
   static List<PosOrderMap> getPendingOrders() {
     return getAllOrders().where((map) {
       final status = (map['status']?.toString() ?? '').trim().toUpperCase();
@@ -48,13 +44,22 @@ class CounterPosOrderService {
     return TagsBankService.translatePosOrder(order);
   }
 
-  /// حوالگی مکمل ہونے پر آرڈر کا اسٹیٹس AGREEMENT_COMPLETED کرنا
   static Future<void> markOrderAgreementCompleted(String orderId) async {
     await _updateOrderStatus(orderId, 'AGREEMENT_COMPLETED');
   }
 
-  /// دستی طور پر آرڈر کو پینڈنگ لسٹ سے ختم کرنا (ہسٹری میں محفوظ رہے گا)
   static Future<void> dismissOrderFromPending(String orderId) async {
+    if (orderId.trim().isEmpty) return;
+    final box = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
+    final raw = box.get(orderId);
+    if (raw is Map) {
+      final stockId = raw['stockId']?.toString().trim() ?? '';
+      final imei = raw['imeiNo']?.toString().trim() ?? '';
+      await PosPendingOrdersService.releaseStockReservation(
+        stockId: stockId,
+        imei: imei,
+      );
+    }
     await _updateOrderStatus(orderId, 'DISMISSED_BY_COUNTER');
   }
 
@@ -69,7 +74,6 @@ class CounterPosOrderService {
         updated['status'] = newStatus;
         updated['updatedAt'] = TimeStatusService.nowUtcIso();
         updated['isSynced'] = false;
-
         await HiveBoxManager.putBatch(
           boxName: BoxNames.shopOrdersBox,
           entries: {orderId: updated},

@@ -18,25 +18,25 @@ class CustomRatesConfigUi extends StatelessWidget {
       textAlign: TextAlign.left,
       style: const TextStyle(
         fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF0F172A),
+        fontWeight: FontWeight.w900,
+        color: AppColors.textDark,
       ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF1E293B),
+          fontWeight: FontWeight.w900,
+          color: AppColors.textDark,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         helperText: helper,
-        helperStyle: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
+        helperStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
         helperMaxLines: 2,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.cardSurface,
       ),
     );
   }
@@ -49,11 +49,11 @@ class CustomRatesConfigUi extends StatelessWidget {
       dense: true,
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(fontSize: 11.5, color: Colors.black54),
+        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
       ),
       onChanged: (v) => controller.toggleCustomAllowedZone(zoneKey, v ?? false),
     );
@@ -63,17 +63,16 @@ class CustomRatesConfigUi extends StatelessWidget {
   Widget build(BuildContext context) {
     final months =
         List.generate((controller.custMaxMonth - 3) + 1, (i) => 3 + i);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0FDF4),
+            color: AppColors.warmTintEmerald,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.primaryEmerald.withAlpha(110),
+              color: AppColors.emeraldPillBorder,
               width: 1.3,
             ),
           ),
@@ -89,8 +88,8 @@ class CustomRatesConfigUi extends StatelessWidget {
                     child: Text(
                       'POS کسٹم تخمینہ کیلکولیٹر میں دکھائے جانے والے آپشنز:',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14.5,
                         color: AppColors.textDark,
                       ),
                     ),
@@ -161,6 +160,26 @@ class CustomRatesConfigUi extends StatelessWidget {
           children: [
             Expanded(
               child: _numField(
+                'قسط کی تاریخ (ہر ماہ)',
+                controller.custDueDayCtrl,
+                isDecimal: false,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _numField(
+                'رعایتی دن (Grace)',
+                controller.custGraceDaysCtrl,
+                isDecimal: false,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _numField(
                 'پروسیسنگ فیس (Rs)',
                 controller.custFeeCtrl,
                 isDecimal: false,
@@ -169,9 +188,8 @@ class CustomRatesConfigUi extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _numField(
-                'کسٹم میکس رسک حد',
-                controller.custMaxRiskCtrl,
-                helper: '(قیمت - ایڈوانس) 0 = کوئی حد نہیں',
+                'راؤنڈ آف (Round To)',
+                controller.custRoundCtrl,
                 isDecimal: false,
               ),
             ),
@@ -181,9 +199,98 @@ class CustomRatesConfigUi extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color(0xFFFFFBEB),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF94A3B8)),
+            border: Border.all(color: Colors.amber.shade600, width: 1.2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'کسٹم تخمینہ سیکیورٹی، کٹوتی اور رسک حد:',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14.5,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _numField(
+                      'MDM لاک فیس (Rs)',
+                      controller.custMdmFeeCtrl,
+                      isDecimal: false,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _numField(
+                      'میکس ادھار رسک حد',
+                      controller.custMaxRiskCtrl,
+                      helper: '(قیمت - ایڈوانس) 0 = کوئی حد نہیں',
+                      isDecimal: false,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: controller.custOpenBoxType,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'ڈبہ / سیل کھلنے پر کٹوتی',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'PERCENT', child: Text('فیصد (%) کٹوتی')),
+                        DropdownMenuItem(
+                            value: 'FIXED', child: Text('فکس روپے کٹوتی')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) controller.setCustOpenBoxType(v);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: _numField(
+                      controller.custOpenBoxType == 'PERCENT'
+                          ? 'شرح (%)'
+                          : 'رقم (Rs)',
+                      controller.custOpenBoxValCtrl,
+                      isDecimal: false,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _numField(
+                'انتظامی خصوصی منظوری PIN',
+                controller.custAdminPinCtrl,
+                isDecimal: false,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,7 +301,7 @@ class CustomRatesConfigUi extends StatelessWidget {
                     child: Text(
                       'کسٹم تخمینہ اقساط کے مہینے:',
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                     ),
                   ),
                   IconButton(
@@ -204,7 +311,7 @@ class CustomRatesConfigUi extends StatelessWidget {
                   Text(
                     '3 تا ${controller.custMaxMonth} ماہ',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w900,
                       color: AppColors.primaryEmerald,
                     ),
                   ),
@@ -222,8 +329,8 @@ class CustomRatesConfigUi extends StatelessWidget {
                   return FilterChip(
                     label: Text('$m ماہ',
                         style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: sel ? Colors.white : Colors.black87)),
+                            fontWeight: FontWeight.w900,
+                            color: sel ? Colors.white : AppColors.textDark)),
                     selected: sel,
                     selectedColor: AppColors.primaryEmerald,
                     checkmarkColor: Colors.white,
@@ -237,10 +344,26 @@ class CustomRatesConfigUi extends StatelessWidget {
         const SizedBox(height: 10),
         SwitchListTile(
           title: const Text('کمپاؤنڈنگ منافع (کسٹم تخمینہ)',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+              style: TextStyle(fontWeight: FontWeight.w900)),
           value: controller.custCompounding,
           activeTrackColor: AppColors.primaryEmerald,
           onChanged: controller.setCustCompounding,
+        ),
+        SwitchListTile(
+          title: const Text('پروسیسنگ فیس اصل رقم میں شامل کریں (کسٹم)',
+              style: TextStyle(fontWeight: FontWeight.w900)),
+          value: controller.custAddFeeToPrincipal,
+          activeTrackColor: AppColors.primaryEmerald,
+          onChanged: controller.setCustAddFee,
+        ),
+        SwitchListTile(
+          title: const Text(
+            'کسٹمر کے ذاتی اینڈرائیڈ موبائل پر MDM لاک شرط لازمی رکھیں',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+          ),
+          value: controller.custRequireCustomerMdm,
+          activeTrackColor: AppColors.primaryEmerald,
+          onChanged: controller.setCustRequireCustomerMdm,
         ),
       ],
     );

@@ -16,16 +16,16 @@ class StockInventoryListUi extends StatelessWidget {
 
   Widget _badge(String label, Color bg, Color text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(7),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
           color: text,
         ),
       ),
@@ -36,16 +36,19 @@ class StockInventoryListUi extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.all(32),
+        padding: EdgeInsets.all(28),
         child: Center(
           child: Text(
             'اس حصے میں کوئی آئٹم موجود نہیں ہے۔',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13.5),
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 16.5,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       );
     }
-
     return Column(
       children: items.map((item) {
         final id = item['id']?.toString() ?? '';
@@ -58,14 +61,14 @@ class StockInventoryListUi extends StatelessWidget {
         final details = isMob
             ? (item['ramRom']?.toString() ?? '')
             : (item['specsSummary']?.toString() ?? '');
-        final price = item['salePrice']?.toString() ?? '0';
+        final salePrice = item['salePrice']?.toString() ?? '0';
+        final purchasePrice = item['purchasePrice']?.toString() ?? '0';
         final status = (item['status']?.toString() ?? 'AVAILABLE').toUpperCase();
         final bool isLocked = status == 'RESERVED' || status == 'SOLD';
 
         String statusLabel = 'موجود';
         Color statusBg = Colors.green.shade100;
-        Color statusText = Colors.green.shade800;
-
+        Color statusText = Colors.green.shade900;
         if (status == 'ON_ORDER') {
           statusLabel = 'آرڈر پر دستیاب';
           statusBg = Colors.teal.shade100;
@@ -81,33 +84,40 @@ class StockInventoryListUi extends StatelessWidget {
         }
 
         return Card(
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: const EdgeInsets.only(bottom: 10),
+          elevation: 1.5,
           color: isLocked ? Colors.grey.shade50 : Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: const BorderSide(color: Color(0xFFCBD5E1)),
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: isLocked
+                  ? const Color(0xFFCBD5E1)
+                  : AppColors.emeraldPillBorder,
+              width: 1.3,
+            ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(11),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CircleAvatar(
-                      radius: 18,
+                      radius: 22,
                       backgroundColor: isMob
-                          ? AppColors.primaryEmerald.withAlpha(25)
+                          ? AppColors.primaryEmerald.withAlpha(28)
                           : Colors.indigo.shade50,
                       child: Icon(
                         isMob ? Icons.phone_android : Icons.kitchen_outlined,
-                        size: 20,
+                        size: 24,
                         color: isMob
                             ? AppColors.primaryEmerald
-                            : Colors.indigo.shade700,
+                            : Colors.indigo.shade800,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,61 +125,103 @@ class StockInventoryListUi extends StatelessWidget {
                           Text(
                             '$name ${details.isNotEmpty ? "($details)" : ""}',
                             style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14.5,
-                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 17.5,
+                              color: AppColors.textDark,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             'ID: $id ${identifier.isNotEmpty ? "• No: $identifier" : ""}',
                             style: const TextStyle(
-                                fontSize: 11.5, color: Colors.black54),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textMuted,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 5),
                     _badge(statusLabel, statusBg, statusText),
                   ],
                 ),
-                const Divider(height: 14),
+                const Divider(height: 16, thickness: 1.1),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'قیمتِ فروخت: Rs. $price',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                        color: AppColors.primaryEmerald,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (purchasePrice != '0' &&
+                              purchasePrice.trim().isNotEmpty)
+                            Text(
+                              'خرید: Rs. $purchasePrice',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          Text(
+                            'فروخت: Rs. $salePrice',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16.5,
+                              color: AppColors.primaryEmerald,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (!isLocked)
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          TextButton.icon(
+                          OutlinedButton.icon(
                             onPressed: () => onEdit(item),
-                            icon: const Icon(Icons.edit_outlined,
-                                size: 16, color: AppColors.primaryEmerald),
-                            label: const Text('ترمیم',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.primaryEmerald)),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              size: 18,
+                              color: AppColors.primaryEmerald,
+                            ),
+                            label: const Text(
+                              'ترمیم',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.primaryEmerald,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                  color: AppColors.primaryEmerald),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 6),
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          TextButton.icon(
+                          const SizedBox(width: 5),
+                          OutlinedButton.icon(
                             onPressed: () => onDelete(id),
-                            icon: const Icon(Icons.delete_outline,
-                                size: 16, color: AppColors.errorRed),
-                            label: const Text('حذف',
-                                style: TextStyle(
-                                    fontSize: 12, color: AppColors.errorRed)),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: AppColors.errorRed,
+                            ),
+                            label: const Text(
+                              'حذف',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.errorRed,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side:
+                                  const BorderSide(color: AppColors.errorRed),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 6),
                             ),
                           ),
                         ],

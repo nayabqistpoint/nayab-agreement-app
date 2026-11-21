@@ -4,13 +4,23 @@ import '../../core/database/hive_box_manager.dart';
 import 'services/pos_pending_orders_service.dart';
 
 class PosPendingOrdersController extends ChangeNotifier {
-  /// 'ALL' = سب آرڈرز, 'PENDING' = صرف پینڈنگ, 'HISTORY' = مکمل / ہٹائے گئے
   String statusFilter = 'ALL';
   String searchQuery = '';
 
-  PosPendingOrdersController() {
-    final pendingCount = PosPendingOrdersService.getPendingOrders().length;
-    statusFilter = pendingCount > 0 ? 'PENDING' : 'ALL';
+  PosPendingOrdersController({String? initialFilter}) {
+    if (initialFilter != null && initialFilter.isNotEmpty) {
+      statusFilter = initialFilter;
+    } else {
+      final pendingCount = PosPendingOrdersService.getPendingOrders().length;
+      final unreadCash = PosPendingOrdersService.getUnreadCashSalesCount();
+      if (pendingCount > 0) {
+        statusFilter = 'PENDING';
+      } else if (unreadCash > 0) {
+        statusFilter = 'CASH';
+      } else {
+        statusFilter = 'ALL';
+      }
+    }
   }
 
   String? get activeOrderId {
@@ -29,25 +39,25 @@ class PosPendingOrdersController extends ChangeNotifier {
   }
 
   List<PosOrderRecord> getFilteredOrders() {
-    final all = PosPendingOrdersService.getAllOrders();
     List<PosOrderRecord> baseList;
-    if (statusFilter == 'PENDING') {
+    if (statusFilter == 'CASH') {
+      baseList = PosPendingOrdersService.getCashSaleOrders();
+    } else if (statusFilter == 'PENDING') {
       baseList = PosPendingOrdersService.getPendingOrders();
     } else if (statusFilter == 'HISTORY') {
-      baseList = all.where((map) {
+      baseList = PosPendingOrdersService.getInstallmentOrders().where((map) {
         final st = (map['status']?.toString() ?? '').trim().toUpperCase();
         return st == 'AGREEMENT_COMPLETED' ||
             st == 'DISMISSED_BY_COUNTER' ||
             st == 'CANCELLED';
       }).toList();
     } else {
-      baseList = all;
+      baseList = PosPendingOrdersService.getInstallmentOrders();
     }
 
     final q = searchQuery.trim().toLowerCase();
     if (q.isEmpty) return baseList;
     final cleanQ = q.replaceAll('-', '');
-
     return baseList.where((order) {
       final name = (order['customerName']?.toString() ?? '').toLowerCase();
       final cnic = (order['customerCnic']?.toString() ?? '')
@@ -60,7 +70,6 @@ class PosPendingOrdersController extends ChangeNotifier {
       final phone = (order['customerPhone']?.toString() ?? '').toLowerCase();
       final model = (order['itemName']?.toString() ?? '').toLowerCase();
       final stkId = (order['stockId']?.toString() ?? '').toLowerCase();
-
       return name.contains(q) ||
           cnic.contains(cleanQ) ||
           gName.contains(q) ||
