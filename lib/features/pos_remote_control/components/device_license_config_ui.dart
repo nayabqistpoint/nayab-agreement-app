@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/box_names.dart';
@@ -146,6 +146,123 @@ class DeviceLicenseConfigUi extends StatelessWidget {
     );
   }
 
+  Widget _buildGeofenceBox() {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: controller.geofenceEnabled
+              ? AppColors.primaryEmerald
+              : AppColors.borderLight,
+          width: 1.3,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              '📍 جیو فینسنگ (حدودِ دکان) لاک آن رکھیں',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 14.5,
+                color: AppColors.textDark,
+              ),
+            ),
+            subtitle: const Text(
+              'آن ہونے پر دکان کے مقررہ میٹرز سے باہر POS ایپ خودکار لاک ہو جائے گی۔',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+            value: controller.geofenceEnabled,
+            activeTrackColor: AppColors.primaryEmerald,
+            onChanged: controller.setGeofenceEnabled,
+          ),
+          if (controller.geofenceEnabled) ...[
+            const Divider(height: 12),
+            TextField(
+              controller: controller.geofenceRadiusCtrl,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.left,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+              decoration: InputDecoration(
+                labelText: 'حدود کا دائرہ کار (Radius in Meters)',
+                hintText: 'مثلاً 150 یا 300',
+                prefixIcon: const Icon(Icons.radar_rounded,
+                    color: AppColors.primaryEmerald),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller.shopLatCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true, signed: true),
+                    textAlign: TextAlign.left,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13.5),
+                    decoration: InputDecoration(
+                      labelText: 'Latitude (Lat)',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(9)),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: controller.shopLngCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true, signed: true),
+                    textAlign: TextAlign.left,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13.5),
+                    decoration: InputDecoration(
+                      labelText: 'Longitude (Lng)',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(9)),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: controller.isFetchingShopLocation
+                  ? null
+                  : controller.captureCurrentShopLocation,
+              icon: const Icon(Icons.my_location_rounded, size: 18),
+              label: Text(
+                controller.isFetchingShopLocation
+                    ? 'لوکیشن حاصل ہو رہی ہے...'
+                    : 'موجودہ مقام کو دکان کی لوکیشن سیٹ کریں',
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryEmerald,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -179,6 +296,7 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                 activeTrackColor: AppColors.primaryEmerald,
                 onChanged: controller.setRequireDeviceActivation,
               ),
+              _buildGeofenceBox(),
             ],
           ),
         ),
@@ -248,14 +366,13 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                       (dev['status']?.toString() ?? 'PENDING').toUpperCase();
                   final isActive = status == 'ACTIVE';
                   final isRevoked = status == 'REVOKED';
-
+                  final bool isFreeHand = dev['bypassGeofence'] == true;
                   final double? lat = (dev['latitude'] as num?)?.toDouble();
                   final double? lng = (dev['longitude'] as num?)?.toDouble();
                   final bool hasGps =
                       lat != null && lng != null && (lat != 0.0 || lng != 0.0);
                   final String locError =
                       dev['locationError']?.toString().trim() ?? '';
-
                   Color badgeBg = Colors.orange.shade100;
                   Color badgeText = Colors.orange.shade900;
                   String statusLabel = '⏳ منظوری کا منتظر';
@@ -268,7 +385,6 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                     badgeText = AppColors.errorRed;
                     statusLabel = '🔴 بلاک شدہ (Revoked)';
                   }
-
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(12),
@@ -290,75 +406,52 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.smartphone_rounded,
-                              color: badgeText,
-                              size: 24,
-                            ),
+                            Icon(Icons.smartphone_rounded,
+                                color: badgeText, size: 24),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    displayTitle,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.textDark,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Device ID: $id',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
+                                  Text(displayTitle,
+                                      style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.textDark)),
+                                  Text('Device ID: $id',
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textMuted)),
                                 ],
                               ),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 4,
-                              ),
+                                  horizontal: 9, vertical: 4),
                               decoration: BoxDecoration(
-                                color: badgeBg,
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                              child: Text(
-                                statusLabel,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  color: badgeText,
-                                ),
-                              ),
+                                  color: badgeBg,
+                                  borderRadius: BorderRadius.circular(7)),
+                              child: Text(statusLabel,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      color: badgeText)),
                             ),
                             const SizedBox(width: 6),
                             InkWell(
                               onTap: () => _confirmDeleteDevice(
-                                context,
-                                id,
-                                displayTitle,
-                              ),
+                                  context, id, displayTitle),
                               borderRadius: BorderRadius.circular(20),
                               child: Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.red.shade200,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  size: 16,
-                                  color: Colors.red.shade700,
-                                ),
+                                    color: Colors.red.shade50,
+                                    shape: BoxShape.circle,
+                                    border:
+                                        Border.all(color: Colors.red.shade200)),
+                                child: Icon(Icons.close_rounded,
+                                    size: 16, color: Colors.red.shade700),
                               ),
                             ),
                           ],
@@ -371,37 +464,28 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 7,
-                              ),
+                                  horizontal: 10, vertical: 7),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.shade300),
-                              ),
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: Colors.blue.shade300)),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    Icons.location_on_rounded,
-                                    size: 18,
-                                    color: Colors.blue.shade800,
-                                  ),
+                                  Icon(Icons.location_on_rounded,
+                                      size: 18, color: Colors.blue.shade800),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
                                       '📍 گوگل میپس پر لوکیشن دیکھیں (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})',
                                       style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.blue.shade900,
-                                      ),
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.blue.shade900),
                                     ),
                                   ),
-                                  Icon(
-                                    Icons.open_in_new_rounded,
-                                    size: 15,
-                                    color: Colors.blue.shade800,
-                                  ),
+                                  Icon(Icons.open_in_new_rounded,
+                                      size: 15, color: Colors.blue.shade800),
                                 ],
                               ),
                             ),
@@ -410,21 +494,15 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300)),
                             child: Row(
                               children: [
-                                const Icon(
-                                  Icons.location_off_outlined,
-                                  size: 16,
-                                  color: Colors.black54,
-                                ),
+                                const Icon(Icons.location_off_outlined,
+                                    size: 16, color: Colors.black54),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -432,25 +510,60 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                                         ? 'GPS اطلاع: $locError'
                                         : 'GPS لوکیشن ابھی موصول نہیں ہوئی (موبائل/براؤزر پر Allow Location کریں)',
                                     style: const TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black54,
-                                    ),
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black54),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        const Divider(height: 16),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isFreeHand
+                                ? Colors.blue.shade50
+                                : AppColors.backgroundLight,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isFreeHand
+                                  ? Colors.blue.shade300
+                                  : AppColors.borderLight,
+                            ),
+                          ),
+                          child: SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: Text(
+                              isFreeHand
+                                  ? '🌍 فری ہینڈ اجازت آن (حدودِ دکان سے آزاد)'
+                                  : '📍 جیو فینس لاک فعال (صرف دکان کے اندر)',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w900,
+                                color: isFreeHand
+                                    ? Colors.blue.shade900
+                                    : AppColors.textDark,
+                              ),
+                            ),
+                            value: isFreeHand,
+                            activeTrackColor: Colors.blue.shade900,
+                            onChanged: (val) =>
+                                PosRemoteConfigService.setDeviceGeofenceBypass(
+                              deviceId: id,
+                              bypass: val,
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 14),
                         Row(
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: () => _showRenameAndApproveDialog(
-                                  context,
-                                  id,
-                                  label,
-                                ),
+                                    context, id, label),
                                 icon: const Icon(Icons.verified_rounded,
                                     size: 17),
                                 label: Text(
@@ -458,37 +571,28 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                                       ? 'نام تبدیل کریں'
                                       : 'فعال کریں (Activate)',
                                   style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                                      fontSize: 13, fontWeight: FontWeight.w900),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryEmerald,
-                                  foregroundColor: Colors.white,
-                                ),
+                                    backgroundColor: AppColors.primaryEmerald,
+                                    foregroundColor: Colors.white),
                               ),
                             ),
                             if (!isRevoked) ...[
                               const SizedBox(width: 8),
                               ElevatedButton.icon(
-                                onPressed: () async {
-                                  await PosRemoteConfigService.setDeviceStatus(
-                                    deviceId: id,
-                                    status: 'REVOKED',
-                                  );
-                                },
-                                icon: const Icon(Icons.block_rounded, size: 17),
-                                label: const Text(
-                                  'بلاک کریں',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
+                                onPressed: () async =>
+                                    PosRemoteConfigService.setDeviceStatus(
+                                        deviceId: id, status: 'REVOKED'),
+                                icon:
+                                    const Icon(Icons.block_rounded, size: 17),
+                                label: const Text('بلاک کریں',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900)),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.errorRed,
-                                  foregroundColor: Colors.white,
-                                ),
+                                    backgroundColor: AppColors.errorRed,
+                                    foregroundColor: Colors.white),
                               ),
                             ],
                           ],

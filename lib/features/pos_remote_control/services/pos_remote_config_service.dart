@@ -15,7 +15,6 @@ typedef FieldDefList = core.List<FieldDefMap>;
 
 class PosRemoteConfigService {
   static const String configDocId = 'calculator_config';
-
   static const core.Set<String> _legacySeededGeneralKeys = {
     'gen_category',
     'gen_serial',
@@ -23,17 +22,11 @@ class PosRemoteConfigService {
     'gen_brand',
   };
 
-  static FieldDefList defaultGeneralFields() {
-    return [];
-  }
-
-  static core.List<String> defaultMobileGroupingKeys() {
-    return ['itemName', 'salePrice', 'specs', 'condition'];
-  }
-
-  static core.List<String> defaultGeneralGroupingKeys() {
-    return ['itemName', 'salePrice', 'specs', 'condition'];
-  }
+  static FieldDefList defaultGeneralFields() => [];
+  static core.List<String> defaultMobileGroupingKeys() =>
+      ['itemName', 'salePrice', 'specs', 'condition'];
+  static core.List<String> defaultGeneralGroupingKeys() =>
+      ['itemName', 'salePrice', 'specs', 'condition'];
 
   static FieldDefList getGroupingOptionsForCategory({required bool isMobile}) {
     final FieldDefList options = isMobile
@@ -61,12 +54,10 @@ class PosRemoteConfigService {
             {'key': 'condition', 'urduLabel': 'حالت (New / Used)'},
             {'key': 'warranty', 'urduLabel': 'وارنٹی (Warranty)'},
           ];
-
     final cfg = getFullConfig();
     final Set<String> seenKeys = options.map((e) => e['key']!).toSet();
     final rawList =
         isMobile ? cfg['mobileCustomFields'] : cfg['generalCustomFields'];
-
     if (rawList is core.List) {
       for (final item in rawList) {
         if (item is core.Map) {
@@ -102,9 +93,7 @@ class PosRemoteConfigService {
     final core.List<String> labels = [];
     for (final k in activeKeys) {
       final lbl = labelMap[k];
-      if (lbl != null && lbl.isNotEmpty) {
-        labels.add(lbl);
-      }
+      if (lbl != null && lbl.isNotEmpty) labels.add(lbl);
     }
     return labels.isEmpty ? 'صرف کیٹگری' : labels.join(' + ');
   }
@@ -170,6 +159,10 @@ class PosRemoteConfigService {
       'customRequireCustomerMobileMdm': true,
       'customAllowedZones': ['MOBILE', 'ELECTRONICS', 'CUSTOM_ESTIMATE'],
       'requireDeviceActivation': true,
+      'geofenceEnabled': false,
+      'geofenceRadiusMeters': 150,
+      'shopLatitude': null,
+      'shopLongitude': null,
       'shopName': 'نایاب قسط پوائنٹ',
       'shopSubtitle': 'آسان اقساط سینٹر',
       'shopLogoUrl': '',
@@ -266,8 +259,7 @@ class PosRemoteConfigService {
         boxName: BoxNames.appConfigBox,
         entries: {configDocId: payload},
       );
-      final customFields = getGeneralCustomFields();
-      for (final field in customFields) {
+      for (final field in getGeneralCustomFields()) {
         final key = field['key']!;
         final urdu = field['urduLabel']!;
         await TagsBankService.saveTagItem(
@@ -325,6 +317,25 @@ class PosRemoteConfigService {
     if (customLabel != null && customLabel.trim().isNotEmpty) {
       map['employeeLabel'] = customLabel.trim();
     }
+    map['updatedAt'] = now;
+    map['isSynced'] = false;
+    await HiveBoxManager.putBatch(
+      boxName: BoxNames.posDevicesBox,
+      entries: {deviceId: map},
+    );
+  }
+
+  static Future<void> setDeviceGeofenceBypass({
+    required String deviceId,
+    required bool bypass,
+  }) async {
+    final box = HiveBoxManager.getBox(BoxNames.posDevicesBox);
+    final raw = box.get(deviceId);
+    final now = TimeStatusService.nowUtcIso();
+    final core.Map<String, dynamic> map = raw is core.Map
+        ? core.Map<String, dynamic>.from(raw)
+        : {'deviceId': deviceId};
+    map['bypassGeofence'] = bypass;
     map['updatedAt'] = now;
     map['isSynced'] = false;
     await HiveBoxManager.putBatch(

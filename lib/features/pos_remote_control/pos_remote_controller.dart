@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'services/pos_remote_config_service.dart';
 
 class PosRemoteController extends ChangeNotifier {
   int selectedZoneIndex = 0;
+
   late final TextEditingController mobAdvanceCtrl;
   late final TextEditingController mobProfitCheckCtrl;
   late final TextEditingController mobProfitNoCheckCtrl;
@@ -63,6 +66,12 @@ class PosRemoteController extends ChangeNotifier {
   List<String> customAllowedZones = ['MOBILE', 'ELECTRONICS', 'CUSTOM_ESTIMATE'];
 
   bool requireDeviceActivation = true;
+  bool geofenceEnabled = false;
+  bool isFetchingShopLocation = false;
+  late final TextEditingController geofenceRadiusCtrl;
+  late final TextEditingController shopLatCtrl;
+  late final TextEditingController shopLngCtrl;
+
   late final TextEditingController shopNameCtrl;
   late final TextEditingController shopSubtitleCtrl;
   late final TextEditingController tickerTextCtrl;
@@ -74,10 +83,8 @@ class PosRemoteController extends ChangeNotifier {
   bool showReservedItems = true;
   bool showSoldItems = true;
   bool showOnOrderItems = true;
-
   List<String> mobileGroupingMatchKeys = ['itemName', 'salePrice', 'specs', 'condition'];
   List<String> generalGroupingMatchKeys = ['itemName', 'salePrice', 'specs', 'condition'];
-
   bool cashSaleEnabled = true;
   String cashMarkupType = 'NONE';
   late final TextEditingController cashMarkupValCtrl;
@@ -92,49 +99,36 @@ class PosRemoteController extends ChangeNotifier {
 
   void _loadFromStorage() {
     final cfg = PosRemoteConfigService.getFullConfig();
-
     mobAdvanceCtrl = TextEditingController(
-      text: ((cfg['advancePercentage'] as num?)?.toDouble() ?? 0.8).toString(),
-    );
+        text: ((cfg['advancePercentage'] as num?)?.toDouble() ?? 0.8).toString());
     mobProfitCheckCtrl = TextEditingController(
-      text: ((cfg['profitWithCheck'] as num?)?.toDouble() ?? 0.25).toString(),
-    );
+        text: ((cfg['profitWithCheck'] as num?)?.toDouble() ?? 0.25).toString());
     mobProfitNoCheckCtrl = TextEditingController(
-      text:
-          ((cfg['profitWithoutCheck'] as num?)?.toDouble() ?? 0.35).toString(),
-    );
+        text:
+            ((cfg['profitWithoutCheck'] as num?)?.toDouble() ?? 0.35).toString());
     mobIncrementCtrl = TextEditingController(
-      text:
-          ((cfg['perMonthIncrement'] as num?)?.toDouble() ?? 0.05).toString(),
-    );
+        text:
+            ((cfg['perMonthIncrement'] as num?)?.toDouble() ?? 0.05).toString());
     mobDueDayCtrl = TextEditingController(
-      text: ((cfg['installmentDueDay'] as num?)?.toInt() ?? 5).toString(),
-    );
+        text: ((cfg['installmentDueDay'] as num?)?.toInt() ?? 5).toString());
     mobGraceDaysCtrl = TextEditingController(
-      text: ((cfg['gracePeriodDays'] as num?)?.toInt() ?? 15).toString(),
-    );
+        text: ((cfg['gracePeriodDays'] as num?)?.toInt() ?? 15).toString());
     mobFeeCtrl = TextEditingController(
-      text: ((cfg['processingFee'] as num?)?.toInt() ?? 0).toString(),
-    );
+        text: ((cfg['processingFee'] as num?)?.toInt() ?? 0).toString());
     mobRoundCtrl = TextEditingController(
-      text: ((cfg['roundToNearest'] as num?)?.toInt() ?? 100).toString(),
-    );
+        text: ((cfg['roundToNearest'] as num?)?.toInt() ?? 100).toString());
     mobMdmFeeCtrl = TextEditingController(
-      text: ((cfg['mdmLockFee'] as num?)?.toInt() ?? 1000).toString(),
-    );
+        text: ((cfg['mdmLockFee'] as num?)?.toInt() ?? 1000).toString());
     mobOpenBoxType =
         (cfg['openBoxDeductionType']?.toString() ?? 'PERCENT') == 'FIXED'
             ? 'FIXED'
             : 'PERCENT';
     mobOpenBoxValCtrl = TextEditingController(
-      text: ((cfg['openBoxDeductionValue'] as num?)?.toInt() ?? 10).toString(),
-    );
+        text: ((cfg['openBoxDeductionValue'] as num?)?.toInt() ?? 10).toString());
     mobMaxRiskCtrl = TextEditingController(
-      text: ((cfg['maxRiskLimit'] as num?)?.toInt() ?? 0).toString(),
-    );
-    adminPinCtrl = TextEditingController(
-      text: cfg['adminOverridePin']?.toString() ?? '7860',
-    );
+        text: ((cfg['maxRiskLimit'] as num?)?.toInt() ?? 0).toString());
+    adminPinCtrl =
+        TextEditingController(text: cfg['adminOverridePin']?.toString() ?? '7860');
     mobCompounding = cfg['isCompoundingProfit'] == true;
     mobAddFeeToPrincipal = cfg['addProcessingFeeToPrincipal'] == true;
     final rawMobDur = cfg['allowedDurations'];
@@ -151,61 +145,43 @@ class PosRemoteController extends ChangeNotifier {
 
     genEnabled = cfg['generalEnabled'] != false;
     genAdvanceCtrl = TextEditingController(
-      text: ((cfg['generalAdvancePercentage'] as num?)?.toDouble() ?? 0.75)
-          .toString(),
-    );
+        text: ((cfg['generalAdvancePercentage'] as num?)?.toDouble() ?? 0.75)
+            .toString());
     genProfitCheckCtrl = TextEditingController(
-      text: ((cfg['generalProfitWithCheck'] as num?)?.toDouble() ?? 0.25)
-          .toString(),
-    );
+        text: ((cfg['generalProfitWithCheck'] as num?)?.toDouble() ?? 0.25)
+            .toString());
     genProfitNoCheckCtrl = TextEditingController(
-      text: ((cfg['generalProfitWithoutCheck'] as num?)?.toDouble() ?? 0.35)
-          .toString(),
-    );
+        text: ((cfg['generalProfitWithoutCheck'] as num?)?.toDouble() ?? 0.35)
+            .toString());
     genIncrementCtrl = TextEditingController(
-      text: ((cfg['generalPerMonthIncrement'] as num?)?.toDouble() ?? 0.05)
-          .toString(),
-    );
+        text: ((cfg['generalPerMonthIncrement'] as num?)?.toDouble() ?? 0.05)
+            .toString());
     genDueDayCtrl = TextEditingController(
-      text: ((cfg['generalInstallmentDueDay'] as num?)?.toInt() ??
-              ((cfg['installmentDueDay'] as num?)?.toInt() ?? 5))
-          .toString(),
-    );
+        text: ((cfg['generalInstallmentDueDay'] as num?)?.toInt() ?? 5)
+            .toString());
     genGraceDaysCtrl = TextEditingController(
-      text: ((cfg['generalGracePeriodDays'] as num?)?.toInt() ??
-              ((cfg['gracePeriodDays'] as num?)?.toInt() ?? 15))
-          .toString(),
-    );
+        text: ((cfg['generalGracePeriodDays'] as num?)?.toInt() ?? 15)
+            .toString());
     genFeeCtrl = TextEditingController(
-      text: ((cfg['generalProcessingFee'] as num?)?.toInt() ?? 0).toString(),
-    );
+        text:
+            ((cfg['generalProcessingFee'] as num?)?.toInt() ?? 0).toString());
     genRoundCtrl = TextEditingController(
-      text: ((cfg['generalRoundToNearest'] as num?)?.toInt() ??
-              ((cfg['roundToNearest'] as num?)?.toInt() ?? 100))
-          .toString(),
-    );
+        text: ((cfg['generalRoundToNearest'] as num?)?.toInt() ?? 100)
+            .toString());
     genMdmFeeCtrl = TextEditingController(
-      text: ((cfg['generalMdmLockFee'] as num?)?.toInt() ??
-              ((cfg['mdmLockFee'] as num?)?.toInt() ?? 1000))
-          .toString(),
-    );
+        text: ((cfg['generalMdmLockFee'] as num?)?.toInt() ?? 1000).toString());
     genOpenBoxType =
         (cfg['generalOpenBoxDeductionType']?.toString() ?? mobOpenBoxType) ==
                 'FIXED'
             ? 'FIXED'
             : 'PERCENT';
     genOpenBoxValCtrl = TextEditingController(
-      text: ((cfg['generalOpenBoxDeductionValue'] as num?)?.toInt() ??
-              ((cfg['openBoxDeductionValue'] as num?)?.toInt() ?? 10))
-          .toString(),
-    );
+        text: ((cfg['generalOpenBoxDeductionValue'] as num?)?.toInt() ?? 10)
+            .toString());
     genMaxRiskCtrl = TextEditingController(
-      text: ((cfg['generalMaxRiskLimit'] as num?)?.toInt() ?? 0).toString(),
-    );
+        text: ((cfg['generalMaxRiskLimit'] as num?)?.toInt() ?? 0).toString());
     genAdminPinCtrl = TextEditingController(
-      text: cfg['generalAdminOverridePin']?.toString() ??
-          (cfg['adminOverridePin']?.toString() ?? '7860'),
-    );
+        text: cfg['generalAdminOverridePin']?.toString() ?? '7860');
     genCompounding = cfg['generalIsCompoundingProfit'] == true;
     genAddFeeToPrincipal = cfg['generalAddProcessingFeeToPrincipal'] == true;
     genRequireCustomerMdm = cfg['generalRequireCustomerMobileMdm'] != false;
@@ -223,61 +199,43 @@ class PosRemoteController extends ChangeNotifier {
     genCustomFields = PosRemoteConfigService.getGeneralCustomFields();
 
     custAdvanceCtrl = TextEditingController(
-      text: ((cfg['customAdvancePercentage'] as num?)?.toDouble() ?? 0.8)
-          .toString(),
-    );
+        text: ((cfg['customAdvancePercentage'] as num?)?.toDouble() ?? 0.8)
+            .toString());
     custProfitCheckCtrl = TextEditingController(
-      text: ((cfg['customProfitWithCheck'] as num?)?.toDouble() ?? 0.25)
-          .toString(),
-    );
+        text: ((cfg['customProfitWithCheck'] as num?)?.toDouble() ?? 0.25)
+            .toString());
     custProfitNoCheckCtrl = TextEditingController(
-      text: ((cfg['customProfitWithoutCheck'] as num?)?.toDouble() ?? 0.35)
-          .toString(),
-    );
+        text: ((cfg['customProfitWithoutCheck'] as num?)?.toDouble() ?? 0.35)
+            .toString());
     custIncrementCtrl = TextEditingController(
-      text: ((cfg['customPerMonthIncrement'] as num?)?.toDouble() ?? 0.05)
-          .toString(),
-    );
+        text: ((cfg['customPerMonthIncrement'] as num?)?.toDouble() ?? 0.05)
+            .toString());
     custDueDayCtrl = TextEditingController(
-      text: ((cfg['customInstallmentDueDay'] as num?)?.toInt() ??
-              ((cfg['installmentDueDay'] as num?)?.toInt() ?? 5))
-          .toString(),
-    );
+        text: ((cfg['customInstallmentDueDay'] as num?)?.toInt() ?? 5)
+            .toString());
     custGraceDaysCtrl = TextEditingController(
-      text: ((cfg['customGracePeriodDays'] as num?)?.toInt() ??
-              ((cfg['gracePeriodDays'] as num?)?.toInt() ?? 15))
-          .toString(),
-    );
+        text: ((cfg['customGracePeriodDays'] as num?)?.toInt() ?? 15)
+            .toString());
     custFeeCtrl = TextEditingController(
-      text: ((cfg['customProcessingFee'] as num?)?.toInt() ?? 0).toString(),
-    );
+        text:
+            ((cfg['customProcessingFee'] as num?)?.toInt() ?? 0).toString());
     custRoundCtrl = TextEditingController(
-      text: ((cfg['customRoundToNearest'] as num?)?.toInt() ??
-              ((cfg['roundToNearest'] as num?)?.toInt() ?? 100))
-          .toString(),
-    );
+        text: ((cfg['customRoundToNearest'] as num?)?.toInt() ?? 100)
+            .toString());
     custMdmFeeCtrl = TextEditingController(
-      text: ((cfg['customMdmLockFee'] as num?)?.toInt() ??
-              ((cfg['mdmLockFee'] as num?)?.toInt() ?? 1000))
-          .toString(),
-    );
+        text: ((cfg['customMdmLockFee'] as num?)?.toInt() ?? 1000).toString());
     custOpenBoxType =
         (cfg['customOpenBoxDeductionType']?.toString() ?? mobOpenBoxType) ==
                 'FIXED'
             ? 'FIXED'
             : 'PERCENT';
     custOpenBoxValCtrl = TextEditingController(
-      text: ((cfg['customOpenBoxDeductionValue'] as num?)?.toInt() ??
-              ((cfg['openBoxDeductionValue'] as num?)?.toInt() ?? 10))
-          .toString(),
-    );
+        text: ((cfg['customOpenBoxDeductionValue'] as num?)?.toInt() ?? 10)
+            .toString());
     custMaxRiskCtrl = TextEditingController(
-      text: ((cfg['customMaxRiskLimit'] as num?)?.toInt() ?? 0).toString(),
-    );
+        text: ((cfg['customMaxRiskLimit'] as num?)?.toInt() ?? 0).toString());
     custAdminPinCtrl = TextEditingController(
-      text: cfg['customAdminOverridePin']?.toString() ??
-          (cfg['adminOverridePin']?.toString() ?? '7860'),
-    );
+        text: cfg['customAdminOverridePin']?.toString() ?? '7860');
     custCompounding = cfg['customIsCompoundingProfit'] == true;
     custAddFeeToPrincipal = cfg['customAddProcessingFeeToPrincipal'] == true;
     custRequireCustomerMdm = cfg['customRequireCustomerMobileMdm'] != false;
@@ -299,15 +257,21 @@ class PosRemoteController extends ChangeNotifier {
     }
 
     requireDeviceActivation = cfg['requireDeviceActivation'] != false;
+    geofenceEnabled = cfg['geofenceEnabled'] == true;
+    geofenceRadiusCtrl = TextEditingController(
+        text: ((cfg['geofenceRadiusMeters'] as num?)?.toInt() ?? 150)
+            .toString());
+    shopLatCtrl = TextEditingController(
+        text: cfg['shopLatitude']?.toString() ?? '');
+    shopLngCtrl = TextEditingController(
+        text: cfg['shopLongitude']?.toString() ?? '');
+
     shopNameCtrl = TextEditingController(
-      text: cfg['shopName']?.toString() ?? 'نایاب قسط پوائنٹ',
-    );
+        text: cfg['shopName']?.toString() ?? 'نایاب قسط پوائنٹ');
     shopSubtitleCtrl = TextEditingController(
-      text: cfg['shopSubtitle']?.toString() ?? 'آسان اقساط سینٹر',
-    );
-    tickerTextCtrl = TextEditingController(
-      text: cfg['tickerText']?.toString() ?? '',
-    );
+        text: cfg['shopSubtitle']?.toString() ?? 'آسان اقساط سینٹر');
+    tickerTextCtrl =
+        TextEditingController(text: cfg['tickerText']?.toString() ?? '');
     shopLogoUrl = cfg['shopLogoUrl']?.toString() ?? '';
     ownerPhotoUrl = cfg['ownerPhotoUrl']?.toString() ?? '';
     showShopLogo = cfg['showShopLogo'] != false;
@@ -317,267 +281,140 @@ class PosRemoteController extends ChangeNotifier {
     showSoldItems = cfg['showSoldItems'] != false;
     showOnOrderItems = cfg['showOnOrderItems'] != false;
 
-    final rawMobGrouping = cfg['mobileGroupingMatchKeys'] ?? cfg['groupingMatchKeys'];
-    if (rawMobGrouping is List) {
-      mobileGroupingMatchKeys = rawMobGrouping.map((e) => e.toString()).toList();
-    } else {
-      mobileGroupingMatchKeys = PosRemoteConfigService.defaultMobileGroupingKeys();
-    }
+    final rawMobGrouping =
+        cfg['mobileGroupingMatchKeys'] ?? cfg['groupingMatchKeys'];
+    mobileGroupingMatchKeys = rawMobGrouping is List
+        ? rawMobGrouping.map((e) => e.toString()).toList()
+        : PosRemoteConfigService.defaultMobileGroupingKeys();
 
-    final rawGenGrouping = cfg['generalGroupingMatchKeys'] ?? cfg['groupingMatchKeys'];
-    if (rawGenGrouping is List) {
-      generalGroupingMatchKeys = rawGenGrouping.map((e) => e.toString()).toList();
-    } else {
-      generalGroupingMatchKeys = PosRemoteConfigService.defaultGeneralGroupingKeys();
-    }
+    final rawGenGrouping =
+        cfg['generalGroupingMatchKeys'] ?? cfg['groupingMatchKeys'];
+    generalGroupingMatchKeys = rawGenGrouping is List
+        ? rawGenGrouping.map((e) => e.toString()).toList()
+        : PosRemoteConfigService.defaultGeneralGroupingKeys();
 
     cashSaleEnabled = cfg['cashSaleEnabled'] != false;
-    final rawMarkupType = (cfg['cashMarkupType']?.toString() ?? 'NONE').toUpperCase();
+    final rawMarkupType =
+        (cfg['cashMarkupType']?.toString() ?? 'NONE').toUpperCase();
     cashMarkupType = (rawMarkupType == 'PERCENT' || rawMarkupType == 'FIXED')
         ? rawMarkupType
         : 'NONE';
     cashMarkupValCtrl = TextEditingController(
-      text: ((cfg['cashMarkupValue'] as num?)?.toDouble() ?? 0)
-          .toString()
-          .replaceAll(RegExp(r'\.0$'), ''),
-    );
+        text: ((cfg['cashMarkupValue'] as num?)?.toDouble() ?? 0)
+            .toString()
+            .replaceAll(RegExp(r'\.0$'), ''));
     allowCashPriceEdit = cfg['allowCashPriceEdit'] != false;
   }
 
-  void setCashSaleEnabled(bool v) {
-    cashSaleEnabled = v;
+  void setGeofenceEnabled(bool v) {
+    geofenceEnabled = v;
     notifyListeners();
   }
 
-  void setCashMarkupType(String type) {
-    cashMarkupType = type;
-    notifyListeners();
-  }
-
-  void setAllowCashPriceEdit(bool v) {
-    allowCashPriceEdit = v;
-    notifyListeners();
-  }
-
-  void toggleCategoryGroupingKey({
-    required bool isMobile,
-    required String key,
-    required bool selected,
-  }) {
-    final targetList =
-        isMobile ? mobileGroupingMatchKeys : generalGroupingMatchKeys;
-    if (selected) {
-      if (!targetList.contains(key)) {
-        targetList.add(key);
-      }
-    } else {
-      targetList.remove(key);
-    }
-    notifyListeners();
-  }
-
-  void setZone(int index) {
-    selectedZoneIndex = index;
+  Future<void> captureCurrentShopLocation() async {
+    isFetchingShopLocation = true;
     statusMessage = null;
     notifyListeners();
-  }
-
-  void setMobOpenBoxType(String val) {
-    mobOpenBoxType = val;
-    notifyListeners();
-  }
-
-  void setMobCompounding(bool val) {
-    mobCompounding = val;
-    notifyListeners();
-  }
-
-  void setMobAddFee(bool val) {
-    mobAddFeeToPrincipal = val;
-    notifyListeners();
-  }
-
-  void adjustMobMaxMonth(int delta) {
-    mobMaxMonth = (mobMaxMonth + delta).clamp(6, 36);
-    mobDurations.removeWhere((m) => m > mobMaxMonth);
-    notifyListeners();
-  }
-
-  void toggleMobDuration(int m, bool selected) {
-    if (selected) {
-      if (!mobDurations.contains(m)) mobDurations.add(m);
-    } else {
-      mobDurations.remove(m);
-    }
-    notifyListeners();
-  }
-
-  void setGenEnabled(bool val) {
-    genEnabled = val;
-    notifyListeners();
-  }
-
-  void setGenOpenBoxType(String val) {
-    genOpenBoxType = val;
-    notifyListeners();
-  }
-
-  void setGenCompounding(bool val) {
-    genCompounding = val;
-    notifyListeners();
-  }
-
-  void setGenAddFee(bool val) {
-    genAddFeeToPrincipal = val;
-    notifyListeners();
-  }
-
-  void setGenRequireCustomerMdm(bool val) {
-    genRequireCustomerMdm = val;
-    notifyListeners();
-  }
-
-  void adjustGenMaxMonth(int delta) {
-    genMaxMonth = (genMaxMonth + delta).clamp(6, 36);
-    genDurations.removeWhere((m) => m > genMaxMonth);
-    notifyListeners();
-  }
-
-  void toggleGenDuration(int m, bool selected) {
-    if (selected) {
-      if (!genDurations.contains(m)) genDurations.add(m);
-    } else {
-      genDurations.remove(m);
-    }
-    notifyListeners();
-  }
-
-  void addGeneralField(String urduLabel) {
-    final clean = urduLabel.trim();
-    if (clean.isEmpty) return;
-    final key = 'gen_${DateTime.now().millisecondsSinceEpoch}';
-    genCustomFields.add({'key': key, 'urduLabel': clean});
-    notifyListeners();
-  }
-
-  void renameGeneralField(int index, String newUrduLabel) {
-    final clean = newUrduLabel.trim();
-    if (clean.isEmpty || index < 0 || index >= genCustomFields.length) return;
-    genCustomFields[index]['urduLabel'] = clean;
-    notifyListeners();
-  }
-
-  void removeGeneralField(int index) {
-    if (index < 0 || index >= genCustomFields.length) return;
-    genCustomFields.removeAt(index);
-    notifyListeners();
-  }
-
-  void setCustOpenBoxType(String val) {
-    custOpenBoxType = val;
-    notifyListeners();
-  }
-
-  void setCustCompounding(bool val) {
-    custCompounding = val;
-    notifyListeners();
-  }
-
-  void setCustAddFee(bool val) {
-    custAddFeeToPrincipal = val;
-    notifyListeners();
-  }
-
-  void setCustRequireCustomerMdm(bool val) {
-    custRequireCustomerMdm = val;
-    notifyListeners();
-  }
-
-  void adjustCustMaxMonth(int delta) {
-    custMaxMonth = (custMaxMonth + delta).clamp(6, 36);
-    custDurations.removeWhere((m) => m > custMaxMonth);
-    notifyListeners();
-  }
-
-  void toggleCustDuration(int m, bool selected) {
-    if (selected) {
-      if (!custDurations.contains(m)) custDurations.add(m);
-    } else {
-      custDurations.remove(m);
-    }
-    notifyListeners();
-  }
-
-  void toggleCustomAllowedZone(String zoneKey, bool selected) {
-    if (selected) {
-      if (!customAllowedZones.contains(zoneKey)) {
-        customAllowedZones.add(zoneKey);
+    try {
+      if (!kIsWeb && !await Geolocator.isLocationServiceEnabled()) {
+        isFetchingShopLocation = false;
+        isStatusError = true;
+        statusMessage = '⚠️ براہ کرم ڈیوائس کی GPS / Location سروس آن کریں!';
+        notifyListeners();
+        return;
       }
-    } else {
-      if (customAllowedZones.length > 1) {
-        customAllowedZones.remove(zoneKey);
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
       }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        isFetchingShopLocation = false;
+        isStatusError = true;
+        statusMessage = '⚠️ براہ کرم لوکیشن کی اجازت (Allow) دیں!';
+        notifyListeners();
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+      shopLatCtrl.text = pos.latitude.toStringAsFixed(6);
+      shopLngCtrl.text = pos.longitude.toStringAsFixed(6);
+      isFetchingShopLocation = false;
+      isStatusError = false;
+      statusMessage =
+          '📍 دکان کی موجودہ لوکیشن حاصل ہو گئی (${shopLatCtrl.text}, ${shopLngCtrl.text}) — اب نیچے محفوظ کریں دبائیں!';
+      notifyListeners();
+    } catch (_) {
+      isFetchingShopLocation = false;
+      isStatusError = true;
+      statusMessage = '⚠️ GPS لوکیشن حاصل نہیں ہو سکی، GPS یا براؤزر پرمیشن چیک کریں۔';
+      notifyListeners();
     }
-    notifyListeners();
   }
 
-  void setRequireDeviceActivation(bool v) {
-    requireDeviceActivation = v;
+  void setCashSaleEnabled(bool v) { cashSaleEnabled = v; notifyListeners(); }
+  void setCashMarkupType(String type) { cashMarkupType = type; notifyListeners(); }
+  void setAllowCashPriceEdit(bool v) { allowCashPriceEdit = v; notifyListeners(); }
+  void toggleCategoryGroupingKey({required bool isMobile, required String key, required bool selected}) {
+    final list = isMobile ? mobileGroupingMatchKeys : generalGroupingMatchKeys;
+    selected ? (!list.contains(key) ? list.add(key) : null) : list.remove(key);
     notifyListeners();
   }
-
-  void setShopLogoUrl(String url) {
-    shopLogoUrl = url;
-    notifyListeners();
-  }
-
-  void setOwnerPhotoUrl(String url) {
-    ownerPhotoUrl = url;
-    notifyListeners();
-  }
-
-  void setShowShopLogo(bool v) {
-    showShopLogo = v;
-    notifyListeners();
-  }
-
-  void setShowOwnerPhoto(bool v) {
-    showOwnerPhoto = v;
-    notifyListeners();
-  }
-
-  void setTickerEnabled(bool v) {
-    tickerEnabled = v;
-    notifyListeners();
-  }
-
-  void setShowReservedItems(bool v) {
-    showReservedItems = v;
-    notifyListeners();
-  }
-
-  void setShowSoldItems(bool v) {
-    showSoldItems = v;
-    notifyListeners();
-  }
-
-  void setShowOnOrderItems(bool v) {
-    showOnOrderItems = v;
-    notifyListeners();
-  }
+  void setZone(int index) { selectedZoneIndex = index; statusMessage = null; notifyListeners(); }
+  void setMobOpenBoxType(String val) { mobOpenBoxType = val; notifyListeners(); }
+  void setMobCompounding(bool val) { mobCompounding = val; notifyListeners(); }
+  void setMobAddFee(bool val) { mobAddFeeToPrincipal = val; notifyListeners(); }
+  void adjustMobMaxMonth(int delta) { mobMaxMonth = (mobMaxMonth + delta).clamp(6, 36); mobDurations.removeWhere((m) => m > mobMaxMonth); notifyListeners(); }
+  void toggleMobDuration(int m, bool sel) { sel ? (!mobDurations.contains(m) ? mobDurations.add(m) : null) : mobDurations.remove(m); notifyListeners(); }
+  void setGenEnabled(bool val) { genEnabled = val; notifyListeners(); }
+  void setGenOpenBoxType(String val) { genOpenBoxType = val; notifyListeners(); }
+  void setGenCompounding(bool val) { genCompounding = val; notifyListeners(); }
+  void setGenAddFee(bool val) { genAddFeeToPrincipal = val; notifyListeners(); }
+  void setGenRequireCustomerMdm(bool val) { genRequireCustomerMdm = val; notifyListeners(); }
+  void adjustGenMaxMonth(int delta) { genMaxMonth = (genMaxMonth + delta).clamp(6, 36); genDurations.removeWhere((m) => m > genMaxMonth); notifyListeners(); }
+  void toggleGenDuration(int m, bool sel) { sel ? (!genDurations.contains(m) ? genDurations.add(m) : null) : genDurations.remove(m); notifyListeners(); }
+  void addGeneralField(String urduLabel) { final c = urduLabel.trim(); if (c.isNotEmpty) { genCustomFields.add({'key': 'gen_${DateTime.now().millisecondsSinceEpoch}', 'urduLabel': c}); notifyListeners(); } }
+  void renameGeneralField(int idx, String label) { final c = label.trim(); if (c.isNotEmpty && idx >= 0 && idx < genCustomFields.length) { genCustomFields[idx]['urduLabel'] = c; notifyListeners(); } }
+  void removeGeneralField(int idx) { if (idx >= 0 && idx < genCustomFields.length) { genCustomFields.removeAt(idx); notifyListeners(); } }
+  void setCustOpenBoxType(String val) { custOpenBoxType = val; notifyListeners(); }
+  void setCustCompounding(bool val) { custCompounding = val; notifyListeners(); }
+  void setCustAddFee(bool val) { custAddFeeToPrincipal = val; notifyListeners(); }
+  void setCustRequireCustomerMdm(bool val) { custRequireCustomerMdm = val; notifyListeners(); }
+  void adjustCustMaxMonth(int delta) { custMaxMonth = (custMaxMonth + delta).clamp(6, 36); custDurations.removeWhere((m) => m > custMaxMonth); notifyListeners(); }
+  void toggleCustDuration(int m, bool sel) { sel ? (!custDurations.contains(m) ? custDurations.add(m) : null) : custDurations.remove(m); notifyListeners(); }
+  void toggleCustomAllowedZone(String z, bool sel) { if (sel) { if (!customAllowedZones.contains(z)) customAllowedZones.add(z); } else if (customAllowedZones.length > 1) { customAllowedZones.remove(z); } notifyListeners(); }
+  void setRequireDeviceActivation(bool v) { requireDeviceActivation = v; notifyListeners(); }
+  void setShopLogoUrl(String url) { shopLogoUrl = url; notifyListeners(); }
+  void setOwnerPhotoUrl(String url) { ownerPhotoUrl = url; notifyListeners(); }
+  void setShowShopLogo(bool v) { showShopLogo = v; notifyListeners(); }
+  void setShowOwnerPhoto(bool v) { showOwnerPhoto = v; notifyListeners(); }
+  void setTickerEnabled(bool v) { tickerEnabled = v; notifyListeners(); }
+  void setShowReservedItems(bool v) { showReservedItems = v; notifyListeners(); }
+  void setShowSoldItems(bool v) { showSoldItems = v; notifyListeners(); }
+  void setShowOnOrderItems(bool v) { showOnOrderItems = v; notifyListeners(); }
 
   Future<void> saveAllSettings() async {
-    if (mobDurations.isEmpty ||
-        genDurations.isEmpty ||
-        custDurations.isEmpty) {
+    if (mobDurations.isEmpty || genDurations.isEmpty || custDurations.isEmpty) {
       isStatusError = true;
       statusMessage = '⚠️ تینوں زونز میں کم از کم ایک مدت (ماہ) منتخب کریں!';
       notifyListeners();
       return;
     }
-    final sortedMob = List<int>.from(mobDurations)..sort();
-    final sortedGen = List<int>.from(genDurations)..sort();
-    final sortedCust = List<int>.from(custDurations)..sort();
+    final parsedLat = double.tryParse(shopLatCtrl.text.trim());
+    final parsedLng = double.tryParse(shopLngCtrl.text.trim());
+    if (geofenceEnabled && (parsedLat == null || parsedLng == null)) {
+      isStatusError = true;
+      statusMessage = '⚠️ جیو فینسنگ آن کرنے سے پہلے دکان کی لوکیشن (Lat / Lng) سیٹ کریں!';
+      notifyListeners();
+      return;
+    }
+    final parsedRadius =
+        (int.tryParse(geofenceRadiusCtrl.text.trim()) ?? 150).clamp(10, 50000);
+
     final ok = await PosRemoteConfigService.saveFullConfig({
       'advancePercentage': double.tryParse(mobAdvanceCtrl.text.trim()) ?? 0.8,
       'profitWithCheck': double.tryParse(mobProfitCheckCtrl.text.trim()) ?? 0.25,
@@ -597,7 +434,7 @@ class PosRemoteController extends ChangeNotifier {
       'adminOverridePin': adminPinCtrl.text.trim(),
       'isCompoundingProfit': mobCompounding,
       'addProcessingFeeToPrincipal': mobAddFeeToPrincipal,
-      'allowedDurations': sortedMob,
+      'allowedDurations': List<int>.from(mobDurations)..sort(),
       'generalEnabled': genEnabled,
       'generalAdvancePercentage':
           double.tryParse(genAdvanceCtrl.text.trim()) ?? 0.75,
@@ -620,7 +457,7 @@ class PosRemoteController extends ChangeNotifier {
       'generalIsCompoundingProfit': genCompounding,
       'generalAddProcessingFeeToPrincipal': genAddFeeToPrincipal,
       'generalRequireCustomerMobileMdm': genRequireCustomerMdm,
-      'generalAllowedDurations': sortedGen,
+      'generalAllowedDurations': List<int>.from(genDurations)..sort(),
       'generalCustomFields': genCustomFields,
       'customAdvancePercentage':
           double.tryParse(custAdvanceCtrl.text.trim()) ?? 0.8,
@@ -644,9 +481,13 @@ class PosRemoteController extends ChangeNotifier {
       'customIsCompoundingProfit': custCompounding,
       'customAddProcessingFeeToPrincipal': custAddFeeToPrincipal,
       'customRequireCustomerMobileMdm': custRequireCustomerMdm,
-      'customAllowedDurations': sortedCust,
+      'customAllowedDurations': List<int>.from(custDurations)..sort(),
       'customAllowedZones': customAllowedZones,
       'requireDeviceActivation': requireDeviceActivation,
+      'geofenceEnabled': geofenceEnabled,
+      'geofenceRadiusMeters': parsedRadius,
+      'shopLatitude': parsedLat,
+      'shopLongitude': parsedLng,
       'shopName': shopNameCtrl.text.trim(),
       'shopSubtitle': shopSubtitleCtrl.text.trim(),
       'shopLogoUrl': shopLogoUrl,
@@ -662,59 +503,33 @@ class PosRemoteController extends ChangeNotifier {
       'generalGroupingMatchKeys': generalGroupingMatchKeys,
       'cashSaleEnabled': cashSaleEnabled,
       'cashMarkupType': cashMarkupType,
-      'cashMarkupValue':
-          double.tryParse(cashMarkupValCtrl.text.trim()) ?? 0,
+      'cashMarkupValue': double.tryParse(cashMarkupValCtrl.text.trim()) ?? 0,
       'allowCashPriceEdit': allowCashPriceEdit,
     });
     isStatusError = !ok;
     statusMessage = ok
-        ? '✅ تمام زونز، برانڈنگ، نقد فروخت اور گروپنگ رولز محفوظ ہو کر POS ایپ پر سنک ہو گئے!'
+        ? '✅ تمام ریموٹ سیٹنگز اور جیو فینسنگ کنٹرول محفوظ ہو کر POS پر سنک ہو گئے!'
         : '⚠️ محفوظ کرتے وقت مسئلہ پیش آیا، دوبارہ کوشش کریں۔';
     notifyListeners();
   }
 
   @override
   void dispose() {
-    mobAdvanceCtrl.dispose();
-    mobProfitCheckCtrl.dispose();
-    mobProfitNoCheckCtrl.dispose();
-    mobIncrementCtrl.dispose();
-    mobDueDayCtrl.dispose();
-    mobGraceDaysCtrl.dispose();
-    mobFeeCtrl.dispose();
-    mobRoundCtrl.dispose();
-    mobMdmFeeCtrl.dispose();
-    mobOpenBoxValCtrl.dispose();
-    mobMaxRiskCtrl.dispose();
-    adminPinCtrl.dispose();
-    genAdvanceCtrl.dispose();
-    genProfitCheckCtrl.dispose();
-    genProfitNoCheckCtrl.dispose();
-    genIncrementCtrl.dispose();
-    genDueDayCtrl.dispose();
-    genGraceDaysCtrl.dispose();
-    genFeeCtrl.dispose();
-    genRoundCtrl.dispose();
-    genMdmFeeCtrl.dispose();
-    genOpenBoxValCtrl.dispose();
-    genMaxRiskCtrl.dispose();
-    genAdminPinCtrl.dispose();
-    custAdvanceCtrl.dispose();
-    custProfitCheckCtrl.dispose();
-    custProfitNoCheckCtrl.dispose();
-    custIncrementCtrl.dispose();
-    custDueDayCtrl.dispose();
-    custGraceDaysCtrl.dispose();
-    custFeeCtrl.dispose();
-    custRoundCtrl.dispose();
-    custMdmFeeCtrl.dispose();
-    custOpenBoxValCtrl.dispose();
-    custMaxRiskCtrl.dispose();
-    custAdminPinCtrl.dispose();
-    shopNameCtrl.dispose();
-    shopSubtitleCtrl.dispose();
-    tickerTextCtrl.dispose();
-    cashMarkupValCtrl.dispose();
+    for (final c in [
+      mobAdvanceCtrl, mobProfitCheckCtrl, mobProfitNoCheckCtrl, mobIncrementCtrl,
+      mobDueDayCtrl, mobGraceDaysCtrl, mobFeeCtrl, mobRoundCtrl, mobMdmFeeCtrl,
+      mobOpenBoxValCtrl, mobMaxRiskCtrl, adminPinCtrl, genAdvanceCtrl,
+      genProfitCheckCtrl, genProfitNoCheckCtrl, genIncrementCtrl, genDueDayCtrl,
+      genGraceDaysCtrl, genFeeCtrl, genRoundCtrl, genMdmFeeCtrl,
+      genOpenBoxValCtrl, genMaxRiskCtrl, genAdminPinCtrl, custAdvanceCtrl,
+      custProfitCheckCtrl, custProfitNoCheckCtrl, custIncrementCtrl,
+      custDueDayCtrl, custGraceDaysCtrl, custFeeCtrl, custRoundCtrl,
+      custMdmFeeCtrl, custOpenBoxValCtrl, custMaxRiskCtrl, custAdminPinCtrl,
+      geofenceRadiusCtrl, shopLatCtrl, shopLngCtrl, shopNameCtrl,
+      shopSubtitleCtrl, tickerTextCtrl, cashMarkupValCtrl,
+    ]) {
+      c.dispose();
+    }
     super.dispose();
   }
 }
