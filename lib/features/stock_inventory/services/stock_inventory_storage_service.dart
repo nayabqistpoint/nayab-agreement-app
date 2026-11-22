@@ -5,15 +5,17 @@ import '../../../core/models/tag_bank_item_model.dart';
 import '../../../core/services/cloudinary_storage_service.dart';
 import '../../../core/services/tags_bank_service.dart';
 import '../../../core/time/time_status_service.dart';
-
 typedef StockMap = Map<String, dynamic>;
 typedef StockList = List<StockMap>;
 typedef DynamicFieldDef = Map<String, String>;
 typedef DynamicFieldDefList = List<DynamicFieldDef>;
-
 class StockInventoryStorageService {
   static const String configDocId = 'calculator_config';
-
+  static const List<String> defaultVisibleCardKeys = [
+    'specsOrRam',
+    'conditionType',
+    'warranty',
+  ];
   static StockMap getCalculatorConfig() {
     final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
     final raw = box.get(configDocId);
@@ -22,7 +24,37 @@ class StockInventoryStorageService {
     }
     return {'lastStockNumber': 0};
   }
-
+  static Set<String> getVisibleCardFields({required bool isMobile}) {
+    final cfg = getCalculatorConfig();
+    final keyName =
+        isMobile ? 'visibleMobileCardFields' : 'visibleGeneralCardFields';
+    final rawList = cfg[keyName];
+    if (rawList is List) {
+      return rawList.map((e) => e.toString().trim()).toSet();
+    }
+    final customDefs = getCategoryDynamicFields(isMobile: isMobile);
+    return {
+      ...defaultVisibleCardKeys,
+      ...customDefs.map((e) => e['key']!),
+    };
+  }
+  static Future<void> saveVisibleCardFields({
+    required bool isMobile,
+    required Set<String> visibleKeys,
+  }) async {
+    final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
+    final raw = box.get(configDocId);
+    final cfg = raw is Map ? StockMap.from(raw) : <String, dynamic>{};
+    final keyName =
+        isMobile ? 'visibleMobileCardFields' : 'visibleGeneralCardFields';
+    cfg[keyName] = visibleKeys.toList();
+    cfg['isSynced'] = false;
+    cfg['updatedAt'] = TimeStatusService.nowUtcIso();
+    await HiveBoxManager.putBatch(
+      boxName: BoxNames.appConfigBox,
+      entries: {configDocId: cfg},
+    );
+  }
   static DynamicFieldDefList getCategoryDynamicFields({required bool isMobile}) {
     final cfg = getCalculatorConfig();
     final keyName = isMobile ? 'mobileCustomFields' : 'generalCustomFields';
@@ -42,7 +74,6 @@ class StockInventoryStorageService {
     }
     return [];
   }
-
   static Future<void> saveCategoryDynamicFields({
     required bool isMobile,
     required DynamicFieldDefList fields,
@@ -77,7 +108,6 @@ class StockInventoryStorageService {
       }
     }
   }
-
   static StockList getAllStockItems() {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final StockList list = [];
@@ -99,7 +129,6 @@ class StockInventoryStorageService {
     });
     return list;
   }
-
   static int getMaxStockNumber() {
     final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
     final cfg = getCalculatorConfig();
@@ -114,7 +143,6 @@ class StockInventoryStorageService {
     }
     return maxNum;
   }
-
   static List<String> previewNextStockIds(int count) {
     final int safeCount = count.clamp(1, 50);
     final int start = getMaxStockNumber();
@@ -123,7 +151,6 @@ class StockInventoryStorageService {
       (i) => 'STK_${(start + i + 1).toString().padLeft(3, '0')}',
     );
   }
-
   static Future<void> _updateCounterTo(int maxNum) async {
     if (maxNum <= 0) return;
     final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
@@ -140,7 +167,6 @@ class StockInventoryStorageService {
       );
     }
   }
-
   static ({String key, StockMap data})? _findOrderRecord(String orderId) {
     final cleanId = orderId.trim();
     if (cleanId.isEmpty) return null;
@@ -161,7 +187,6 @@ class StockInventoryStorageService {
     }
     return null;
   }
-
   static Future<({int count, String firstStockId, String firstCode})> saveStock({
     required String stockId,
     required String category,
@@ -191,13 +216,10 @@ class StockInventoryStorageService {
     final String firstId = isEditing
         ? stockId.trim()
         : 'STK_${(currentMax + 1).toString().padLeft(3, '0')}';
-
-    // اگر یہ خریداری کسی کسٹم یا آن آرڈر کسٹمر کے لیے ہے تو پہلے ہی آرڈر تلاش کر لیں
     final cleanLinkOrderId = linkToOrderId?.trim() ?? '';
     final linkedOrderEntry = cleanLinkOrderId.isNotEmpty
         ? _findOrderRecord(cleanLinkOrderId)
         : null;
-
     String? linkedCustomerInfo;
     String? linkedPlanSummary;
     if (linkedOrderEntry != null) {
@@ -217,7 +239,6 @@ class StockInventoryStorageService {
       linkedPlanSummary =
           '$months ماہ • $advText • قسط: Rs. $monthly/ماہ ($gType)';
     }
-
     List<String> sharedProcessedImages = List<String>.from(images);
     if (sharedProcessedImages.isNotEmpty) {
       sharedProcessedImages = await CloudinaryStorageService.uploadStockImages(
@@ -225,7 +246,6 @@ class StockInventoryStorageService {
         pathsOrUrls: sharedProcessedImages,
       );
     }
-
     String unitValue(String fieldKey, String fallback, int unitIdx) {
       final list = perUnitOverrides[fieldKey];
       if (!isEditing && list != null && unitIdx < list.length) {
@@ -234,11 +254,9 @@ class StockInventoryStorageService {
       }
       return fallback;
     }
-
     final Map<String, dynamic> batchEntries = {};
     final isMob = category == 'MOBILE';
     String firstResolvedCode = '';
-
     for (int i = 0; i < count; i++) {
       final String targetId;
       if (isEditing) {
@@ -247,7 +265,6 @@ class StockInventoryStorageService {
         currentMax++;
         targetId = 'STK_${currentMax.toString().padLeft(3, '0')}';
       }
-
       List<String> unitImgs = [];
       if (!isEditing &&
           i < perUnitImages.length &&
@@ -259,18 +276,14 @@ class StockInventoryStorageService {
       } else {
         unitImgs = sharedProcessedImages;
       }
-
       final rawExisting = box.get(targetId);
       final existingMap = rawExisting is Map
           ? StockMap.from(rawExisting)
           : <String, dynamic>{};
       final existingStatus =
           (existingMap['status']?.toString() ?? 'AVAILABLE').toUpperCase();
-
-      // پہلی یونٹ اگر کسٹمر آرڈر سے منسلک ہے تو ایٹامک طور پر RESERVED محفوظ ہوگی (زیرو بفر گیپ)
       final bool isUnitLinkedToOrder =
           i == 0 && linkedOrderEntry != null && !isOnOrder;
-
       String resolvedStatus;
       if (isUnitLinkedToOrder) {
         resolvedStatus = 'RESERVED';
@@ -279,7 +292,6 @@ class StockInventoryStorageService {
       } else {
         resolvedStatus = isOnOrder ? 'ON_ORDER' : 'AVAILABLE';
       }
-
       final String uName = unitValue('itemName', itemName.trim(), i);
       final String uCode =
           isOnOrder ? '' : unitValue('imeiOrSerial', imeiOrSerial.trim(), i);
@@ -296,16 +308,13 @@ class StockInventoryStorageService {
               purchasePrice;
       final int uSale =
           int.tryParse(unitValue('salePrice', '$salePrice', i)) ?? salePrice;
-
       if (i == 0) {
         firstResolvedCode = uCode;
       }
-
       final Map<String, String> uDynamic = {};
       dynamicFields.forEach((k, v) {
         uDynamic[k] = unitValue(k, v.trim(), i);
       });
-
       final StockMap payload = {
         ...existingMap,
         ...uDynamic,
@@ -339,16 +348,13 @@ class StockInventoryStorageService {
       };
       batchEntries[targetId] = payload;
     }
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.stockBox,
       entries: batchEntries,
     );
-
     if (!isEditing) {
       await _updateCounterTo(currentMax);
     }
-
     if (linkedOrderEntry != null) {
       final orderMap = StockMap.from(linkedOrderEntry.data);
       final resolvedName = unitValue('itemName', itemName.trim(), 0);
@@ -364,16 +370,13 @@ class StockInventoryStorageService {
       orderMap['isCustomEstimate'] = false;
       orderMap['updatedAt'] = now;
       orderMap['isSynced'] = false;
-
       await HiveBoxManager.putBatch(
         boxName: BoxNames.shopOrdersBox,
         entries: {linkedOrderEntry.key: orderMap},
       );
     }
-
     return (count: count, firstStockId: firstId, firstCode: firstResolvedCode);
   }
-
   static Future<bool> deleteStock(String stockId) async {
     final box = HiveBoxManager.getBox(BoxNames.stockBox);
     final raw = box.get(stockId);
@@ -393,7 +396,6 @@ class StockInventoryStorageService {
     }
     return false;
   }
-
   static Future<int> purgeAllDeletedRecords() async {
     int purgedCount = 0;
     final firestore = FirebaseFirestore.instance;
@@ -430,7 +432,6 @@ class StockInventoryStorageService {
     }
     return purgedCount;
   }
-
   static Future<int> resetAllTestDataToZero() async {
     int clearedCount = 0;
     final firestore = FirebaseFirestore.instance;

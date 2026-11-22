@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../pos_remote_control/services/pos_remote_config_service.dart';
-
+import 'stock_field_eye_toggle_ui.dart';
 class DynamicStockFieldsCardUi extends StatelessWidget {
   final FieldDefList fieldDefs;
   final Map<String, TextEditingController> controllers;
+  final Set<String> visibleCardKeys;
+  final ValueChanged<String> onToggleCardVisibility;
   final int quantity;
   final List<String> upcomingStockIds;
   final Set<String> activeSplitKeys;
   final Map<String, List<TextEditingController>> splitControllersMap;
   final ValueChanged<String> onToggleSplit;
-  final ValueChanged<String> onAddField;
+  final void Function(String urduLabel, bool showOnCard) onAddField;
   final ValueChanged<int> onRemoveField;
-
   const DynamicStockFieldsCardUi({
     super.key,
     required this.fieldDefs,
     required this.controllers,
+    required this.visibleCardKeys,
+    required this.onToggleCardVisibility,
     required this.quantity,
     required this.upcomingStockIds,
     required this.activeSplitKeys,
@@ -25,57 +28,119 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
     required this.onAddField,
     required this.onRemoveField,
   });
-
   void _showAddFieldDialog(BuildContext context) {
     final ctrl = TextEditingController();
+    bool showOnCard = true;
     showDialog(
       context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text(
-            'نئی ڈائنامک فیلڈ شامل کریں',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-          ),
-          content: TextField(
-            controller: ctrl,
-            autofocus: true,
-            textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-            decoration: const InputDecoration(
-              labelText: 'فیلڈ کا نام (اردو یا انگلش)',
-              hintText: 'مثلاً: چارجر، ڈبہ حالت، انجن نمبر، PTA اسٹیٹس',
-              border: OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text(
+              'نئی ڈائنامک فیلڈ شامل کریں',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('منسوخ',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w900),
+                  decoration: const InputDecoration(
+                    labelText: 'فیلڈ کا نام (اردو یا انگلش)',
+                    hintText: 'مثلاً: چارجر، ڈبہ حالت، انجن نمبر، PTA اسٹیٹس',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: showOnCard
+                        ? AppColors.warmTintEmerald
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: showOnCard
+                          ? AppColors.primaryEmerald
+                          : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    secondary: Icon(
+                      showOnCard
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                      color: showOnCard
+                          ? AppColors.primaryEmerald
+                          : Colors.blueGrey,
+                    ),
+                    title: Text(
+                      showOnCard
+                          ? '👁️ POS مارکیٹ کارڈ پر دکھائیں'
+                          : '🙈 خفیہ رکھیں (صرف معاہدہ / ٹیگز بینک)',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                        color: showOnCard
+                            ? AppColors.primaryEmerald
+                            : AppColors.textDark,
+                      ),
+                    ),
+                    subtitle: Text(
+                      showOnCard
+                          ? 'فرنٹ کارڈ پر نظر آئے گی اور معاہدے میں بھی دستیاب ہوگی'
+                          : 'کارڈ پر نظر نہیں آئے گی، صرف معاہدے اور بیک اینڈ میں رہے گی',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    value: showOnCard,
+                    activeTrackColor: AppColors.primaryEmerald,
+                    onChanged: (v) => setDialogState(() => showOnCard = v),
+                  ),
+                ),
+              ],
             ),
-            ElevatedButton.icon(
-              onPressed: () {
-                final val = ctrl.text.trim();
-                if (val.isNotEmpty) {
-                  onAddField(val);
-                }
-                Navigator.pop(ctx);
-              },
-              icon: const Icon(Icons.add, size: 19),
-              label: const Text('شامل کریں',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryEmerald,
-                foregroundColor: Colors.white,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('منسوخ',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               ),
-            ),
-          ],
+              ElevatedButton.icon(
+                onPressed: () {
+                  final val = ctrl.text.trim();
+                  if (val.isNotEmpty) {
+                    onAddField(val, showOnCard);
+                  }
+                  Navigator.pop(ctx);
+                },
+                icon: const Icon(Icons.add, size: 19),
+                label: const Text('شامل کریں',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryEmerald,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -138,8 +203,8 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
               final label = def['urduLabel']!;
               final ctrl = controllers[key];
               final isSplit = activeSplitKeys.contains(key);
+              final isVisibleOnCard = visibleCardKeys.contains(key);
               final unitCtrls = splitControllersMap[key] ?? const [];
-
               return Padding(
                 padding: EdgeInsets.only(
                   bottom: i == fieldDefs.length - 1 ? 0 : 9,
@@ -203,8 +268,13 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                                   ),
                                 ),
                         ),
+                        const SizedBox(width: 4),
+                        StockFieldEyeToggleUi(
+                          isVisibleOnCard: isVisibleOnCard,
+                          onToggle: () => onToggleCardVisibility(key),
+                        ),
                         if (quantity > 1) ...[
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 4),
                           Tooltip(
                             message: isSplit
                                 ? 'سب یونٹس کیلئے ایک ہی ویلیو رکھیں'
@@ -213,7 +283,7 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                               onTap: () => onToggleSplit(key),
                               borderRadius: BorderRadius.circular(9),
                               child: Container(
-                                width: 42,
+                                width: 40,
                                 height: 46,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
@@ -237,14 +307,14 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                             ),
                           ),
                         ],
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 4),
                         Tooltip(
                           message: 'یہ فیلڈ حذف کریں',
                           child: InkWell(
                             onTap: () => onRemoveField(i),
                             borderRadius: BorderRadius.circular(9),
                             child: Container(
-                              width: 42,
+                              width: 40,
                               height: 46,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(

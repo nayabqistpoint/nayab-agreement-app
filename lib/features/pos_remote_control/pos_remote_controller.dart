@@ -2,10 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'services/pos_remote_config_service.dart';
-
 class PosRemoteController extends ChangeNotifier {
   int selectedZoneIndex = 0;
-
   late final TextEditingController mobAdvanceCtrl;
   late final TextEditingController mobProfitCheckCtrl;
   late final TextEditingController mobProfitNoCheckCtrl;
@@ -23,7 +21,6 @@ class PosRemoteController extends ChangeNotifier {
   bool mobAddFeeToPrincipal = false;
   List<int> mobDurations = [6, 7, 8, 9, 10, 11, 12];
   int mobMaxMonth = 15;
-
   late final TextEditingController genAdvanceCtrl;
   late final TextEditingController genProfitCheckCtrl;
   late final TextEditingController genProfitNoCheckCtrl;
@@ -44,7 +41,6 @@ class PosRemoteController extends ChangeNotifier {
   List<int> genDurations = [6, 8, 10, 12, 15, 18];
   int genMaxMonth = 24;
   FieldDefList genCustomFields = [];
-
   late final TextEditingController custAdvanceCtrl;
   late final TextEditingController custProfitCheckCtrl;
   late final TextEditingController custProfitNoCheckCtrl;
@@ -64,14 +60,12 @@ class PosRemoteController extends ChangeNotifier {
   List<int> custDurations = [6, 7, 8, 9, 10, 11, 12];
   int custMaxMonth = 18;
   List<String> customAllowedZones = ['MOBILE', 'ELECTRONICS', 'CUSTOM_ESTIMATE'];
-
   bool requireDeviceActivation = true;
   bool geofenceEnabled = false;
   bool isFetchingShopLocation = false;
   late final TextEditingController geofenceRadiusCtrl;
   late final TextEditingController shopLatCtrl;
   late final TextEditingController shopLngCtrl;
-
   late final TextEditingController shopNameCtrl;
   late final TextEditingController shopSubtitleCtrl;
   late final TextEditingController tickerTextCtrl;
@@ -89,14 +83,20 @@ class PosRemoteController extends ChangeNotifier {
   String cashMarkupType = 'NONE';
   late final TextEditingController cashMarkupValCtrl;
   bool allowCashPriceEdit = true;
-
+  String cashMinFloorType = 'BASE_STRICT';
+  late final TextEditingController cashMinFloorValCtrl;
+  String cashMaxCeilingType = 'NONE';
+  late final TextEditingController cashMaxCeilingValCtrl;
   String? statusMessage;
   bool isStatusError = false;
-
   PosRemoteController() {
     _loadFromStorage();
   }
-
+  static String _fmtNum(dynamic raw) {
+    return ((raw as num?)?.toDouble() ?? 0)
+        .toString()
+        .replaceAll(RegExp(r'\.0$'), '');
+  }
   void _loadFromStorage() {
     final cfg = PosRemoteConfigService.getFullConfig();
     mobAdvanceCtrl = TextEditingController(
@@ -142,7 +142,6 @@ class PosRemoteController extends ChangeNotifier {
         mobMaxMonth = mobDurations.last;
       }
     }
-
     genEnabled = cfg['generalEnabled'] != false;
     genAdvanceCtrl = TextEditingController(
         text: ((cfg['generalAdvancePercentage'] as num?)?.toDouble() ?? 0.75)
@@ -197,7 +196,6 @@ class PosRemoteController extends ChangeNotifier {
       }
     }
     genCustomFields = PosRemoteConfigService.getGeneralCustomFields();
-
     custAdvanceCtrl = TextEditingController(
         text: ((cfg['customAdvancePercentage'] as num?)?.toDouble() ?? 0.8)
             .toString());
@@ -255,7 +253,6 @@ class PosRemoteController extends ChangeNotifier {
       customAllowedZones =
           rawCustZones.map((e) => e.toString().toUpperCase()).toList();
     }
-
     requireDeviceActivation = cfg['requireDeviceActivation'] != false;
     geofenceEnabled = cfg['geofenceEnabled'] == true;
     geofenceRadiusCtrl = TextEditingController(
@@ -265,7 +262,6 @@ class PosRemoteController extends ChangeNotifier {
         text: cfg['shopLatitude']?.toString() ?? '');
     shopLngCtrl = TextEditingController(
         text: cfg['shopLongitude']?.toString() ?? '');
-
     shopNameCtrl = TextEditingController(
         text: cfg['shopName']?.toString() ?? 'نایاب قسط پوائنٹ');
     shopSubtitleCtrl = TextEditingController(
@@ -280,37 +276,42 @@ class PosRemoteController extends ChangeNotifier {
     showReservedItems = cfg['showReservedItems'] != false;
     showSoldItems = cfg['showSoldItems'] != false;
     showOnOrderItems = cfg['showOnOrderItems'] != false;
-
     final rawMobGrouping =
         cfg['mobileGroupingMatchKeys'] ?? cfg['groupingMatchKeys'];
     mobileGroupingMatchKeys = rawMobGrouping is List
         ? rawMobGrouping.map((e) => e.toString()).toList()
         : PosRemoteConfigService.defaultMobileGroupingKeys();
-
     final rawGenGrouping =
         cfg['generalGroupingMatchKeys'] ?? cfg['groupingMatchKeys'];
     generalGroupingMatchKeys = rawGenGrouping is List
         ? rawGenGrouping.map((e) => e.toString()).toList()
         : PosRemoteConfigService.defaultGeneralGroupingKeys();
-
     cashSaleEnabled = cfg['cashSaleEnabled'] != false;
     final rawMarkupType =
         (cfg['cashMarkupType']?.toString() ?? 'NONE').toUpperCase();
     cashMarkupType = (rawMarkupType == 'PERCENT' || rawMarkupType == 'FIXED')
         ? rawMarkupType
         : 'NONE';
-    cashMarkupValCtrl = TextEditingController(
-        text: ((cfg['cashMarkupValue'] as num?)?.toDouble() ?? 0)
-            .toString()
-            .replaceAll(RegExp(r'\.0$'), ''));
+    cashMarkupValCtrl =
+        TextEditingController(text: _fmtNum(cfg['cashMarkupValue']));
     allowCashPriceEdit = cfg['allowCashPriceEdit'] != false;
+    final rawFloor =
+        (cfg['cashMinFloorType']?.toString() ?? 'BASE_STRICT').toUpperCase();
+    cashMinFloorType =
+        (rawFloor == 'PERCENT' || rawFloor == 'FIXED') ? rawFloor : 'BASE_STRICT';
+    cashMinFloorValCtrl =
+        TextEditingController(text: _fmtNum(cfg['cashMinFloorValue']));
+    final rawCeiling =
+        (cfg['cashMaxCeilingType']?.toString() ?? 'NONE').toUpperCase();
+    cashMaxCeilingType =
+        (rawCeiling == 'PERCENT' || rawCeiling == 'FIXED') ? rawCeiling : 'NONE';
+    cashMaxCeilingValCtrl =
+        TextEditingController(text: _fmtNum(cfg['cashMaxCeilingValue']));
   }
-
   void setGeofenceEnabled(bool v) {
     geofenceEnabled = v;
     notifyListeners();
   }
-
   Future<void> captureCurrentShopLocation() async {
     isFetchingShopLocation = true;
     statusMessage = null;
@@ -355,10 +356,11 @@ class PosRemoteController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
   void setCashSaleEnabled(bool v) { cashSaleEnabled = v; notifyListeners(); }
   void setCashMarkupType(String type) { cashMarkupType = type; notifyListeners(); }
   void setAllowCashPriceEdit(bool v) { allowCashPriceEdit = v; notifyListeners(); }
+  void setCashMinFloorType(String type) { cashMinFloorType = type; notifyListeners(); }
+  void setCashMaxCeilingType(String type) { cashMaxCeilingType = type; notifyListeners(); }
   void toggleCategoryGroupingKey({required bool isMobile, required String key, required bool selected}) {
     final list = isMobile ? mobileGroupingMatchKeys : generalGroupingMatchKeys;
     selected ? (!list.contains(key) ? list.add(key) : null) : list.remove(key);
@@ -396,7 +398,6 @@ class PosRemoteController extends ChangeNotifier {
   void setShowReservedItems(bool v) { showReservedItems = v; notifyListeners(); }
   void setShowSoldItems(bool v) { showSoldItems = v; notifyListeners(); }
   void setShowOnOrderItems(bool v) { showOnOrderItems = v; notifyListeners(); }
-
   Future<void> saveAllSettings() async {
     if (mobDurations.isEmpty || genDurations.isEmpty || custDurations.isEmpty) {
       isStatusError = true;
@@ -414,7 +415,6 @@ class PosRemoteController extends ChangeNotifier {
     }
     final parsedRadius =
         (int.tryParse(geofenceRadiusCtrl.text.trim()) ?? 150).clamp(10, 50000);
-
     final ok = await PosRemoteConfigService.saveFullConfig({
       'advancePercentage': double.tryParse(mobAdvanceCtrl.text.trim()) ?? 0.8,
       'profitWithCheck': double.tryParse(mobProfitCheckCtrl.text.trim()) ?? 0.25,
@@ -505,14 +505,18 @@ class PosRemoteController extends ChangeNotifier {
       'cashMarkupType': cashMarkupType,
       'cashMarkupValue': double.tryParse(cashMarkupValCtrl.text.trim()) ?? 0,
       'allowCashPriceEdit': allowCashPriceEdit,
+      'cashMinFloorType': cashMinFloorType,
+      'cashMinFloorValue': double.tryParse(cashMinFloorValCtrl.text.trim()) ?? 0,
+      'cashMaxCeilingType': cashMaxCeilingType,
+      'cashMaxCeilingValue':
+          double.tryParse(cashMaxCeilingValCtrl.text.trim()) ?? 0,
     });
     isStatusError = !ok;
     statusMessage = ok
-        ? '✅ تمام ریموٹ سیٹنگز اور جیو فینسنگ کنٹرول محفوظ ہو کر POS پر سنک ہو گئے!'
+        ? '✅ تمام ریموٹ سیٹنگز اور نقد فروخت بیریئر کنٹرول محفوظ ہو کر POS پر سنک ہو گئے!'
         : '⚠️ محفوظ کرتے وقت مسئلہ پیش آیا، دوبارہ کوشش کریں۔';
     notifyListeners();
   }
-
   @override
   void dispose() {
     for (final c in [
@@ -527,6 +531,7 @@ class PosRemoteController extends ChangeNotifier {
       custMdmFeeCtrl, custOpenBoxValCtrl, custMaxRiskCtrl, custAdminPinCtrl,
       geofenceRadiusCtrl, shopLatCtrl, shopLngCtrl, shopNameCtrl,
       shopSubtitleCtrl, tickerTextCtrl, cashMarkupValCtrl,
+      cashMinFloorValCtrl, cashMaxCeilingValCtrl,
     ]) {
       c.dispose();
     }

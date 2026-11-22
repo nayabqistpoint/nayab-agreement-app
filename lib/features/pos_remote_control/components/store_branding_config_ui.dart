@@ -8,19 +8,15 @@ import '../../../core/database/hive_box_manager.dart';
 import '../../../core/widgets/portable_image_ui.dart';
 import '../pos_remote_controller.dart';
 import '../services/pos_remote_config_service.dart';
-
 class StoreBrandingConfigUi extends StatefulWidget {
   final PosRemoteController controller;
   const StoreBrandingConfigUi({super.key, required this.controller});
-
   @override
   State<StoreBrandingConfigUi> createState() => _StoreBrandingConfigUiState();
 }
-
 class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
   bool _isGroupingExpanded = false;
   int _groupingCategoryTab = 0;
-
   Future<void> _pickImage(
     ImageSource source,
     ValueChanged<String> onPicked,
@@ -42,7 +38,6 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
       }
     } catch (_) {}
   }
-
   Widget _imagePickerCard({
     required String title,
     required String subtitle,
@@ -165,7 +160,66 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
       ),
     );
   }
-
+  Widget _buildRuleSelectorRow({
+    required String label,
+    required String currentType,
+    required String noneOrStrictValue,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String> onTypeChanged,
+    required TextEditingController valController,
+  }) {
+    final bool showInput = currentType != noneOrStrictValue;
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: DropdownButtonFormField<String>(
+            key: ValueKey('${label}_$currentType'),
+            initialValue: currentType,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: label,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              isDense: true,
+            ),
+            items: items,
+            onChanged: (v) {
+              if (v != null) onTypeChanged(v);
+            },
+          ),
+        ),
+        if (showInput) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: TextField(
+              controller: valController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.left,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+              ),
+              decoration: InputDecoration(
+                labelText: currentType == 'PERCENT' ? 'شرح (%)' : 'رقم (Rs)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                isDense: true,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
   Widget _buildCashSaleControlCard() {
     final c = widget.controller;
     return Container(
@@ -203,64 +257,25 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
           ),
           if (c.cashSaleEnabled) ...[
             const Divider(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: c.cashMarkupType,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'نقد قیمت میں اضافہ',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'NONE',
-                        child: Text('کوئی اضافہ نہیں (Base Price)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'PERCENT',
-                        child: Text('فیصد (%) اضافہ'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'FIXED',
-                        child: Text('فکس روپے (Rs) اضافہ'),
-                      ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) c.setCashMarkupType(v);
-                    },
-                  ),
+            _buildRuleSelectorRow(
+              label: 'ابتدائی نقد قیمت (Default Markup)',
+              currentType: c.cashMarkupType,
+              noneOrStrictValue: 'NONE',
+              valController: c.cashMarkupValCtrl,
+              onTypeChanged: c.setCashMarkupType,
+              items: const [
+                DropdownMenuItem(
+                  value: 'NONE',
+                  child: Text('کوئی اضافہ نہیں (Base Price)'),
                 ),
-                if (c.cashMarkupType != 'NONE') ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: c.cashMarkupValCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      textAlign: TextAlign.left,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: c.cashMarkupType == 'PERCENT'
-                            ? 'اضافہ (%)'
-                            : 'اضافہ (Rs)',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                ],
+                DropdownMenuItem(
+                  value: 'PERCENT',
+                  child: Text('فیصد (%) اضافہ'),
+                ),
+                DropdownMenuItem(
+                  value: 'FIXED',
+                  child: Text('فکس روپے (Rs) اضافہ'),
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -275,12 +290,103 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
               activeTrackColor: AppColors.primaryEmerald,
               onChanged: c.setAllowCashPriceEdit,
             ),
+            if (c.allowCashPriceEdit) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.amber.shade700,
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.gpp_good_rounded,
+                          size: 19,
+                          color: Colors.amber.shade900,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'سیلز مین پرائس بیریئر (کم از کم اور زیادہ سے زیادہ حد):',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'بیس سیل پرائس (Base Price) کے مطابق نیچے اور اوپر کی حد مقرر کریں:',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildRuleSelectorRow(
+                      label: 'نیچے کا بیریئر (زیادہ سے زیادہ رعایت / Floor)',
+                      currentType: c.cashMinFloorType,
+                      noneOrStrictValue: 'BASE_STRICT',
+                      valController: c.cashMinFloorValCtrl,
+                      onTypeChanged: c.setCashMinFloorType,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'BASE_STRICT',
+                          child: Text('بیس پرائس سے کم نہیں (Strict Base)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'PERCENT',
+                          child: Text('بیس سے زیادہ سے زیادہ (%) رعایت'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'FIXED',
+                          child: Text('بیس سے زیادہ سے زیادہ (Rs) رعایت'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildRuleSelectorRow(
+                      label: 'اوپر کا بیریئر (زیادہ سے زیادہ حد / Ceiling)',
+                      currentType: c.cashMaxCeilingType,
+                      noneOrStrictValue: 'NONE',
+                      valController: c.cashMaxCeilingValCtrl,
+                      onTypeChanged: c.setCashMaxCeilingType,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'NONE',
+                          child: Text('کوئی اوپری حد نہیں (Unlimited)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'PERCENT',
+                          child: Text('بیس سے زیادہ سے زیادہ (%) اوپر'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'FIXED',
+                          child: Text('بیس سے زیادہ سے زیادہ (Rs) اوپر'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ],
       ),
     );
   }
-
   String _buildLiveSummary(FieldDefList allOptions, List<String> activeKeys) {
     final labelMap = {
       for (final o in allOptions) o['key']!: o['urduLabel']!.split(' (').first,
@@ -294,7 +400,6 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
     }
     return activeLabels.isEmpty ? 'صرف کیٹگری' : activeLabels.join(' + ');
   }
-
   Widget _buildCategoryTabBtn(int idx, String label, IconData icon) {
     final isSel = _groupingCategoryTab == idx;
     return Expanded(
@@ -339,7 +444,6 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
       ),
     );
   }
-
   Future<void> _onToggleAndAutoSync({
     required bool isMobile,
     required String key,
@@ -357,7 +461,6 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
           List<String>.from(widget.controller.generalGroupingMatchKeys),
     });
   }
-
   Widget _buildCollapsibleGroupingCard() {
     return ValueListenableBuilder(
       valueListenable: HiveBoxManager.listenToBox(BoxNames.appConfigBox),
@@ -367,17 +470,14 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
             PosRemoteConfigService.getGroupingOptionsForCategory(isMobile: true);
         final genOptions =
             PosRemoteConfigService.getGroupingOptionsForCategory(isMobile: false);
-
         final currentOptions = isMobTab ? mobOptions : genOptions;
         final currentKeys = isMobTab
             ? widget.controller.mobileGroupingMatchKeys
             : widget.controller.generalGroupingMatchKeys;
-
         final mobSummary = _buildLiveSummary(
             mobOptions, widget.controller.mobileGroupingMatchKeys);
         final genSummary = _buildLiveSummary(
             genOptions, widget.controller.generalGroupingMatchKeys);
-
         return Container(
           decoration: BoxDecoration(
             color: AppColors.warmTintEmerald,
@@ -579,7 +679,6 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
       },
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;

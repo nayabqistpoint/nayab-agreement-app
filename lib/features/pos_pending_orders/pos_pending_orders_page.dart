@@ -6,18 +6,14 @@ import 'components/pos_pending_order_card_ui.dart';
 import 'pos_order_full_profile_page.dart';
 import 'pos_pending_orders_controller.dart';
 import 'services/pos_pending_orders_service.dart';
-
 class PosPendingOrdersPage extends StatefulWidget {
   final String? initialFilter;
   const PosPendingOrdersPage({super.key, this.initialFilter});
-
   @override
   State<PosPendingOrdersPage> createState() => _PosPendingOrdersPageState();
 }
-
 class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
   late final PosPendingOrdersController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -27,13 +23,11 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
       if (mounted) setState(() {});
     });
   }
-
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
   bool _requiresStockPurchaseFirst(PosOrderRecord order) {
     final stockId = order['stockId']?.toString().trim() ?? '';
     final sourceMode = (order['sourceMode']?.toString() ?? '').toUpperCase();
@@ -55,7 +49,6 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
     }
     return false;
   }
-
   Future<void> _handleOrderSelection(PosOrderRecord selectedOrder) async {
     final id = selectedOrder['id']?.toString() ?? '';
     final customer = selectedOrder['customerName']?.toString() ?? 'کسٹمر';
@@ -87,7 +80,6 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
       ),
     );
   }
-
   void _confirmDismiss(String orderId, String customerName) {
     showDialog(
       context: context,
@@ -131,7 +123,6 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
       ),
     );
   }
-
   Widget _buildFilterTab(
     String key,
     String label,
@@ -198,7 +189,6 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
       ),
     );
   }
-
   Widget _invoiceRow(String label, String value,
       {Color? valueColor, bool isBold = false}) {
     return Padding(
@@ -230,7 +220,6 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
       ),
     );
   }
-
   Widget _buildCashSaleCard(PosOrderRecord order) {
     final id = order['id']?.toString() ?? '';
     final itemName = order['itemName']?.toString() ?? 'آئٹم';
@@ -242,17 +231,19 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
             (qty > 0 ? qty : 1));
     final int totalSale =
         (order['totalContractAmount'] as num?)?.toInt() ?? (unitPrice * qty);
+    final int totalBaseSalePrice =
+        (order['totalBaseSalePrice'] as num?)?.toInt() ?? 0;
     final int totalPurchase =
         (order['totalPurchasePrice'] as num?)?.toInt() ?? 0;
     final int netProfit = totalPurchase > 0 ? (totalSale - totalPurchase) : 0;
-
+    final int baseDiff =
+        totalBaseSalePrice > 0 ? (totalSale - totalBaseSalePrice) : 0;
     final customer = order['customerName']?.toString() ?? 'نقد کسٹمر';
     final phone = order['customerPhone']?.toString() ?? '';
     final sellerLabel = order['soldByLabel']?.toString() ??
         (order['soldByDeviceId']?.toString() ?? 'POS کاؤنٹر');
     final createdAt = (order['createdAt']?.toString() ?? '').split('T').first;
     final bool isRead = order['isCashSaleRead'] == true;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -408,6 +399,18 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
                 ),
                 const SizedBox(height: 8),
                 _invoiceRow('فی پیس نقد قیمت:', 'Rs. $unitPrice'),
+                if (totalBaseSalePrice > 0) ...[
+                  _invoiceRow('کل بیس سیل پرائس:', 'Rs. $totalBaseSalePrice'),
+                  if (baseDiff != 0)
+                    _invoiceRow(
+                      baseDiff > 0 ? 'بیس سے زائد وصولی:' : 'بیس سے دی گئی رعایت:',
+                      baseDiff > 0 ? '+ Rs. $baseDiff' : '- Rs. ${baseDiff.abs()}',
+                      valueColor: baseDiff > 0
+                          ? AppColors.successGreen
+                          : AppColors.pendingOrange,
+                      isBold: true,
+                    ),
+                ],
                 if (totalPurchase > 0) ...[
                   _invoiceRow('کل قیمتِ خرید (لاگت):', 'Rs. $totalPurchase'),
                   _invoiceRow(
@@ -458,7 +461,6 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
@@ -474,10 +476,8 @@ class _PosPendingOrdersPageState extends State<PosPendingOrdersPage> {
         final int pendingCount = pendingOrders.length;
         final int historyCount =
             allCount > pendingCount ? (allCount - pendingCount) : 0;
-
         final list = _controller.getFilteredOrders();
         final activeId = _controller.activeOrderId;
-
         return Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(

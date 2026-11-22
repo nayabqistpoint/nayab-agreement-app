@@ -8,11 +8,9 @@ import '../../../core/network/connectivity_service.dart';
 import '../../../core/services/cloudinary_storage_service.dart';
 import '../../../core/services/tags_bank_service.dart';
 import '../../../core/time/time_status_service.dart';
-
 typedef RemoteConfigMap = core.Map<String, dynamic>;
 typedef FieldDefMap = core.Map<String, String>;
 typedef FieldDefList = core.List<FieldDefMap>;
-
 class PosRemoteConfigService {
   static const String configDocId = 'calculator_config';
   static const core.Set<String> _legacySeededGeneralKeys = {
@@ -21,19 +19,20 @@ class PosRemoteConfigService {
     'gen_specs',
     'gen_brand',
   };
-
   static FieldDefList defaultGeneralFields() => [];
   static core.List<String> defaultMobileGroupingKeys() =>
       ['itemName', 'salePrice', 'specs', 'condition'];
   static core.List<String> defaultGeneralGroupingKeys() =>
       ['itemName', 'salePrice', 'specs', 'condition'];
-
+  static core.List<String> defaultVisibleMobileCardKeys() =>
+      ['specsOrRam', 'conditionType', 'warranty'];
+  static core.List<String> defaultVisibleGeneralCardKeys() =>
+      ['specsOrRam', 'conditionType', 'warranty'];
   static FieldDefList getGroupingOptionsForCategory({required bool isMobile}) {
     final FieldDefList options = isMobile
         ? [
             {'key': 'images', 'urduLabel': 'موبائل کی تصاویر (Images)'},
             {'key': 'itemName', 'urduLabel': 'موبائل کمپنی و ماڈل'},
-            {'key': 'imeiNo', 'urduLabel': 'IMEI نمبر'},
             {'key': 'purchasePrice', 'urduLabel': 'قیمتِ خرید'},
             {'key': 'salePrice', 'urduLabel': 'نقد قیمتِ فروخت'},
             {'key': 'supplier', 'urduLabel': 'سپلائر / ڈیلر'},
@@ -75,7 +74,6 @@ class PosRemoteConfigService {
     }
     return options;
   }
-
   static String getActiveGroupingSummaryText({required bool isMobile}) {
     final cfg = getFullConfig();
     final rawKeys = isMobile
@@ -97,7 +95,6 @@ class PosRemoteConfigService {
     }
     return labels.isEmpty ? 'صرف کیٹگری' : labels.join(' + ');
   }
-
   static RemoteConfigMap getFullConfig() {
     final box = HiveBoxManager.getBox(BoxNames.appConfigBox);
     final raw = box.get(configDocId);
@@ -140,6 +137,8 @@ class PosRemoteConfigService {
       'generalRequireCustomerMobileMdm': true,
       'generalCustomFields': defaultGeneralFields(),
       'mobileCustomFields': <FieldDefMap>[],
+      'visibleMobileCardFields': defaultVisibleMobileCardKeys(),
+      'visibleGeneralCardFields': defaultVisibleGeneralCardKeys(),
       'customAdvancePercentage': 0.8,
       'customProfitWithCheck': 0.25,
       'customProfitWithoutCheck': 0.35,
@@ -181,6 +180,10 @@ class PosRemoteConfigService {
       'cashMarkupType': 'NONE',
       'cashMarkupValue': 0,
       'allowCashPriceEdit': true,
+      'cashMinFloorType': 'BASE_STRICT',
+      'cashMinFloorValue': 0,
+      'cashMaxCeilingType': 'NONE',
+      'cashMaxCeilingValue': 0,
       'status': 'approved',
     };
     if (raw is core.Map) {
@@ -189,6 +192,13 @@ class PosRemoteConfigService {
           base[k.toString()] = v;
         }
       });
+    }
+    if (base['mobileGroupingMatchKeys'] is core.List) {
+      base['mobileGroupingMatchKeys'] =
+          (base['mobileGroupingMatchKeys'] as core.List)
+              .map((e) => e.toString())
+              .where((k) => k != 'imeiNo' && k != 'imei')
+              .toList();
     }
     if (base['generalCustomFields'] is core.List) {
       base['generalCustomFields'] = (base['generalCustomFields'] as core.List)
@@ -199,7 +209,6 @@ class PosRemoteConfigService {
     }
     return base;
   }
-
   static FieldDefList getGeneralCustomFields() {
     final cfg = getFullConfig();
     final rawList = cfg['generalCustomFields'];
@@ -220,7 +229,6 @@ class PosRemoteConfigService {
     }
     return [];
   }
-
   static Future<bool> saveFullConfig(RemoteConfigMap updatedValues) async {
     try {
       final now = TimeStatusService.nowUtcIso();
@@ -279,7 +287,6 @@ class PosRemoteConfigService {
       return false;
     }
   }
-
   static core.List<core.Map<String, dynamic>> getRegisteredDevices() {
     final box = HiveBoxManager.getBox(BoxNames.posDevicesBox);
     final core.List<core.Map<String, dynamic>> devices = [];
@@ -301,7 +308,6 @@ class PosRemoteConfigService {
     });
     return devices;
   }
-
   static Future<void> setDeviceStatus({
     required String deviceId,
     required String status,
@@ -324,7 +330,6 @@ class PosRemoteConfigService {
       entries: {deviceId: map},
     );
   }
-
   static Future<void> setDeviceGeofenceBypass({
     required String deviceId,
     required bool bypass,
@@ -343,7 +348,6 @@ class PosRemoteConfigService {
       entries: {deviceId: map},
     );
   }
-
   static Future<void> deleteRegisteredDevice(String deviceId) async {
     if (deviceId.trim().isEmpty) return;
     try {
