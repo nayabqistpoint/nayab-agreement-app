@@ -232,7 +232,7 @@ class StockInventoryStorageService {
       final String gType =
           (oMap['guaranteeType']?.toString() ?? '') == 'BANK_CHEQUE'
               ? 'بینک چیک'
-              : 'اشٹام پرنوٹ';
+              : 'اسٹام پرنوٹ';
       final String advText =
           adv > 0 ? 'ایڈوانس: Rs. $adv' : '⭐ بغیر ایڈوانس';
       linkedCustomerInfo = cCnic.isNotEmpty ? '$cName ($cCnic)' : cName;

@@ -2,41 +2,54 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../pos_remote_control/pos_remote_page.dart';
 import '../pos_remote_control/services/pos_remote_config_service.dart';
-import 'components/general_stock_form_ui.dart';
-import 'components/mobile_stock_form_ui.dart';
-import 'stock_inventory_controller.dart';
-class StockEntryFormPage extends StatefulWidget {
-  final StockInventoryController controller;
-  final Map<String, dynamic>? prefillOrderData;
-  final String? linkToOrderId;
-  const StockEntryFormPage({
+import '../stock_inventory/components/general_stock_form_ui.dart';
+import '../stock_inventory/components/mobile_stock_form_ui.dart';
+import 'args/stock_entry_args.dart';
+import 'components/stock_entry_submit_bar_ui.dart';
+import 'stock_entry_controller.dart';
+class StockEntryPage extends StatefulWidget {
+  final StockEntryArgs args;
+  const StockEntryPage({
     super.key,
-    required this.controller,
-    this.prefillOrderData,
-    this.linkToOrderId,
+    this.args = const StockEntryArgs(),
   });
   @override
-  State<StockEntryFormPage> createState() => _StockEntryFormPageState();
+  State<StockEntryPage> createState() => _StockEntryPageState();
 }
-class _StockEntryFormPageState extends State<StockEntryFormPage> {
+class _StockEntryPageState extends State<StockEntryPage> {
+  late final StockEntryController _controller;
+  final GlobalKey<MobileStockFormUiState> _mobileFormKey = GlobalKey();
+  final GlobalKey<GeneralStockFormUiState> _generalFormKey = GlobalKey();
   void _onControllerChanged() {
     if (mounted) setState(() {});
   }
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_onControllerChanged);
+    _controller = StockEntryController(
+      editingItem: widget.args.editingItem,
+      selectedCategoryIndex: widget.args.initialCategoryIndex,
+    );
+    _controller.addListener(_onControllerChanged);
   }
   @override
   void dispose() {
-    widget.controller.removeListener(_onControllerChanged);
+    _controller.removeListener(_onControllerChanged);
+    _controller.dispose();
     super.dispose();
   }
+  void _triggerFrozenSubmit() {
+    if (_controller.selectedCategoryIndex == 0) {
+      _mobileFormKey.currentState?.triggerSubmit();
+    } else {
+      _generalFormKey.currentState?.triggerSubmit();
+    }
+  }
   Widget _buildTabBtn(int index, String label, IconData icon) {
-    final sel = widget.controller.selectedCategoryIndex == index;
+    final sel = _controller.selectedCategoryIndex == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => widget.controller.setCategory(index),
+        onTap: () => _controller.setCategory(index),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           decoration: BoxDecoration(
@@ -108,7 +121,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
     );
   }
   Widget _buildQuantityStepper() {
-    final qty = widget.controller.currentQuantity;
+    final qty = _controller.currentQuantity;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
       decoration: BoxDecoration(
@@ -125,7 +138,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
           _buildCircleStepButton(
             icon: Icons.add_rounded,
             isPrimary: true,
-            onTap: qty < 50 ? widget.controller.incrementQuantity : null,
+            onTap: qty < 50 ? _controller.incrementQuantity : null,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 13),
@@ -141,7 +154,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
           _buildCircleStepButton(
             icon: Icons.remove_rounded,
             isPrimary: false,
-            onTap: qty > 1 ? widget.controller.decrementQuantity : null,
+            onTap: qty > 1 ? _controller.decrementQuantity : null,
           ),
         ],
       ),
@@ -149,10 +162,9 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
   }
   @override
   Widget build(BuildContext context) {
-    final c = widget.controller;
-    final bool isEditing = c.editingItem != null;
-    final bool isMobSelected = c.selectedCategoryIndex == 0;
-    final isOrderPurchaseFlow = widget.linkToOrderId != null;
+    final bool isEditing = _controller.editingItem != null;
+    final bool isMobSelected = _controller.selectedCategoryIndex == 0;
+    final bool isOrderPurchaseFlow = widget.args.linkToOrderId != null;
     final groupingHint = PosRemoteConfigService.getActiveGroupingSummaryText(
       isMobile: isMobSelected,
     );
@@ -178,7 +190,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
             foregroundColor: Colors.white,
           ),
           body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(6, 10, 6, 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -233,10 +245,10 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                             child: Text(
                               isMobSelected
                                   ? (isEditing
-                                      ? 'موبائل اسٹاک میں ترمیم (${c.editingItem!['id']})'
+                                      ? 'موبائل اسٹاک میں ترمیم (${_controller.editingItem!['id']})'
                                       : 'نیا موبائل اسٹاک درج کریں')
                                   : (isEditing
-                                      ? 'جنرل آئٹم میں ترمیم (${c.editingItem!['id']})'
+                                      ? 'جنرل آئٹم میں ترمیم (${_controller.editingItem!['id']})'
                                       : 'نئی جنرل آئٹم درج کریں'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -304,13 +316,12 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                       const SizedBox(height: 11),
                       if (isMobSelected)
                         MobileStockFormUi(
-                          editingItem: c.editingItem,
-                          prefillData: widget.prefillOrderData,
-                          quantity: c.currentQuantity,
-                          onCancelEdit: () {
-                            c.cancelEdit();
-                            Navigator.pop(context);
-                          },
+                          key: _mobileFormKey,
+                          showInlineSubmitButton: false,
+                          editingItem: _controller.editingItem,
+                          prefillData: widget.args.prefillOrderData,
+                          quantity: _controller.currentQuantity,
+                          onCancelEdit: () => Navigator.pop(context),
                           onSave: ({
                             required String stockId,
                             required String itemName,
@@ -332,7 +343,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                           }) async {
                             final messenger = ScaffoldMessenger.of(context);
                             final nav = Navigator.of(context);
-                            final res = await c.saveStockItem(
+                            final res = await _controller.saveStockItem(
                               stockId: stockId,
                               itemName: itemName,
                               imeiOrSerial: imei,
@@ -350,7 +361,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                               perUnitOverrides: perUnitOverrides,
                               images: images,
                               perUnitImages: perUnitImages,
-                              linkToOrderId: widget.linkToOrderId,
+                              linkToOrderId: widget.args.linkToOrderId,
                             );
                             if (!mounted) return;
                             messenger.showSnackBar(
@@ -366,13 +377,12 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                         )
                       else
                         GeneralStockFormUi(
-                          editingItem: c.editingItem,
-                          prefillData: widget.prefillOrderData,
-                          quantity: c.currentQuantity,
-                          onCancelEdit: () {
-                            c.cancelEdit();
-                            Navigator.pop(context);
-                          },
+                          key: _generalFormKey,
+                          showInlineSubmitButton: false,
+                          editingItem: _controller.editingItem,
+                          prefillData: widget.args.prefillOrderData,
+                          quantity: _controller.currentQuantity,
+                          onCancelEdit: () => Navigator.pop(context),
                           onSave: ({
                             required String stockId,
                             required String itemName,
@@ -394,7 +404,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                           }) async {
                             final messenger = ScaffoldMessenger.of(context);
                             final nav = Navigator.of(context);
-                            final res = await c.saveStockItem(
+                            final res = await _controller.saveStockItem(
                               stockId: stockId,
                               itemName: itemName,
                               imeiOrSerial: serialNo,
@@ -412,7 +422,7 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                               perUnitOverrides: perUnitOverrides,
                               images: images,
                               perUnitImages: perUnitImages,
-                              linkToOrderId: widget.linkToOrderId,
+                              linkToOrderId: widget.args.linkToOrderId,
                             );
                             if (!mounted) return;
                             messenger.showSnackBar(
@@ -429,9 +439,14 @@ class _StockEntryFormPageState extends State<StockEntryFormPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 30),
               ],
             ),
+          ),
+          bottomNavigationBar: StockEntrySubmitBarUi(
+            isEditing: isEditing,
+            isMobile: isMobSelected,
+            quantity: _controller.currentQuantity,
+            onPressed: _triggerFrozenSubmit,
           ),
         ),
       ),

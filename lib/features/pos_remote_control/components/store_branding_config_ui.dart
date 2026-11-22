@@ -51,10 +51,10 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
   }) {
     final hasImg = currentUrl.trim().isNotEmpty && currentUrl != 'null';
     return Container(
-      padding: const EdgeInsets.all(11),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFCBD5E1)),
       ),
       child: Column(
@@ -65,8 +65,8 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(isPassport ? 8 : 10),
                 child: Container(
-                  width: isPassport ? 54 : 58,
-                  height: isPassport ? 64 : 58,
+                  width: isPassport ? 50 : 54,
+                  height: isPassport ? 58 : 54,
                   decoration: BoxDecoration(
                     color: const Color(0xFFF0FDF4),
                     border: Border.all(
@@ -79,11 +79,11 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                     pathOrUrl: currentUrl,
                     fit: BoxFit.cover,
                     fallbackIcon: fallbackIcon,
-                    fallbackIconSize: 28,
+                    fallbackIconSize: 26,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,19 +92,19 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                       title,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13.5,
                       ),
                     ),
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         color: Colors.black54,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Wrap(
-                      spacing: 6,
+                      spacing: 5,
                       children: [
                         ElevatedButton.icon(
                           onPressed: () =>
@@ -148,9 +148,10 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
+            visualDensity: VisualDensity.compact,
             title: const Text(
               'POS اسکرین پر یہ تصویر دکھائیں',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
             ),
             value: isVisible,
             activeTrackColor: AppColors.primaryEmerald,
@@ -179,8 +180,10 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
             isExpanded: true,
             decoration: InputDecoration(
               labelText: label,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
               ),
               filled: true,
               fillColor: Colors.white,
@@ -193,7 +196,7 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
           ),
         ),
         if (showInput) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: 5),
           Expanded(
             flex: 2,
             child: TextField(
@@ -207,8 +210,10 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
               ),
               decoration: InputDecoration(
                 labelText: currentType == 'PERCENT' ? 'شرح (%)' : 'رقم (Rs)',
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 filled: true,
                 fillColor: Colors.white,
@@ -223,15 +228,15 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
   Widget _buildCashSaleControlCard() {
     final c = widget.controller;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: c.cashSaleEnabled
               ? AppColors.primaryEmerald
               : const Color(0xFF94A3B8),
-          width: 1.4,
+          width: 1.3,
         ),
       ),
       child: Column(
@@ -239,24 +244,25 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            dense: true,
             title: const Text(
               '💵 نقد فروخت (Direct Cash Sale) سہولت آن رکھیں',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
-                fontSize: 14.5,
+                fontSize: 14,
                 color: AppColors.textDark,
               ),
             ),
             subtitle: const Text(
               'بند کرنے پر POS ایپ میں نقد فروخت کا بٹن مکمل غائب ہو جائے گا',
-              style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
             value: c.cashSaleEnabled,
             activeTrackColor: AppColors.primaryEmerald,
             onChanged: c.setCashSaleEnabled,
           ),
           if (c.cashSaleEnabled) ...[
-            const Divider(height: 14),
+            const Divider(height: 10),
             _buildRuleSelectorRow(
               label: 'ابتدائی نقد قیمت (Default Markup)',
               currentType: c.cashMarkupType,
@@ -278,28 +284,29 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
+              visualDensity: VisualDensity.compact,
               title: const Text(
                 'سیلز مین کو POS ایپ پر نقد قیمت کم/زیادہ کرنے کی اجازت دیں',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
               ),
               value: c.allowCashPriceEdit,
               activeTrackColor: AppColors.primaryEmerald,
               onChanged: c.setAllowCashPriceEdit,
             ),
             if (c.allowCashPriceEdit) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: Colors.amber.shade700,
-                    width: 1.2,
+                    width: 1.1,
                   ),
                 ),
                 child: Column(
@@ -309,32 +316,23 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                       children: [
                         Icon(
                           Icons.gpp_good_rounded,
-                          size: 19,
+                          size: 17,
                           color: Colors.amber.shade900,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Expanded(
                           child: Text(
                             'سیلز مین پرائس بیریئر (کم از کم اور زیادہ سے زیادہ حد):',
                             style: TextStyle(
                               fontWeight: FontWeight.w900,
-                              fontSize: 13,
+                              fontSize: 12.5,
                               color: Colors.amber.shade900,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'بیس سیل پرائس (Base Price) کے مطابق نیچے اور اوپر کی حد مقرر کریں:',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     _buildRuleSelectorRow(
                       label: 'نیچے کا بیریئر (زیادہ سے زیادہ رعایت / Floor)',
                       currentType: c.cashMinFloorType,
@@ -356,7 +354,7 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     _buildRuleSelectorRow(
                       label: 'اوپر کا بیریئر (زیادہ سے زیادہ حد / Ceiling)',
                       currentType: c.cashMaxCeilingType,
@@ -406,15 +404,15 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
       child: GestureDetector(
         onTap: () => setState(() => _groupingCategoryTab = idx),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
           decoration: BoxDecoration(
             color: isSel ? AppColors.primaryEmerald : Colors.white,
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSel
                   ? AppColors.primaryEmerald
                   : AppColors.emeraldPillBorder,
-              width: 1.3,
+              width: 1.2,
             ),
           ),
           child: Row(
@@ -422,17 +420,17 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
             children: [
               Icon(
                 icon,
-                size: 16,
+                size: 15,
                 color: isSel ? Colors.white : AppColors.primaryEmerald,
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                     color: isSel ? Colors.white : AppColors.textDark,
                   ),
@@ -481,10 +479,10 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
         return Container(
           decoration: BoxDecoration(
             color: AppColors.warmTintEmerald,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: AppColors.primaryEmerald,
-              width: _isGroupingExpanded ? 1.6 : 1.3,
+              width: _isGroupingExpanded ? 1.5 : 1.2,
             ),
           ),
           child: Column(
@@ -493,25 +491,25 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
               InkWell(
                 onTap: () => setState(
                     () => _isGroupingExpanded = !_isGroupingExpanded),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(7),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: AppColors.primaryEmerald,
-                          borderRadius: BorderRadius.circular(9),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.layers_outlined,
                           color: Colors.white,
-                          size: 19,
+                          size: 18,
                         ),
                       ),
-                      const SizedBox(width: 9),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,19 +521,19 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                                     '📦 مارکیٹ کارڈ گروپنگ رولز',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 14.5,
+                                      fontSize: 14,
                                       color: AppColors.primaryEmerald,
                                     ),
                                   ),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 7,
-                                    vertical: 2,
+                                    horizontal: 6,
+                                    vertical: 1.5,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.circular(5),
                                     border: Border.all(
                                       color: AppColors.emeraldPillBorder,
                                     ),
@@ -543,7 +541,7 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                                   child: Text(
                                     '📱 ${widget.controller.mobileGroupingMatchKeys.length} | 🧊 ${widget.controller.generalGroupingMatchKeys.length}',
                                     style: const TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 10.5,
                                       fontWeight: FontWeight.w900,
                                       color: AppColors.primaryEmerald,
                                     ),
@@ -551,13 +549,13 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 2),
                             Text(
                               'موبائل: $mobSummary',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.textDark,
                               ),
@@ -567,7 +565,7 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.textMuted,
                               ),
@@ -575,13 +573,13 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Icon(
                         _isGroupingExpanded
                             ? Icons.keyboard_arrow_up_rounded
                             : Icons.keyboard_arrow_down_rounded,
                         color: AppColors.primaryEmerald,
-                        size: 24,
+                        size: 22,
                       ),
                     ],
                   ),
@@ -590,7 +588,7 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
               if (_isGroupingExpanded) ...[
                 const Divider(height: 1, color: AppColors.emeraldPillBorder),
                 Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(7),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -601,7 +599,7 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                             'موبائل گروپنگ (${widget.controller.mobileGroupingMatchKeys.length}/${mobOptions.length})',
                             Icons.phone_android_rounded,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 5),
                           _buildCategoryTabBtn(
                             1,
                             'جنرل اشیاء گروپنگ (${widget.controller.generalGroupingMatchKeys.length}/${genOptions.length})',
@@ -609,26 +607,16 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'جن فیلڈز پر ٹِک (✅) ہوگا، ان کے یکساں ہونے پر ہی یونٹس ایک کارڈ میں جمع ہوں گے؛ اگر وہ مختلف ہوئیں تو الگ کارڈ بنے گا (فوری آٹو سیو):',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       ...currentOptions.map((opt) {
                         final key = opt['key']!;
                         final label = opt['urduLabel']!;
                         final isChecked = currentKeys.contains(key);
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 5),
+                          margin: const EdgeInsets.only(bottom: 4),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(7),
                             border: Border.all(
                               color: isChecked
                                   ? AppColors.primaryEmerald
@@ -637,28 +625,17 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                           ),
                           child: CheckboxListTile(
                             dense: true,
+                            visualDensity: VisualDensity.compact,
                             contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 8),
+                                const EdgeInsets.symmetric(horizontal: 6),
                             activeColor: AppColors.primaryEmerald,
                             value: isChecked,
                             title: Text(
                               label,
                               style: const TextStyle(
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w900,
                                 color: AppColors.textDark,
-                              ),
-                            ),
-                            subtitle: Text(
-                              isChecked
-                                  ? 'یکساں ہونا ضروری (مختلف ہونے پر الگ کارڈ بنے گا)'
-                                  : 'مختلف ہونے پر بھی ایک ہی کارڈ میں گروپ ہو جائے گا',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: isChecked
-                                    ? AppColors.primaryEmerald
-                                    : AppColors.textMuted,
                               ),
                             ),
                             onChanged: (val) => _onToggleAndAutoSync(
@@ -686,10 +663,10 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFF94A3B8)),
           ),
           child: Column(
@@ -697,38 +674,42 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
             children: [
               const Text(
                 'دکان کا نام و عنوان (POS ایپ بار):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               TextField(
                 controller: controller.shopNameCtrl,
                 textAlign: TextAlign.right,
                 style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
                 decoration: InputDecoration(
                   labelText: 'دکان کا مرکزی نام',
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(8)),
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               TextField(
                 controller: controller.shopSubtitleCtrl,
                 textAlign: TextAlign.right,
                 style:
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 decoration: InputDecoration(
-                  labelText: 'ذیلی عنوان / شہر (مثلاً قائم پور / آسان اقساط)',
+                  labelText: 'ذیلی عنوان / شہر',
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(8)),
                   isDense: true,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _imagePickerCard(
           title: 'دکان کا لوگو (Shop Logo)',
           subtitle: 'POS ایپ بار کے دائیں کونے میں ظاہر ہوگا',
@@ -740,7 +721,7 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
           fallbackIcon: Icons.storefront_rounded,
           isPassport: false,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         _imagePickerCard(
           title: 'مالک کی پاسپورٹ سائز تصویر (Owner Photo)',
           subtitle: 'POS ایپ بار میں آپ کی شناختی تصویر کے طور پر نظر آئے گی',
@@ -752,26 +733,27 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
           fallbackIcon: Icons.person_rounded,
           isPassport: true,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _buildCashSaleControlCard(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _buildCollapsibleGroupingCard(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: const Color(0xFFFFFBEB),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.amber.shade700, width: 1.2),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.amber.shade700, width: 1.1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                dense: true,
                 title: const Text(
                   'لائیو چلنے والی نیوز ٹِکر پٹی (Ticker Bar) آن رکھیں',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                 ),
                 value: controller.tickerEnabled,
                 activeTrackColor: AppColors.primaryEmerald,
@@ -782,11 +764,14 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
                 textAlign: TextAlign.right,
                 maxLines: 2,
                 style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                 decoration: InputDecoration(
+                  isDense: true,
                   labelText: 'ٹِکر پٹی پر چلنے والا پیغام / اشتہار',
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(8)),
                   filled: true,
                   fillColor: Colors.white,
                 ),
@@ -794,12 +779,12 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFF94A3B8)),
           ),
           child: Column(
@@ -807,14 +792,15 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
             children: [
               const Text(
                 'POS مارکیٹ لسٹ میں آئٹمز کی نمائش کا کنٹرول:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
-              const SizedBox(height: 4),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: VisualDensity.compact,
                 title: const Text(
                   '📦 آرڈر پر دستیاب (On-Order) آئٹمز دکھائیں',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 value: controller.showOnOrderItems,
                 activeTrackColor: AppColors.primaryEmerald,
@@ -822,9 +808,11 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: VisualDensity.compact,
                 title: const Text(
                   '🔒 بُک شدہ (Reserved) آئٹمز مع منتخب پیکج دکھائیں',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 value: controller.showReservedItems,
                 activeTrackColor: AppColors.primaryEmerald,
@@ -832,9 +820,11 @@ class _StoreBrandingConfigUiState extends State<StoreBrandingConfigUi> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: VisualDensity.compact,
                 title: const Text(
                   '✅ فروخت شدہ (Sold) آئٹمز مع فروخت شدہ پیکج دکھائیں',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 value: controller.showSoldItems,
                 activeTrackColor: AppColors.primaryEmerald,

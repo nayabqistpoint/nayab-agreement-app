@@ -7,28 +7,23 @@ import '../../core/widgets/portable_image_ui.dart';
 import '../customer_detail/components/customer_media_viewer_modal_ui.dart';
 import '../stock_inventory/stock_inventory_page.dart';
 import 'services/pos_pending_orders_service.dart';
-
 class PosOrderFullProfilePage extends StatefulWidget {
   final PosOrderRecord order;
   final ValueChanged<PosOrderRecord> onLoadToCounter;
   final VoidCallback onDismissOrder;
-
   const PosOrderFullProfilePage({
     super.key,
     required this.order,
     required this.onLoadToCounter,
     required this.onDismissOrder,
   });
-
   @override
   State<PosOrderFullProfilePage> createState() =>
       _PosOrderFullProfilePageState();
 }
-
 class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
   final PageController _pageController = PageController();
   int _activeSlide = 0;
-
   PosOrderRecord get _liveOrder {
     final id = widget.order['id']?.toString() ?? '';
     if (id.isNotEmpty) {
@@ -40,14 +35,12 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
     }
     return widget.order;
   }
-
   bool _requiresStockPurchase(PosOrderRecord o) {
     final stockId = o['stockId']?.toString().trim() ?? '';
     final sourceMode = (o['sourceMode']?.toString() ?? '').toUpperCase();
     final isCustom = o['isCustomEstimate'] == true ||
         sourceMode == 'CUSTOM_ESTIMATE' ||
         sourceMode == 'ON_ORDER';
-
     if (stockId.isEmpty || stockId == 'null') return true;
     if (isCustom) {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
@@ -63,20 +56,17 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
     }
     return false;
   }
-
   bool _isGeneralCategory(PosOrderRecord o) {
     final cat = (o['productCategory']?.toString() ?? '').toUpperCase();
     final zone = (o['zoneType']?.toString() ?? '').toUpperCase();
     return cat == 'ELECTRONICS' || zone == 'ELECTRONICS';
   }
-
   Future<void> _openPrefilledStockPurchase(PosOrderRecord o) async {
     final enriched = TagsBankService.enrichOrderWithStock(o);
     final int salePrice = (enriched['baseValue'] as num?)?.toInt() ??
         (enriched['salePrice'] as num?)?.toInt() ??
         (enriched['totalContractAmount'] as num?)?.toInt() ??
         0;
-
     final Map<String, dynamic> prefill = {
       ...enriched,
       'itemName': o['itemName']?.toString() ?? '',
@@ -85,7 +75,6 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
       'serialNo': '',
       'isOnOrder': false,
     };
-
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -98,13 +87,11 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
     );
     if (mounted) setState(() {});
   }
-
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
   }
-
   List<({String label, String url, IconData fallbackIcon})> _buildPhotoSlides(
     PosOrderRecord o,
   ) {
@@ -126,7 +113,6 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
     }
     return slides;
   }
-
   Widget _infoTile(String label, String value, {Color? valueColor}) {
     if (value.trim().isEmpty || value == 'null') return const SizedBox.shrink();
     return Padding(
@@ -159,7 +145,6 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
@@ -171,7 +156,6 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
         final status = (o['status']?.toString() ?? '').toUpperCase();
         final bool isClosed =
             status == 'AGREEMENT_COMPLETED' || status == 'DISMISSED_BY_COUNTER';
-
         return Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
@@ -384,7 +368,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                 'ضمانت کی قسم',
                                 o['guaranteeType']?.toString() == 'BANK_CHEQUE'
                                     ? 'بینک چیک (${o['bankName'] ?? ''} - ${o['chequeNo'] ?? ''})'
-                                    : 'قانونی اشٹام و پرنوٹ',
+                                    : 'قانونی اسٹام و پرنوٹ',
                               ),
                             ],
                           ),

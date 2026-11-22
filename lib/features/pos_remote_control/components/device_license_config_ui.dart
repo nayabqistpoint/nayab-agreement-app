@@ -5,11 +5,9 @@ import '../../../core/constants/box_names.dart';
 import '../../../core/database/hive_box_manager.dart';
 import '../pos_remote_controller.dart';
 import '../services/pos_remote_config_service.dart';
-
 class DeviceLicenseConfigUi extends StatelessWidget {
   final PosRemoteController controller;
   const DeviceLicenseConfigUi({super.key, required this.controller});
-
   Future<void> _openGoogleMaps(
     BuildContext context,
     double lat,
@@ -27,7 +25,6 @@ class DeviceLicenseConfigUi extends StatelessWidget {
       );
     }
   }
-
   void _confirmDeleteDevice(
     BuildContext context,
     String deviceId,
@@ -78,7 +75,6 @@ class DeviceLicenseConfigUi extends StatelessWidget {
       ),
     );
   }
-
   void _showRenameAndApproveDialog(
     BuildContext context,
     String deviceId,
@@ -112,7 +108,7 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                 autofocus: true,
                 textAlign: TextAlign.right,
                 decoration: const InputDecoration(
-                  labelText: 'ملازم کا نام / برانچ (مثلاً علی سیلز مین)',
+                  labelText: 'ملازم کا نام / برانچ',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -145,19 +141,18 @@ class DeviceLicenseConfigUi extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildGeofenceBox() {
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(11),
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: controller.geofenceEnabled
               ? AppColors.primaryEmerald
               : AppColors.borderLight,
-          width: 1.3,
+          width: 1.2,
         ),
       ),
       child: Column(
@@ -165,24 +160,25 @@ class DeviceLicenseConfigUi extends StatelessWidget {
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            dense: true,
             title: const Text(
               '📍 جیو فینسنگ (حدودِ دکان) لاک آن رکھیں',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
-                fontSize: 14.5,
+                fontSize: 14,
                 color: AppColors.textDark,
               ),
             ),
             subtitle: const Text(
               'آن ہونے پر دکان کے مقررہ میٹرز سے باہر POS ایپ خودکار لاک ہو جائے گی۔',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
             ),
             value: controller.geofenceEnabled,
             activeTrackColor: AppColors.primaryEmerald,
             onChanged: controller.setGeofenceEnabled,
           ),
           if (controller.geofenceEnabled) ...[
-            const Divider(height: 12),
+            const Divider(height: 10),
             TextField(
               controller: controller.geofenceRadiusCtrl,
               keyboardType: TextInputType.number,
@@ -190,15 +186,16 @@ class DeviceLicenseConfigUi extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
               decoration: InputDecoration(
                 labelText: 'حدود کا دائرہ کار (Radius in Meters)',
-                hintText: 'مثلاً 150 یا 300',
                 prefixIcon: const Icon(Icons.radar_rounded,
                     color: AppColors.primaryEmerald),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
@@ -211,13 +208,15 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                         fontWeight: FontWeight.bold, fontSize: 13.5),
                     decoration: InputDecoration(
                       labelText: 'Latitude (Lat)',
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 10),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9)),
+                          borderRadius: BorderRadius.circular(8)),
                       isDense: true,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 5),
                 Expanded(
                   child: TextField(
                     controller: controller.shopLngCtrl,
@@ -228,33 +227,35 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                         fontWeight: FontWeight.bold, fontSize: 13.5),
                     decoration: InputDecoration(
                       labelText: 'Longitude (Lng)',
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 10),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9)),
+                          borderRadius: BorderRadius.circular(8)),
                       isDense: true,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             ElevatedButton.icon(
               onPressed: controller.isFetchingShopLocation
                   ? null
                   : controller.captureCurrentShopLocation,
-              icon: const Icon(Icons.my_location_rounded, size: 18),
+              icon: const Icon(Icons.my_location_rounded, size: 17),
               label: Text(
                 controller.isFetchingShopLocation
                     ? 'لوکیشن حاصل ہو رہی ہے...'
                     : 'موجودہ مقام کو دکان کی لوکیشن سیٹ کریں',
                 style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                    const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryEmerald,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 9),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(9)),
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
@@ -262,35 +263,35 @@ class DeviceLicenseConfigUi extends StatelessWidget {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: AppColors.warmTintEmerald,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.emeraldPillBorder, width: 1.3),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.emeraldPillBorder, width: 1.2),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                dense: true,
                 title: const Text(
                   '🔐 ڈیوائس لائسنس لاک (Anti-Leak Security) آن رکھیں',
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 15,
+                    fontSize: 14.5,
                     color: AppColors.textDark,
                   ),
                 ),
                 subtitle: const Text(
                   'آن ہونے پر کوئی بھی نئی انسٹالیشن اس وقت تک نہیں کھلے گی جب تک آپ یہاں سے منظور نہ کریں۔',
-                  style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
                 value: controller.requireDeviceActivation,
                 activeTrackColor: AppColors.primaryEmerald,
@@ -300,43 +301,34 @@ class DeviceLicenseConfigUi extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         ValueListenableBuilder(
           valueListenable: HiveBoxManager.listenToBox(BoxNames.posDevicesBox),
           builder: (context, _, _) {
             final devices = PosRemoteConfigService.getRegisteredDevices();
             if (devices.isEmpty) {
               return Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: AppColors.cardSurface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.borderLight),
                 ),
                 child: const Column(
                   children: [
                     Icon(
                       Icons.phonelink_lock_rounded,
-                      size: 44,
+                      size: 40,
                       color: AppColors.primaryEmerald,
                     ),
-                    SizedBox(height: 8),
+                    SizedBox(height: 6),
                     Text(
                       'ابھی تک کسی موبائل سے رسائی کی درخواست موصول نہیں ہوئی۔',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: AppColors.textDark,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'جیسے ہی کسی موبائل پر POS ایپ انسٹال ہو کر کھلے گی، اس کی ID اور ماڈل خودکار یہاں ظاہر ہو جائے گا۔',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.textMuted,
                       ),
                     ),
                   ],
@@ -349,12 +341,12 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                 Text(
                   'رجسٹرڈ موبائلز و ٹیبز کی فہرست (${devices.length}):',
                   style: const TextStyle(
-                    fontSize: 15.5,
+                    fontSize: 14.5,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textDark,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 ...devices.map((dev) {
                   final id = dev['deviceId']?.toString() ?? '';
                   final model =
@@ -386,18 +378,18 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                     statusLabel = '🔴 بلاک شدہ (Revoked)';
                   }
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
                       color: AppColors.cardSurface,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isActive
                             ? AppColors.primaryEmerald
                             : (isRevoked
                                 ? AppColors.errorRed
                                 : AppColors.borderLight),
-                        width: 1.4,
+                        width: 1.3,
                       ),
                     ),
                     child: Column(
@@ -407,20 +399,20 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(Icons.smartphone_rounded,
-                                color: badgeText, size: 24),
-                            const SizedBox(width: 8),
+                                color: badgeText, size: 22),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(displayTitle,
                                       style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 14.5,
                                           fontWeight: FontWeight.w900,
                                           color: AppColors.textDark)),
                                   Text('Device ID: $id',
                                       style: const TextStyle(
-                                          fontSize: 13,
+                                          fontSize: 12.5,
                                           fontWeight: FontWeight.bold,
                                           color: AppColors.textMuted)),
                                 ],
@@ -428,17 +420,17 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 9, vertical: 4),
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                   color: badgeBg,
-                                  borderRadius: BorderRadius.circular(7)),
+                                  borderRadius: BorderRadius.circular(6)),
                               child: Text(statusLabel,
                                   style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.w900,
                                       color: badgeText)),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 5),
                             InkWell(
                               onTap: () => _confirmDeleteDevice(
                                   context, id, displayTitle),
@@ -451,41 +443,41 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                                     border:
                                         Border.all(color: Colors.red.shade200)),
                                 child: Icon(Icons.close_rounded,
-                                    size: 16, color: Colors.red.shade700),
+                                    size: 15, color: Colors.red.shade700),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         if (hasGps)
                           InkWell(
                             onTap: () => _openGoogleMaps(context, lat, lng),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(7),
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 7),
+                                  horizontal: 8, vertical: 6),
                               decoration: BoxDecoration(
                                   color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(7),
                                   border:
                                       Border.all(color: Colors.blue.shade300)),
                               child: Row(
                                 children: [
                                   Icon(Icons.location_on_rounded,
-                                      size: 18, color: Colors.blue.shade800),
-                                  const SizedBox(width: 6),
+                                      size: 16, color: Colors.blue.shade800),
+                                  const SizedBox(width: 5),
                                   Expanded(
                                     child: Text(
                                       '📍 گوگل میپس پر لوکیشن دیکھیں (${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)})',
                                       style: TextStyle(
-                                          fontSize: 12.5,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w900,
                                           color: Colors.blue.shade900),
                                     ),
                                   ),
                                   Icon(Icons.open_in_new_rounded,
-                                      size: 15, color: Colors.blue.shade800),
+                                      size: 14, color: Colors.blue.shade800),
                                 ],
                               ),
                             ),
@@ -494,23 +486,23 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
+                                horizontal: 8, vertical: 5),
                             decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(7),
                                 border: Border.all(color: Colors.grey.shade300)),
                             child: Row(
                               children: [
                                 const Icon(Icons.location_off_outlined,
-                                    size: 16, color: Colors.black54),
-                                const SizedBox(width: 6),
+                                    size: 15, color: Colors.black54),
+                                const SizedBox(width: 5),
                                 Expanded(
                                   child: Text(
                                     locError.isNotEmpty
                                         ? 'GPS اطلاع: $locError'
-                                        : 'GPS لوکیشن ابھی موصول نہیں ہوئی (موبائل/براؤزر پر Allow Location کریں)',
+                                        : 'GPS لوکیشن ابھی موصول نہیں ہوئی',
                                     style: const TextStyle(
-                                        fontSize: 11.5,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black54),
                                   ),
@@ -518,15 +510,15 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                               ],
                             ),
                           ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 2),
+                              horizontal: 8, vertical: 1),
                           decoration: BoxDecoration(
                             color: isFreeHand
                                 ? Colors.blue.shade50
                                 : AppColors.backgroundLight,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(7),
                             border: Border.all(
                               color: isFreeHand
                                   ? Colors.blue.shade300
@@ -536,12 +528,13 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                           child: SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             dense: true,
+                            visualDensity: VisualDensity.compact,
                             title: Text(
                               isFreeHand
                                   ? '🌍 فری ہینڈ اجازت آن (حدودِ دکان سے آزاد)'
                                   : '📍 جیو فینس لاک فعال (صرف دکان کے اندر)',
                               style: TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w900,
                                 color: isFreeHand
                                     ? Colors.blue.shade900
@@ -557,7 +550,7 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const Divider(height: 14),
+                        const Divider(height: 10),
                         Row(
                           children: [
                             Expanded(
@@ -565,13 +558,14 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                                 onPressed: () => _showRenameAndApproveDialog(
                                     context, id, label),
                                 icon: const Icon(Icons.verified_rounded,
-                                    size: 17),
+                                    size: 16),
                                 label: Text(
                                   isActive
                                       ? 'نام تبدیل کریں'
                                       : 'فعال کریں (Activate)',
                                   style: const TextStyle(
-                                      fontSize: 13, fontWeight: FontWeight.w900),
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w900),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.primaryEmerald,
@@ -579,16 +573,16 @@ class DeviceLicenseConfigUi extends StatelessWidget {
                               ),
                             ),
                             if (!isRevoked) ...[
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               ElevatedButton.icon(
                                 onPressed: () async =>
                                     PosRemoteConfigService.setDeviceStatus(
                                         deviceId: id, status: 'REVOKED'),
                                 icon:
-                                    const Icon(Icons.block_rounded, size: 17),
+                                    const Icon(Icons.block_rounded, size: 16),
                                 label: const Text('بلاک کریں',
                                     style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 12.5,
                                         fontWeight: FontWeight.w900)),
                                 style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.errorRed,

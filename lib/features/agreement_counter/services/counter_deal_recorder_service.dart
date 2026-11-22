@@ -3,7 +3,6 @@ import '../../../../core/database/hive_box_manager.dart';
 import '../../../../core/models/customer_deal_model.dart';
 import '../../../../core/models/customer_profile_model.dart';
 import '../../../../core/time/time_status_service.dart';
-
 class CounterDealRecorderService {
   static Future<CustomerDealModel> recordDeal({
     required List<String> bundledTemplates,
@@ -16,19 +15,16 @@ class CounterDealRecorderService {
     if (cnic.isEmpty) {
       throw Exception('کسٹمر کا شناختی کارڈ نمبر درج کرنا لازمی ہے!');
     }
-
     final now = TimeStatusService.nowUtcIso();
     final name = fieldValues['کسٹمر کا نام']?.trim() ?? 'نامعلوم کسٹمر';
     final imei = fieldValues['IMEI نمبر']?.trim() ?? '';
     final stockIdFromField = fieldValues['اسٹاک آئی ڈی']?.trim() ?? '';
     final dealId = 'DEAL_${DateTime.now().millisecondsSinceEpoch}';
-
     String? orderCustomerPhotoUrl;
     String? orderGuarantorPhotoUrl;
     String orderStockId = stockIdFromField;
     List<String> orderStockIds = [];
     String orderGuaranteeLabel = fieldValues['ضمانت']?.trim() ?? '';
-
     if (activePosOrderId != null && activePosOrderId.isNotEmpty) {
       final ordersBox = HiveBoxManager.getBox(BoxNames.shopOrdersBox);
       final rawOrder = ordersBox.get(activePosOrderId);
@@ -48,20 +44,17 @@ class CounterDealRecorderService {
         if (orderGuaranteeLabel.isEmpty) {
           final gRaw = rawOrder['guaranteeType']?.toString() ?? '';
           orderGuaranteeLabel =
-              gRaw == 'BANK_CHEQUE' ? 'بینک چیک' : 'اشٹام پرنوٹ';
+              gRaw == 'BANK_CHEQUE' ? 'بینک چیک' : 'اسٹام پرنوٹ';
         }
       }
     }
-
     if (orderStockId.isNotEmpty && !orderStockIds.contains(orderStockId)) {
       orderStockIds.insert(0, orderStockId);
     }
-
     final enrichedSnapshot = Map<String, String>.from(fieldValues);
     if (orderStockIds.isNotEmpty) {
       enrichedSnapshot['اسٹاک آئی ڈی'] = orderStockIds.join(', ');
     }
-
     final stockMeta = _findStock(stockId: orderStockId, imei: imei);
     if (stockMeta != null) {
       final supplier = stockMeta['supplierInfo']?.toString().trim() ?? '';
@@ -76,7 +69,6 @@ class CounterDealRecorderService {
         enrichedSnapshot['قیمت خرید'] = pPrice;
       }
     }
-
     final deal = CustomerDealModel(
       id: dealId,
       customerCnic: cnic,
@@ -96,24 +88,19 @@ class CounterDealRecorderService {
       isSynced: false,
       isDeleted: false,
     );
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.customerDealsBox,
       entries: {dealId: deal.toMap()},
     );
-
     final customerBox = HiveBoxManager.getBox(BoxNames.customersBox);
     final Map<String, dynamic> profileUpdates = {};
-
     final guarantorName = enrichedSnapshot['ضامن کا نام']?.trim() ?? '';
     final guarantorPhone = enrichedSnapshot['ضامن موبائل نمبر']?.trim() ?? '';
     final guarantorCnic = enrichedSnapshot['ضامن شناختی کارڈ']?.trim() ?? '';
-
     final rawCustomer = customerBox.get(cnic);
     final existing = rawCustomer is Map
         ? CustomerProfileModel.fromMap(Map<String, dynamic>.from(rawCustomer))
         : null;
-
     final customerProfile = CustomerProfileModel(
       id: cnic,
       fullName: name.isNotEmpty ? name : (existing?.fullName ?? ''),
@@ -134,7 +121,6 @@ class CounterDealRecorderService {
       createdAt: existing?.createdAt ?? now,
       isDeleted: false,
     );
-
     final custMap = customerProfile.toMap();
     if (guarantorName.isNotEmpty) {
       custMap['linkedGuarantorName'] = guarantorName;
@@ -144,7 +130,6 @@ class CounterDealRecorderService {
       }
     }
     profileUpdates[cnic] = custMap;
-
     if (guarantorName.isNotEmpty) {
       final guarantorKey = guarantorCnic.isNotEmpty
           ? guarantorCnic
@@ -155,7 +140,6 @@ class CounterDealRecorderService {
       final existingG = rawG is Map
           ? CustomerProfileModel.fromMap(Map<String, dynamic>.from(rawG))
           : null;
-
       final guarantorProfile = CustomerProfileModel(
         id: guarantorKey,
         fullName: guarantorName,
@@ -178,7 +162,6 @@ class CounterDealRecorderService {
       );
       profileUpdates[guarantorKey] = guarantorProfile.toMap();
     }
-
     final supplierRaw = enrichedSnapshot['سپلائر']?.trim() ?? '';
     if (supplierRaw.isNotEmpty) {
       final phoneMatch = RegExp(r'03\d{9}').firstMatch(supplierRaw);
@@ -191,7 +174,6 @@ class CounterDealRecorderService {
       final existingSup = rawSup is Map
           ? CustomerProfileModel.fromMap(Map<String, dynamic>.from(rawSup))
           : null;
-
       final supplierProfile = CustomerProfileModel(
         id: supKey,
         fullName: supName.isNotEmpty ? supName : supplierRaw,
@@ -207,12 +189,10 @@ class CounterDealRecorderService {
       );
       profileUpdates[supKey] = supplierProfile.toMap();
     }
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.customersBox,
       entries: profileUpdates,
     );
-
     if (orderStockIds.isNotEmpty || (imei.isNotEmpty && imei != 'null')) {
       final int advNum =
           int.tryParse(enrichedSnapshot['ایڈوانس رقم']?.trim() ?? '0') ?? 0;
@@ -223,7 +203,6 @@ class CounterDealRecorderService {
       final String gPart =
           orderGuaranteeLabel.isNotEmpty ? ' ($orderGuaranteeLabel)' : '';
       final soldSummary = '$dur • $advText • قسط: Rs. $monthly/ماہ$gPart';
-
       if (orderStockIds.isNotEmpty) {
         for (final sid in orderStockIds) {
           await _markStockSold(
@@ -246,10 +225,8 @@ class CounterDealRecorderService {
         );
       }
     }
-
     return deal;
   }
-
   static Map<String, dynamic>? _findStock({
     required String stockId,
     required String imei,
@@ -271,7 +248,6 @@ class CounterDealRecorderService {
     } catch (_) {}
     return null;
   }
-
   static Future<void> _markStockSold({
     required String stockId,
     required String imei,
@@ -284,7 +260,6 @@ class CounterDealRecorderService {
       final stockBox = HiveBoxManager.getBox(BoxNames.stockBox);
       final now = TimeStatusService.nowUtcIso();
       String? targetKey;
-
       if (stockId.isNotEmpty &&
           stockId != 'null' &&
           stockBox.containsKey(stockId)) {
@@ -299,7 +274,6 @@ class CounterDealRecorderService {
           }
         }
       }
-
       if (targetKey != null) {
         final rawStock = stockBox.get(targetKey);
         if (rawStock is Map) {
@@ -317,7 +291,6 @@ class CounterDealRecorderService {
           updatedStock['reservedCustomerInfo'] = null;
           updatedStock['updatedAt'] = now;
           updatedStock['isSynced'] = false;
-
           await HiveBoxManager.putBatch(
             boxName: BoxNames.stockBox,
             entries: {targetKey: updatedStock},
@@ -326,7 +299,6 @@ class CounterDealRecorderService {
       }
     } catch (_) {}
   }
-
   static Future<void> updateDealMedia({
     required String dealId,
     List<String>? deliveryPhotoPaths,

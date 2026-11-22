@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/qr_scanner.dart';
+import '../../stock_entry/components/inline_field_eye_icon_ui.dart';
 import '../services/stock_inventory_storage_service.dart';
 import 'dynamic_stock_fields_card_ui.dart';
 import 'lot_invoice_summary_card_ui.dart';
 import 'splittable_dropdown_wrapper_ui.dart';
 import 'splittable_field_wrapper_ui.dart';
 import 'splittable_photo_picker_ui.dart';
-import 'stock_field_eye_toggle_ui.dart';
 class MobileStockFormUi extends StatefulWidget {
   final Map<String, dynamic>? editingItem;
   final Map<String, dynamic>? prefillData;
   final int quantity;
+  final bool showInlineSubmitButton;
   final VoidCallback onCancelEdit;
   final Function({
     required String stockId,
@@ -37,13 +38,14 @@ class MobileStockFormUi extends StatefulWidget {
     required this.editingItem,
     this.prefillData,
     this.quantity = 1,
+    this.showInlineSubmitButton = true,
     required this.onCancelEdit,
     required this.onSave,
   });
   @override
-  State<MobileStockFormUi> createState() => _MobileStockFormUiState();
+  State<MobileStockFormUi> createState() => MobileStockFormUiState();
 }
-class _MobileStockFormUiState extends State<MobileStockFormUi> {
+class MobileStockFormUiState extends State<MobileStockFormUi> {
   final TextEditingController _modelCtrl = TextEditingController();
   final TextEditingController _imeiCtrl = TextEditingController();
   final TextEditingController _purchasePriceCtrl = TextEditingController();
@@ -103,6 +105,7 @@ class _MobileStockFormUiState extends State<MobileStockFormUi> {
   int get _currentQty =>
       widget.editingItem != null ? 1 : widget.quantity.clamp(1, 50);
   bool get _forceImeiSplit => !_isOnOrder && _currentQty > 1;
+  void triggerSubmit() => _submit();
   @override
   void initState() {
     super.initState();
@@ -329,19 +332,6 @@ class _MobileStockFormUiState extends State<MobileStockFormUi> {
     await StockInventoryStorageService.saveVisibleCardFields(
       isMobile: true,
       visibleKeys: _visibleCardKeys,
-    );
-  }
-  Widget _withEyeToggle(String fieldKey, Widget fieldWidget) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: fieldWidget),
-        const SizedBox(width: 5),
-        StockFieldEyeToggleUi(
-          isVisibleOnCard: _visibleCardKeys.contains(fieldKey),
-          onToggle: () => _toggleFieldVisibility(fieldKey),
-        ),
-      ],
     );
   }
   @override
@@ -652,7 +642,17 @@ class _MobileStockFormUiState extends State<MobileStockFormUi> {
       setState(() => _reset());
     }
   }
-  InputDecoration _dec(String label, {bool isError = false}) {
+  InputDecoration _dec(
+    String label, {
+    bool isError = false,
+    String? eyeFieldKey,
+  }) {
+    final eyeWidget = eyeFieldKey != null
+        ? InlineFieldEyeIconUi(
+            isVisibleOnCard: _visibleCardKeys.contains(eyeFieldKey),
+            onToggle: () => _toggleFieldVisibility(eyeFieldKey),
+          )
+        : null;
     return InputDecoration(
       labelText: label,
       labelStyle: TextStyle(
@@ -661,6 +661,7 @@ class _MobileStockFormUiState extends State<MobileStockFormUi> {
         color: isError ? AppColors.errorRed : AppColors.textDark,
       ),
       floatingLabelBehavior: FloatingLabelBehavior.always,
+      suffixIcon: eyeWidget,
       contentPadding: const EdgeInsets.symmetric(horizontal: 11, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -814,235 +815,232 @@ class _MobileStockFormUiState extends State<MobileStockFormUi> {
         ),
         if (!_isOnOrder) ...[
           const SizedBox(height: 11),
-          _withEyeToggle(
-            'imeiOrSerial',
-            SplittableFieldWrapperUi(
-              quantity: qty,
-              upcomingStockIds: upcomingIds,
-              fieldLabel: 'IMEI نمبر*',
-              isSplitActive: _activeSplitKeys.contains('imeiOrSerial'),
-              forceSplit: _forceImeiSplit,
-              perUnitControllers:
-                  _splitControllersMap['imeiOrSerial'] ?? const [],
-              perUnitFocusNodes: _splitImeiFocusNodes,
-              invalidUnitIndexes: _invalidImeiIndexes,
-              onToggleSplit: () => _toggleSplit('imeiOrSerial'),
-              enableScanner: true,
-              allowCopyDown: false,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.left,
-              singleFieldChild: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _imeiCtrl,
-                      focusNode: _singleImeiFocus,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.left,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        color: _singleImeiError
-                            ? AppColors.errorRed
-                            : AppColors.textDark,
+          SplittableFieldWrapperUi(
+            quantity: qty,
+            upcomingStockIds: upcomingIds,
+            fieldLabel: 'IMEI نمبر*',
+            isSplitActive: _activeSplitKeys.contains('imeiOrSerial'),
+            forceSplit: _forceImeiSplit,
+            perUnitControllers:
+                _splitControllersMap['imeiOrSerial'] ?? const [],
+            perUnitFocusNodes: _splitImeiFocusNodes,
+            invalidUnitIndexes: _invalidImeiIndexes,
+            onToggleSplit: () => _toggleSplit('imeiOrSerial'),
+            enableScanner: true,
+            allowCopyDown: false,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.left,
+            singleFieldChild: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _imeiCtrl,
+                    focusNode: _singleImeiFocus,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.left,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: _singleImeiError
+                          ? AppColors.errorRed
+                          : AppColors.textDark,
+                    ),
+                    decoration: _dec(
+                      'IMEI نمبر (لازمی - منفرد نمبر)*',
+                      isError: _singleImeiError,
+                      eyeFieldKey: 'imeiOrSerial',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: 'IMEI اسکین کریں',
+                  child: InkWell(
+                    onTap: _scanImei,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 46,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey.shade800,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      decoration: _dec(
-                        'IMEI نمبر (لازمی - منفرد نمبر)*',
-                        isError: _singleImeiError,
+                      child: const Icon(
+                        Icons.qr_code_scanner_rounded,
+                        size: 22,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Tooltip(
-                    message: 'IMEI اسکین کریں',
-                    child: InkWell(
-                      onTap: _scanImei,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        width: 46,
-                        height: 48,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Colors.blueGrey.shade800,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.qr_code_scanner_rounded,
-                          size: 22,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
         const SizedBox(height: 11),
-        _withEyeToggle(
-          'purchasePrice',
-          SplittableFieldWrapperUi(
-            quantity: qty,
-            upcomingStockIds: upcomingIds,
-            fieldLabel: 'قیمتِ خرید',
-            isSplitActive: _activeSplitKeys.contains('purchasePrice'),
-            perUnitControllers:
-                _splitControllersMap['purchasePrice'] ?? const [],
-            onToggleSplit: () => _toggleSplit('purchasePrice'),
+        SplittableFieldWrapperUi(
+          quantity: qty,
+          upcomingStockIds: upcomingIds,
+          fieldLabel: 'قیمتِ خرید',
+          isSplitActive: _activeSplitKeys.contains('purchasePrice'),
+          perUnitControllers:
+              _splitControllersMap['purchasePrice'] ?? const [],
+          onToggleSplit: () => _toggleSplit('purchasePrice'),
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.left,
+          singleFieldChild: TextField(
+            controller: _purchasePriceCtrl,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.left,
-            singleFieldChild: TextField(
-              controller: _purchasePriceCtrl,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.left,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-              decoration: _dec('قیمتِ خرید (روپے)'),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+            decoration: _dec(
+              'قیمتِ خرید (روپے)',
+              eyeFieldKey: 'purchasePrice',
             ),
           ),
         ),
         const SizedBox(height: 11),
-        _withEyeToggle(
-          'salePrice',
-          SplittableFieldWrapperUi(
-            quantity: qty,
-            upcomingStockIds: upcomingIds,
-            fieldLabel: 'نقد قیمت فروخت',
-            isSplitActive: _activeSplitKeys.contains('salePrice'),
-            perUnitControllers: _splitControllersMap['salePrice'] ?? const [],
-            onToggleSplit: () => _toggleSplit('salePrice'),
+        SplittableFieldWrapperUi(
+          quantity: qty,
+          upcomingStockIds: upcomingIds,
+          fieldLabel: 'نقد قیمت فروخت',
+          isSplitActive: _activeSplitKeys.contains('salePrice'),
+          perUnitControllers: _splitControllersMap['salePrice'] ?? const [],
+          onToggleSplit: () => _toggleSplit('salePrice'),
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.left,
+          singleFieldChild: TextField(
+            controller: _salePriceCtrl,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.left,
-            singleFieldChild: TextField(
-              controller: _salePriceCtrl,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.left,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-              decoration: _dec('نقد قیمت فروخت (لازمی)'),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+            decoration: _dec(
+              'نقد قیمت فروخت (لازمی)',
+              eyeFieldKey: 'salePrice',
             ),
           ),
         ),
         const SizedBox(height: 11),
-        _withEyeToggle(
-          'supplier',
-          SplittableFieldWrapperUi(
-            quantity: qty,
-            upcomingStockIds: upcomingIds,
-            fieldLabel: 'سپلائر / ڈیلر',
-            isSplitActive: _activeSplitKeys.contains('supplier'),
-            perUnitControllers: _splitControllersMap['supplier'] ?? const [],
-            onToggleSplit: () => _toggleSplit('supplier'),
-            singleFieldChild: TextField(
-              controller: _supplierCtrl,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
-              decoration: _dec(
-                  'سپلائر / ڈیلر کا نام و فون (مثلاً علی موبائل 03001234567)'),
+        SplittableFieldWrapperUi(
+          quantity: qty,
+          upcomingStockIds: upcomingIds,
+          fieldLabel: 'سپلائر / ڈیلر',
+          isSplitActive: _activeSplitKeys.contains('supplier'),
+          perUnitControllers: _splitControllersMap['supplier'] ?? const [],
+          onToggleSplit: () => _toggleSplit('supplier'),
+          singleFieldChild: TextField(
+            controller: _supplierCtrl,
+            style:
+                const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
+            decoration: _dec(
+              'سپلائر / ڈیلر کا نام و فون (مثلاً علی موبائل 03001234567)',
+              eyeFieldKey: 'supplier',
             ),
           ),
         ),
         const SizedBox(height: 11),
-        _withEyeToggle(
-          'specsOrRam',
-          SplittableDropdownWrapperUi<String>(
-            quantity: qty,
-            upcomingStockIds: upcomingIds,
-            fieldLabel: 'میموری (RAM / ROM)',
-            isSplitActive: _activeSplitKeys.contains('specsOrRam'),
-            perUnitValues: _splitDropdownValuesMap['specsOrRam'] ?? const [],
+        SplittableDropdownWrapperUi<String>(
+          quantity: qty,
+          upcomingStockIds: upcomingIds,
+          fieldLabel: 'میموری (RAM / ROM)',
+          isSplitActive: _activeSplitKeys.contains('specsOrRam'),
+          perUnitValues: _splitDropdownValuesMap['specsOrRam'] ?? const [],
+          items: ramItems,
+          onToggleSplit: () => _toggleDropdownSplit('specsOrRam'),
+          onUnitValueChanged: (idx, val) {
+            setState(
+                () => _splitDropdownValuesMap['specsOrRam']![idx] = val);
+          },
+          singleDropdownChild: DropdownButtonFormField<String>(
+            key: ValueKey('mob_ram_$_selectedRamRom'),
+            initialValue: _selectedRamRom,
+            isExpanded: true,
+            decoration: _dec(
+              'میموری (RAM / ROM)',
+              eyeFieldKey: 'specsOrRam',
+            ),
             items: ramItems,
-            onToggleSplit: () => _toggleDropdownSplit('specsOrRam'),
-            onUnitValueChanged: (idx, val) {
-              setState(
-                  () => _splitDropdownValuesMap['specsOrRam']![idx] = val);
-            },
-            singleDropdownChild: DropdownButtonFormField<String>(
-              key: ValueKey('mob_ram_$_selectedRamRom'),
-              initialValue: _selectedRamRom,
-              isExpanded: true,
-              decoration: _dec('میموری (RAM / ROM)'),
-              items: ramItems,
-              onChanged: (v) =>
-                  v != null ? setState(() => _selectedRamRom = v) : null,
-            ),
+            onChanged: (v) =>
+                v != null ? setState(() => _selectedRamRom = v) : null,
           ),
         ),
         const SizedBox(height: 11),
-        _withEyeToggle(
-          'color',
-          SplittableDropdownWrapperUi<String>(
-            quantity: qty,
-            upcomingStockIds: upcomingIds,
-            fieldLabel: 'رنگ (Color)',
-            isSplitActive: _activeSplitKeys.contains('color'),
-            perUnitValues: _splitDropdownValuesMap['color'] ?? const [],
+        SplittableDropdownWrapperUi<String>(
+          quantity: qty,
+          upcomingStockIds: upcomingIds,
+          fieldLabel: 'رنگ (Color)',
+          isSplitActive: _activeSplitKeys.contains('color'),
+          perUnitValues: _splitDropdownValuesMap['color'] ?? const [],
+          items: colorItems,
+          onToggleSplit: () => _toggleDropdownSplit('color'),
+          onUnitValueChanged: (idx, val) {
+            setState(() => _splitDropdownValuesMap['color']![idx] = val);
+          },
+          singleDropdownChild: DropdownButtonFormField<String>(
+            key: ValueKey('mob_color_$_selectedColor'),
+            initialValue: _selectedColor,
+            isExpanded: true,
+            decoration: _dec(
+              'رنگ (Color)',
+              eyeFieldKey: 'color',
+            ),
             items: colorItems,
-            onToggleSplit: () => _toggleDropdownSplit('color'),
-            onUnitValueChanged: (idx, val) {
-              setState(() => _splitDropdownValuesMap['color']![idx] = val);
-            },
-            singleDropdownChild: DropdownButtonFormField<String>(
-              key: ValueKey('mob_color_$_selectedColor'),
-              initialValue: _selectedColor,
-              isExpanded: true,
-              decoration: _dec('رنگ (Color)'),
-              items: colorItems,
-              onChanged: (v) =>
-                  v != null ? setState(() => _selectedColor = v) : null,
-            ),
+            onChanged: (v) =>
+                v != null ? setState(() => _selectedColor = v) : null,
           ),
         ),
         const SizedBox(height: 11),
-        _withEyeToggle(
-          'conditionType',
-          SplittableDropdownWrapperUi<String>(
-            quantity: qty,
-            upcomingStockIds: upcomingIds,
-            fieldLabel: 'حالت (New / Used)',
-            isSplitActive: _activeSplitKeys.contains('conditionType'),
-            perUnitValues:
-                _splitDropdownValuesMap['conditionType'] ?? const [],
+        SplittableDropdownWrapperUi<String>(
+          quantity: qty,
+          upcomingStockIds: upcomingIds,
+          fieldLabel: 'حالت (New / Used)',
+          isSplitActive: _activeSplitKeys.contains('conditionType'),
+          perUnitValues:
+              _splitDropdownValuesMap['conditionType'] ?? const [],
+          items: condItems,
+          onToggleSplit: () => _toggleDropdownSplit('conditionType'),
+          onUnitValueChanged: (idx, val) {
+            setState(
+                () => _splitDropdownValuesMap['conditionType']![idx] = val);
+          },
+          singleDropdownChild: DropdownButtonFormField<String>(
+            key: ValueKey('mob_cond_$_selectedCondition'),
+            initialValue: _selectedCondition,
+            isExpanded: true,
+            decoration: _dec(
+              'حالت',
+              eyeFieldKey: 'conditionType',
+            ),
             items: condItems,
-            onToggleSplit: () => _toggleDropdownSplit('conditionType'),
-            onUnitValueChanged: (idx, val) {
-              setState(
-                  () => _splitDropdownValuesMap['conditionType']![idx] = val);
-            },
-            singleDropdownChild: DropdownButtonFormField<String>(
-              key: ValueKey('mob_cond_$_selectedCondition'),
-              initialValue: _selectedCondition,
-              isExpanded: true,
-              decoration: _dec('حالت'),
-              items: condItems,
-              onChanged: (v) =>
-                  v != null ? setState(() => _selectedCondition = v) : null,
-            ),
+            onChanged: (v) =>
+                v != null ? setState(() => _selectedCondition = v) : null,
           ),
         ),
         const SizedBox(height: 11),
-        _withEyeToggle(
-          'warranty',
-          SplittableDropdownWrapperUi<String>(
-            quantity: qty,
-            upcomingStockIds: upcomingIds,
-            fieldLabel: 'وارنٹی',
-            isSplitActive: _activeSplitKeys.contains('warranty'),
-            perUnitValues: _splitDropdownValuesMap['warranty'] ?? const [],
-            items: warrantyItems,
-            onToggleSplit: () => _toggleDropdownSplit('warranty'),
-            onUnitValueChanged: (idx, val) {
-              setState(() => _splitDropdownValuesMap['warranty']![idx] = val);
-            },
-            singleDropdownChild: DropdownButtonFormField<String>(
-              key: ValueKey('mob_warranty_$_selectedWarranty'),
-              initialValue: '$_selectedWarranty',
-              isExpanded: true,
-              decoration: _dec('وارنٹی'),
-              items: warrantyItems,
-              onChanged: (v) => v != null
-                  ? setState(() => _selectedWarranty = int.tryParse(v) ?? 12)
-                  : null,
+        SplittableDropdownWrapperUi<String>(
+          quantity: qty,
+          upcomingStockIds: upcomingIds,
+          fieldLabel: 'وارنٹی',
+          isSplitActive: _activeSplitKeys.contains('warranty'),
+          perUnitValues: _splitDropdownValuesMap['warranty'] ?? const [],
+          items: warrantyItems,
+          onToggleSplit: () => _toggleDropdownSplit('warranty'),
+          onUnitValueChanged: (idx, val) {
+            setState(() => _splitDropdownValuesMap['warranty']![idx] = val);
+          },
+          singleDropdownChild: DropdownButtonFormField<String>(
+            key: ValueKey('mob_warranty_$_selectedWarranty'),
+            initialValue: '$_selectedWarranty',
+            isExpanded: true,
+            decoration: _dec(
+              'وارنٹی',
+              eyeFieldKey: 'warranty',
             ),
+            items: warrantyItems,
+            onChanged: (v) => v != null
+                ? setState(() => _selectedWarranty = int.tryParse(v) ?? 12)
+                : null,
           ),
         ),
         const SizedBox(height: 12),
@@ -1069,25 +1067,28 @@ class _MobileStockFormUiState extends State<MobileStockFormUi> {
             totalSale: lotTotals.totalSale,
           ),
         ],
-        const SizedBox(height: 14),
-        ElevatedButton(
-          onPressed: _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryEmerald,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+        if (widget.showInlineSubmitButton) ...[
+          const SizedBox(height: 14),
+          ElevatedButton(
+            onPressed: _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryEmerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(11)),
+            ),
+            child: Text(
+              widget.editingItem != null
+                  ? 'تبدیلیاں محفوظ کریں'
+                  : (qty > 1
+                      ? '$qty موبائلز اسٹاک میں شامل کریں (مع منفرد IDs)'
+                      : 'اسٹاک میں شامل کریں'),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 16.5),
+            ),
           ),
-          child: Text(
-            widget.editingItem != null
-                ? 'تبدیلیاں محفوظ کریں'
-                : (qty > 1
-                    ? '$qty موبائلز اسٹاک میں شامل کریں (مع منفرد IDs)'
-                    : 'اسٹاک میں شامل کریں'),
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16.5),
-          ),
-        ),
+        ],
       ],
     );
   }

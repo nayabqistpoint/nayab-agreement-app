@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../pos_remote_control/services/pos_remote_config_service.dart';
-import 'stock_field_eye_toggle_ui.dart';
+import '../../stock_entry/components/inline_field_eye_icon_ui.dart';
 class DynamicStockFieldsCardUi extends StatelessWidget {
   final FieldDefList fieldDefs;
   final Map<String, TextEditingController> controllers;
@@ -220,7 +220,7 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                               ? Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
-                                    vertical: 12,
+                                    vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
@@ -230,15 +230,26 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                                       width: 1.4,
                                     ),
                                   ),
-                                  child: Text(
-                                    '$label ($quantity یونٹس):',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.primaryEmerald,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '$label ($quantity یونٹس):',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.w900,
+                                            color: AppColors.primaryEmerald,
+                                          ),
+                                        ),
+                                      ),
+                                      InlineFieldEyeIconUi(
+                                        isVisibleOnCard: isVisibleOnCard,
+                                        onToggle: () =>
+                                            onToggleCardVisibility(key),
+                                      ),
+                                    ],
                                   ),
                                 )
                               : TextField(
@@ -256,6 +267,11 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                                     ),
                                     floatingLabelBehavior:
                                         FloatingLabelBehavior.always,
+                                    suffixIcon: InlineFieldEyeIconUi(
+                                      isVisibleOnCard: isVisibleOnCard,
+                                      onToggle: () =>
+                                          onToggleCardVisibility(key),
+                                    ),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 10,
                                       vertical: 12,
@@ -268,13 +284,8 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                                   ),
                                 ),
                         ),
-                        const SizedBox(width: 4),
-                        StockFieldEyeToggleUi(
-                          isVisibleOnCard: isVisibleOnCard,
-                          onToggle: () => onToggleCardVisibility(key),
-                        ),
                         if (quantity > 1) ...[
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 5),
                           Tooltip(
                             message: isSplit
                                 ? 'سب یونٹس کیلئے ایک ہی ویلیو رکھیں'
@@ -283,7 +294,7 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                               onTap: () => onToggleSplit(key),
                               borderRadius: BorderRadius.circular(9),
                               child: Container(
-                                width: 40,
+                                width: 42,
                                 height: 46,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
@@ -307,14 +318,14 @@ class DynamicStockFieldsCardUi extends StatelessWidget {
                             ),
                           ),
                         ],
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 5),
                         Tooltip(
                           message: 'یہ فیلڈ حذف کریں',
                           child: InkWell(
                             onTap: () => onRemoveField(i),
                             borderRadius: BorderRadius.circular(9),
                             child: Container(
-                              width: 40,
+                              width: 42,
                               height: 46,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(

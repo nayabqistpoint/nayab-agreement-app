@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../stock_entry/args/stock_entry_args.dart';
+import '../stock_entry/stock_entry_page.dart';
 import 'components/stock_inventory_list_ui.dart';
 import 'components/stock_worth_summary_card_ui.dart';
 import 'services/stock_inventory_storage_service.dart';
-import 'stock_entry_form_page.dart';
 import 'stock_inventory_controller.dart';
 class StockInventoryPage extends StatefulWidget {
   final Map<String, dynamic>? prefillOrderData;
@@ -32,7 +33,7 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
     if (widget.linkToOrderId != null || widget.prefillOrderData != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _openEntryPage(
+        _openIndependentEntryPage(
           prefillOrderData: widget.prefillOrderData,
           linkToOrderId: widget.linkToOrderId,
           popParentOnSuccess: widget.linkToOrderId != null,
@@ -46,26 +47,22 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
     _controller.dispose();
     super.dispose();
   }
-  Future<void> _openEntryPage({
+  Future<void> _openIndependentEntryPage({
     StockMap? itemToEdit,
     Map<String, dynamic>? prefillOrderData,
     String? linkToOrderId,
     bool popParentOnSuccess = false,
   }) async {
-    if (itemToEdit != null) {
-      _controller.startEditing(itemToEdit);
-    } else {
-      _controller.cancelEdit();
-      _controller.currentQuantity = 1;
-      _controller.selectedCategoryIndex = widget.initialCategoryIndex;
-    }
     final saved = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => StockEntryFormPage(
-          controller: _controller,
-          prefillOrderData: prefillOrderData,
-          linkToOrderId: linkToOrderId,
+        builder: (_) => StockEntryPage(
+          args: StockEntryArgs(
+            editingItem: itemToEdit,
+            prefillOrderData: prefillOrderData,
+            linkToOrderId: linkToOrderId,
+            initialCategoryIndex: widget.initialCategoryIndex,
+          ),
         ),
       ),
     );
@@ -200,29 +197,6 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
             backgroundColor: AppColors.primaryEmerald,
             foregroundColor: Colors.white,
             actions: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: ElevatedButton.icon(
-                  onPressed: () => _openEntryPage(),
-                  icon: const Icon(Icons.add_circle_outline_rounded, size: 19),
-                  label: const Text(
-                    'نیا اسٹاک',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.goldHighlight,
-                    foregroundColor: AppColors.textDark,
-                    padding: const EdgeInsets.symmetric(horizontal: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
               IconButton(
                 icon: const Icon(Icons.cleaning_services_outlined, size: 23),
                 tooltip: 'صفائی و مکمل ری سیٹ',
@@ -231,7 +205,7 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
             ],
           ),
           body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(6, 10, 6, 84),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -248,7 +222,8 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
                 const SizedBox(height: 10),
                 StockInventoryListUi(
                   items: stockList,
-                  onEdit: (item) => _openEntryPage(itemToEdit: item),
+                  onEdit: (item) =>
+                      _openIndependentEntryPage(itemToEdit: item),
                   onDelete: (id) async {
                     final messenger = ScaffoldMessenger.of(context);
                     final ok = await _controller.deleteStockItem(id);
@@ -264,9 +239,21 @@ class _StockInventoryPageState extends State<StockInventoryPage> {
                     );
                   },
                 ),
-                const SizedBox(height: 40),
               ],
             ),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _openIndependentEntryPage(),
+            tooltip: 'نیا اسٹاک شامل کریں',
+            backgroundColor: AppColors.primaryEmerald,
+            foregroundColor: AppColors.goldHighlight,
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: AppColors.goldHighlight, width: 1.5),
+            ),
+            child: const Icon(Icons.add_shopping_cart_rounded, size: 28),
           ),
         ),
       ),

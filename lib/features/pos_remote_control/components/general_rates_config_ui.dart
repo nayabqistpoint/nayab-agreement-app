@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../pos_remote_controller.dart';
-
 class GeneralRatesConfigUi extends StatelessWidget {
   final PosRemoteController controller;
   const GeneralRatesConfigUi({super.key, required this.controller});
-
   Widget _numField(
     String label,
     TextEditingController ctrl, {
-    String? helper,
     bool isDecimal = true,
   }) {
     return TextField(
@@ -17,30 +14,27 @@ class GeneralRatesConfigUi extends StatelessWidget {
       keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
       textAlign: TextAlign.left,
       style: const TextStyle(
-        fontSize: 16,
+        fontSize: 15.5,
         fontWeight: FontWeight.w900,
         color: AppColors.textDark,
       ),
       decoration: InputDecoration(
+        isDense: true,
         labelText: label,
         labelStyle: const TextStyle(
-          fontSize: 14,
+          fontSize: 13.5,
           fontWeight: FontWeight.w900,
           color: AppColors.textDark,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
-        helperText: helper,
-        helperStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-        helperMaxLines: 2,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
         fillColor: AppColors.cardSurface,
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final months =
@@ -49,55 +43,53 @@ class GeneralRatesConfigUi extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SwitchListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
           title: const Text(
             'جنرل کیٹیگری (الیکٹرانکس / دیگر اشیاء) فعال رکھیں',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
           ),
           value: controller.genEnabled,
           activeTrackColor: AppColors.primaryEmerald,
           onChanged: controller.setGenEnabled,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           children: [
             Expanded(
               child: _numField(
                 'جنرل ایڈوانس شرح',
                 controller.genAdvanceCtrl,
-                helper: 'مثلاً 0.75 = 25% ایڈوانس',
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 5),
             Expanded(
               child: _numField(
                 'ماہانہ اضافہ (Increment)',
                 controller.genIncrementCtrl,
-                helper: 'مثلاً 0.05 = 5% فی ماہ',
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: _numField(
                 'منافع مع چیک',
                 controller.genProfitCheckCtrl,
-                helper: 'مثلاً 0.25 = 25%',
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 5),
             Expanded(
               child: _numField(
                 'منافع بغیر چیک',
                 controller.genProfitNoCheckCtrl,
-                helper: 'مثلاً 0.35 = 35%',
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -107,7 +99,7 @@ class GeneralRatesConfigUi extends StatelessWidget {
                 isDecimal: false,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 5),
             Expanded(
               child: _numField(
                 'رعایتی دن (Grace)',
@@ -117,7 +109,7 @@ class GeneralRatesConfigUi extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -127,7 +119,7 @@ class GeneralRatesConfigUi extends StatelessWidget {
                 isDecimal: false,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 5),
             Expanded(
               child: _numField(
                 'راؤنڈ آف (Round To)',
@@ -137,12 +129,12 @@ class GeneralRatesConfigUi extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
           decoration: BoxDecoration(
             color: const Color(0xFFFFFBEB),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.amber.shade600, width: 1.2),
           ),
           child: Column(
@@ -152,11 +144,11 @@ class GeneralRatesConfigUi extends StatelessWidget {
                 'جنرل آئٹم سیکیورٹی، کٹوتی اور رسک حد:',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  fontSize: 14.5,
+                  fontSize: 14,
                   color: Colors.amber.shade900,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -166,18 +158,17 @@ class GeneralRatesConfigUi extends StatelessWidget {
                       isDecimal: false,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 5),
                   Expanded(
                     child: _numField(
                       'میکس ادھار رسک حد',
                       controller.genMaxRiskCtrl,
-                      helper: '(قیمت - ایڈوانس) 0 = کوئی حد نہیں',
                       isDecimal: false,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -186,9 +177,12 @@ class GeneralRatesConfigUi extends StatelessWidget {
                       initialValue: controller.genOpenBoxType,
                       isExpanded: true,
                       decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'ڈبہ / سیل کھلنے پر کٹوتی',
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 10),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -204,7 +198,7 @@ class GeneralRatesConfigUi extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 5),
                   Expanded(
                     flex: 2,
                     child: _numField(
@@ -217,7 +211,7 @@ class GeneralRatesConfigUi extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _numField(
                 'انتظامی خصوصی منظوری PIN',
                 controller.genAdminPinCtrl,
@@ -226,12 +220,12 @@ class GeneralRatesConfigUi extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppColors.borderLight),
           ),
           child: Column(
@@ -243,34 +237,39 @@ class GeneralRatesConfigUi extends StatelessWidget {
                     child: Text(
                       'جنرل اشیاء کی اقساط کے مہینے:',
                       style:
-                          TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                          TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.remove),
+                    icon: const Icon(Icons.remove, size: 19),
+                    visualDensity: VisualDensity.compact,
                     onPressed: () => controller.adjustGenMaxMonth(-1),
                   ),
                   Text(
                     '3 تا ${controller.genMaxMonth} ماہ',
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
+                      fontSize: 13.5,
                       color: AppColors.primaryEmerald,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(Icons.add, size: 19),
+                    visualDensity: VisualDensity.compact,
                     onPressed: () => controller.adjustGenMaxMonth(1),
                   ),
                 ],
               ),
               Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: 4,
+                runSpacing: 4,
                 children: months.map((m) {
                   final sel = controller.genDurations.contains(m);
                   return FilterChip(
+                    visualDensity: VisualDensity.compact,
                     label: Text('$m ماہ',
                         style: TextStyle(
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w900,
                             color: sel ? Colors.white : AppColors.textDark)),
                     selected: sel,
@@ -283,25 +282,31 @@ class GeneralRatesConfigUi extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 4),
         SwitchListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
           title: const Text('کمپاؤنڈنگ منافع (جنرل اشیاء)',
-              style: TextStyle(fontWeight: FontWeight.w900)),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
           value: controller.genCompounding,
           activeTrackColor: AppColors.primaryEmerald,
           onChanged: controller.setGenCompounding,
         ),
         SwitchListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
           title: const Text('پروسیسنگ فیس اصل رقم میں شامل کریں (جنرل)',
-              style: TextStyle(fontWeight: FontWeight.w900)),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
           value: controller.genAddFeeToPrincipal,
           activeTrackColor: AppColors.primaryEmerald,
           onChanged: controller.setGenAddFee,
         ),
         SwitchListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
           title: const Text(
             'گاہک کے ذاتی اینڈرائیڈ موبائل پر MDM لاک شرط لازمی رکھیں',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5),
           ),
           value: controller.genRequireCustomerMdm,
           activeTrackColor: AppColors.primaryEmerald,

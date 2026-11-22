@@ -2,9 +2,7 @@ import '../constants/box_names.dart';
 import '../database/hive_box_manager.dart';
 import '../models/tag_bank_item_model.dart';
 import '../time/time_status_service.dart';
-
 typedef TagRawMap = Map<String, dynamic>;
-
 class TagsBankService {
   static Future<void> seedDefaultTagsIfEmpty() async {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
@@ -12,7 +10,6 @@ class TagsBankService {
     final now = TimeStatusService.nowUtcIso();
     final TagRawMap initialEntries = {};
     int orderCounter = 0;
-
     void addSeed(
       String id,
       String urdu,
@@ -35,7 +32,6 @@ class TagsBankService {
       map['sortOrder'] = orderCounter++;
       initialEntries[id] = map;
     }
-
     addSeed('pos_docId', 'دستاویز نمبر', TagSourceType.pos, rawKey: 'docId');
     addSeed('pos_stockId', 'اسٹاک آئی ڈی', TagSourceType.pos, rawKey: 'stockId');
     addSeed('pos_customerName', 'کسٹمر کا نام', TagSourceType.pos,
@@ -85,7 +81,7 @@ class TagsBankService {
       'ضمانت',
       TagSourceType.pos,
       rawKey: 'guaranteeType',
-      trans: {'LEGAL_STAMP': 'قانونی اشٹام و پرنوٹ', 'CHEQUE': 'بینک چیک'},
+      trans: {'LEGAL_STAMP': 'قانونی اسٹام و پرنوٹ', 'CHEQUE': 'بینک چیک'},
     );
     addSeed('pos_bankName', 'بینک کا نام', TagSourceType.pos,
         rawKey: 'bankName');
@@ -118,13 +114,11 @@ class TagsBankService {
     addSeed('cst_witness1', 'گواہ 1 کا نام', TagSourceType.custom);
     addSeed('cst_witness2', 'گواہ 2 کا نام', TagSourceType.custom);
     addSeed('cst_dueDate', 'تاریخ ادائیگی', TagSourceType.custom);
-
     await HiveBoxManager.putBatch(
       boxName: BoxNames.tagsBox,
       entries: initialEntries,
     );
   }
-
   static TagRawMap enrichOrderWithStock(Map rawOrder) {
     final TagRawMap merged = TagRawMap.from(rawOrder);
     final stockId = merged['stockId']?.toString().trim() ?? '';
@@ -178,7 +172,6 @@ class TagsBankService {
     } catch (_) {}
     return merged;
   }
-
   static Map<String, dynamic> discoverAllDynamicPayloadSamples() {
     final Map<String, dynamic> samples = {};
     void scanBox(String boxName) {
@@ -203,12 +196,10 @@ class TagsBankService {
         }
       } catch (_) {}
     }
-
     scanBox(BoxNames.shopOrdersBox);
     scanBox(BoxNames.stockBox);
     return samples;
   }
-
   static Map<String, Set<String>> discoverAllDistinctValuesAcrossBoxes() {
     final Map<String, Set<String>> discovered = {};
     void scanBox(String boxName) {
@@ -227,12 +218,10 @@ class TagsBankService {
         }
       } catch (_) {}
     }
-
     scanBox(BoxNames.shopOrdersBox);
     scanBox(BoxNames.stockBox);
     return discovered;
   }
-
   static List<TagBankItemModel> getAllActiveTags() {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final List<TagRawMap> rawList = [];
@@ -254,7 +243,6 @@ class TagsBankService {
     });
     return rawList.map((m) => TagBankItemModel.fromMap(m)).toList();
   }
-
   static Future<void> saveReorderedTags(
       List<TagBankItemModel> orderedList) async {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
@@ -278,7 +266,6 @@ class TagsBankService {
       );
     }
   }
-
   static List<TagBankItemModel> getAllPosRules() {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final List<TagBankItemModel> list = [];
@@ -293,7 +280,6 @@ class TagsBankService {
     }
     return list;
   }
-
   static Future<void> saveTagItem(TagBankItemModel item) async {
     final box = HiveBoxManager.getBox(BoxNames.tagsBox);
     final existing = box.get(item.id);
@@ -318,7 +304,6 @@ class TagsBankService {
       entries: {updated.id: map},
     );
   }
-
   static Map<String, String> translatePosOrder(Map rawOrder) {
     final enrichedOrder = enrichOrderWithStock(rawOrder);
     final rules = getAllPosRules().where((r) => r.isEnabled).toList();
