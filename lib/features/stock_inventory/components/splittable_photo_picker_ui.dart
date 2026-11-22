@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../pos_control_panel/components/pos_stock_photo_picker_ui.dart';
-
+import '../../stock_entry/components/stock_photo_picker_ui.dart';
 class SplittablePhotoPickerUi extends StatelessWidget {
   final List<String> sharedImages;
   final ValueChanged<List<String>> onSharedImagesChanged;
@@ -11,7 +10,6 @@ class SplittablePhotoPickerUi extends StatelessWidget {
   final List<List<String>> perUnitImages;
   final VoidCallback onToggleSplit;
   final void Function(int index, List<String> imgs) onUnitImagesChanged;
-
   const SplittablePhotoPickerUi({
     super.key,
     required this.sharedImages,
@@ -23,16 +21,14 @@ class SplittablePhotoPickerUi extends StatelessWidget {
     required this.onToggleSplit,
     required this.onUnitImagesChanged,
   });
-
   @override
   Widget build(BuildContext context) {
     if (quantity <= 1) {
-      return PosStockPhotoPickerUi(
+      return StockPhotoPickerUi(
         imagePaths: sharedImages,
         onImagesChanged: onSharedImagesChanged,
       );
     }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -63,7 +59,7 @@ class SplittablePhotoPickerUi extends StatelessWidget {
                         ),
                       ),
                     )
-                  : PosStockPhotoPickerUi(
+                  : StockPhotoPickerUi(
                       imagePaths: sharedImages,
                       onImagesChanged: onSharedImagesChanged,
                     ),
@@ -213,7 +209,7 @@ class SplittablePhotoPickerUi extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 5),
-                      PosStockPhotoPickerUi(
+                      StockPhotoPickerUi(
                         imagePaths: imgs,
                         onImagesChanged: (updated) =>
                             onUnitImagesChanged(idx, updated),

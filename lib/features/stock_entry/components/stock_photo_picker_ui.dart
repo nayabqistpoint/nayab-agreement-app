@@ -4,17 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/portable_image_ui.dart';
-
-class PosStockPhotoPickerUi extends StatelessWidget {
+class StockPhotoPickerUi extends StatelessWidget {
   final List<String> imagePaths;
   final ValueChanged<List<String>> onImagesChanged;
-
-  const PosStockPhotoPickerUi({
+  const StockPhotoPickerUi({
     super.key,
     required this.imagePaths,
     required this.onImagesChanged,
   });
-
   Future<String?> _toPortablePath(XFile picked) async {
     if (kIsWeb) {
       final bytes = await picked.readAsBytes();
@@ -23,7 +20,6 @@ class PosStockPhotoPickerUi extends StatelessWidget {
     }
     return picked.path;
   }
-
   Future<void> _pickFromGallery(BuildContext context) async {
     final picker = ImagePicker();
     final files = await picker.pickMultiImage(
@@ -42,7 +38,6 @@ class PosStockPhotoPickerUi extends StatelessWidget {
     }
     onImagesChanged(updated);
   }
-
   Future<void> _captureFromCamera(BuildContext context) async {
     if (imagePaths.length >= 6) return;
     final picker = ImagePicker();
@@ -59,12 +54,10 @@ class PosStockPhotoPickerUi extends StatelessWidget {
       onImagesChanged(updated);
     }
   }
-
   void _removeAt(int index) {
     final updated = List<String>.from(imagePaths)..removeAt(index);
     onImagesChanged(updated);
   }
-
   @override
   Widget build(BuildContext context) {
     return Container(
