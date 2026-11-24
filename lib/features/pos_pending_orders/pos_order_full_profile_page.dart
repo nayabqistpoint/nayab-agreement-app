@@ -6,6 +6,8 @@ import '../../core/services/tags_bank_service.dart';
 import '../../core/widgets/portable_image_ui.dart';
 import '../customer_detail/components/customer_media_viewer_modal_ui.dart';
 import '../stock_inventory/stock_inventory_page.dart';
+import 'components/order_mirror_invoice_card_ui.dart';
+import 'services/order_invoice_calculator_service.dart';
 import 'services/pos_pending_orders_service.dart';
 class PosOrderFullProfilePage extends StatefulWidget {
   final PosOrderRecord order;
@@ -116,16 +118,16 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
   Widget _infoTile(String label, String value, {Color? valueColor}) {
     if (value.trim().isEmpty || value == 'null') return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 115,
             child: Text(
               '$label:',
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textMuted,
               ),
@@ -135,7 +137,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 15.5,
+                fontSize: 15,
                 fontWeight: FontWeight.w900,
                 color: valueColor ?? AppColors.textDark,
               ),
@@ -151,17 +153,26 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
       valueListenable: HiveBoxManager.listenToBox(BoxNames.shopOrdersBox),
       builder: (context, _, _) {
         final o = _liveOrder;
+        final invoice = OrderInvoiceCalculatorService.buildInvoice(o);
         final slides = _buildPhotoSlides(o);
         final bool needsPurchase = _requiresStockPurchase(o);
         final status = (o['status']?.toString() ?? '').toUpperCase();
         final bool isClosed =
             status == 'AGREEMENT_COMPLETED' || status == 'DISMISSED_BY_COUNTER';
+        final bool isHighRisk = o['isRiskOverLimit'] == true ||
+            o['adminOverrideApplied'] == true;
+        final int netRisk = (o['netRiskAmount'] as num?)?.toInt() ?? 0;
+        final int maxRisk = (o['maxRiskLimit'] as num?)?.toInt() ?? 0;
+        final String guaranteeLabel =
+            o['guaranteeType']?.toString() == 'BANK_CHEQUE'
+                ? 'بینک چیک (${o['bankName'] ?? ''} - ${o['chequeNo'] ?? ''})'
+                : 'قانونی اسٹام و پرنوٹ';
         return Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
             backgroundColor: AppColors.backgroundLight,
             appBar: AppBar(
-              toolbarHeight: 68,
+              toolbarHeight: 64,
               title: const Text(
                 'مکمل آرڈر و کسٹمر پروفائل',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19),
@@ -174,7 +185,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    height: MediaQuery.of(context).size.height * 0.40,
+                    height: MediaQuery.of(context).size.height * 0.36,
                     color: AppColors.deepForestEmerald,
                     child: Stack(
                       children: [
@@ -201,7 +212,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                   pathOrUrl: slide.url,
                                   fit: BoxFit.contain,
                                   fallbackIcon: slide.fallbackIcon,
-                                  fallbackIconSize: 90,
+                                  fallbackIconSize: 84,
                                   fallbackColor: Colors.white54,
                                 ),
                               ),
@@ -209,20 +220,20 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                           },
                         ),
                         Positioned(
-                          bottom: 10,
-                          right: 12,
-                          left: 12,
+                          bottom: 8,
+                          right: 10,
+                          left: 10,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
+                              horizontal: 10,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.75),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(9),
                               border: Border.all(
                                 color: AppColors.goldHighlight,
-                                width: 1.4,
+                                width: 1.3,
                               ),
                             ),
                             child: Row(
@@ -233,7 +244,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 14.5,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ),
@@ -243,7 +254,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                     style: const TextStyle(
                                       color: AppColors.goldHighlight,
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 12.5,
+                                      fontSize: 12,
                                     ),
                                   ),
                               ],
@@ -254,17 +265,53 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (isHighRisk)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(11),
+                              border: Border.all(
+                                color: AppColors.errorRed,
+                                width: 1.8,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.gpp_maybe_rounded,
+                                  color: AppColors.errorRed,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    netRisk > 0 && maxRisk > 0
+                                        ? '🚨 ہائی رسک آرڈر الرٹ: اس سودے کی ادھار رقم (Rs. $netRisk) مقررہ رسک حد (Rs. $maxRisk) سے زائد ہے اور ایڈمن PIN سے منظور شدہ ہے۔'
+                                        : '🚨 ہائی رسک آرڈر الرٹ: یہ آرڈر مقررہ رسک حد سے زائد ہے اور ایڈمن PIN سے منظور شدہ ہے۔',
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.errorRed,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         if (needsPurchase)
                           Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF7ED),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(11),
                               border: Border.all(
                                 color: AppColors.pendingOrange,
                                 width: 1.6,
@@ -278,9 +325,9 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                     Icon(
                                       Icons.shopping_cart_checkout_rounded,
                                       color: AppColors.pendingOrange,
-                                      size: 24,
+                                      size: 22,
                                     ),
-                                    SizedBox(width: 8),
+                                    SizedBox(width: 7),
                                     Expanded(
                                       child: Text(
                                         '🛒 یہ آئٹم ابھی دکان اسٹاک میں درج نہیں ہے؛ پہلے ڈیلر سے خریداری (قیمتِ خرید، سپلائر اور IMEI) اسٹاک میں شامل کریں:',
@@ -293,17 +340,17 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 8),
                                 ElevatedButton.icon(
                                   onPressed: () =>
                                       _openPrefilledStockPurchase(o),
                                   icon: const Icon(
                                       Icons.add_shopping_cart_rounded,
-                                      size: 20),
+                                      size: 19),
                                   label: const Text(
                                     'اسٹاک خریداری و انٹری کریں (پری فِلڈ)',
                                     style: TextStyle(
-                                      fontSize: 14.5,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
@@ -311,74 +358,29 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                     backgroundColor: AppColors.pendingOrange,
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
+                                        vertical: 11),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(9),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.warmTintEmerald,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: AppColors.emeraldPillBorder, width: 1.3),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '📦 مطلوبہ آئٹم: ${o['itemName'] ?? ''}',
-                                style: const TextStyle(
-                                  fontSize: 17.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.primaryEmerald,
-                                ),
-                              ),
-                              const Divider(height: 14),
-                              _infoTile(
-                                'اسٹاک آئی ڈی',
-                                (o['stockId']?.toString().trim().isNotEmpty ==
-                                            true &&
-                                        o['stockId'].toString() != 'null')
-                                    ? o['stockId'].toString()
-                                    : 'خریداری باقی',
-                              ),
-                              _infoTile(
-                                'IMEI / سیریل',
-                                (o['imeiNo']?.toString().trim().isNotEmpty ==
-                                            true &&
-                                        o['imeiNo'].toString() != 'null')
-                                    ? o['imeiNo'].toString()
-                                    : (o['serialNo']?.toString() ?? ''),
-                              ),
-                              _infoTile('ٹوٹل معاہدہ رقم',
-                                  'Rs. ${o['totalContractAmount'] ?? 0}'),
-                              _infoTile('ایڈوانس رقم',
-                                  'Rs. ${o['advance'] ?? 0}',
-                                  valueColor: AppColors.successGreen),
-                              _infoTile('ماہانہ قسط',
-                                  'Rs. ${o['monthlyAmount'] ?? 0} × ${o['totalMonths'] ?? ''} ماہ',
-                                  valueColor: AppColors.errorRed),
-                              _infoTile(
-                                'ضمانت کی قسم',
-                                o['guaranteeType']?.toString() == 'BANK_CHEQUE'
-                                    ? 'بینک چیک (${o['bankName'] ?? ''} - ${o['chequeNo'] ?? ''})'
-                                    : 'قانونی اسٹام و پرنوٹ',
-                              ),
-                            ],
-                          ),
+                        OrderMirrorInvoiceCardUi(
+                          invoice: invoice,
+                          advance: (o['advance'] as num?)?.toInt() ?? 0,
+                          monthly: (o['monthlyAmount'] as num?)?.toInt() ?? 0,
+                          totalMonths:
+                              (o['totalMonths'] as num?)?.toInt() ?? 0,
+                          guaranteeText: guaranteeLabel,
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 9),
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: AppColors.cardSurface,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(11),
                             border: Border.all(color: AppColors.borderLight),
                           ),
                           child: Column(
@@ -387,12 +389,12 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                               const Text(
                                 '1. خریدار کے مکمل کوائف:',
                                 style: TextStyle(
-                                  fontSize: 16.5,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w900,
                                   color: AppColors.primaryEmerald,
                                 ),
                               ),
-                              const Divider(height: 14),
+                              const Divider(height: 12),
                               _infoTile(
                                   'پورا نام', o['customerName']?.toString() ?? ''),
                               _infoTile('ولدیت / قوم',
@@ -410,12 +412,12 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                         ),
                         if ((o['guarantorName']?.toString().trim() ?? '')
                             .isNotEmpty) ...[
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 9),
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: AppColors.cardSurface,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(11),
                               border: Border.all(
                                   color: AppColors.pendingOrange, width: 1.2),
                             ),
@@ -425,12 +427,12 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                                 const Text(
                                   '2. ضامن کے مکمل کوائف:',
                                   style: TextStyle(
-                                    fontSize: 16.5,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w900,
                                     color: AppColors.pendingOrange,
                                   ),
                                 ),
-                                const Divider(height: 14),
+                                const Divider(height: 12),
                                 _infoTile('ضامن نام',
                                     o['guarantorName']?.toString() ?? ''),
                                 _infoTile('ضامن ولدیت',
@@ -447,7 +449,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -455,7 +457,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
               ),
             ),
             bottomNavigationBar: Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: const BoxDecoration(
                 color: AppColors.cardSurface,
                 border: Border(top: BorderSide(color: AppColors.borderLight)),
@@ -492,7 +494,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                               ? AppColors.pendingOrange
                               : AppColors.primaryEmerald,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -512,7 +514,7 @@ class _PosOrderFullProfilePageState extends State<PosOrderFullProfilePage> {
                             foregroundColor: AppColors.errorRed,
                             side: const BorderSide(
                                 color: AppColors.errorRed, width: 1.5),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
